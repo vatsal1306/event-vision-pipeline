@@ -6,7 +6,7 @@
 
 ## Goal
 
-Single service for all object storage: put/get/delete bytes, presigned GET/PUT, change storage class (STANDARD, STANDARD_IA, GLACIER_IR). Local/dev: MinIO or moto; production: AWS S3 buckets from settings.
+Single service for all object storage: put/get/delete bytes, presigned GET/PUT, change storage class (STANDARD, STANDARD_IA, GLACIER_IR). Local/dev: MinIO or moto. Production: S3 in the **storage AWS account**, region `ap-south-1`. App EC2 in the **compute account** uses IAM user keys from the storage account. Same-region uploads (tusd on EC2 → S3) must stay in `ap-south-1`.
 
 ## References
 

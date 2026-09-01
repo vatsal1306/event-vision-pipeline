@@ -17,7 +17,7 @@ Production-shaped configuration and cross-cutting HTTP behavior so later stories
 
 ## Create / edit
 
-- `app/config.py` — `pydantic_settings.BaseSettings` matching §14 (`database_url` asyncpg, redis, celery, AWS, JWT, OTP, SMS, SES, proxy dimensions, sentry_dsn)
+- `app/config.py` — `database_url` (Docker Postgres), redis, celery, S3, JWT, OTP. SMS/SES optional empty. No SSM required. `aws_region=ap-south-1`.
 - `app/core/exceptions.py` — `AppException`, `NotFoundError`, `AuthenticationError`, `AuthorizationError`, `OTPCooldownError`, `OTPMaxAttemptsError`, `StorageLimitError`, `ProcessingError`
 - `app/core/middleware.py` — request ID, timing, JSON access log
 - `app/main.py` — register exception handlers from §13.2 including Pydantic 422 shape

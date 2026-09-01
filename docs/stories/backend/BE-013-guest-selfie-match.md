@@ -1,7 +1,7 @@
 # BE-013 — Guest selfie ingest and matched photo API
 
 **Type:** Feature  
-**Depends on:** BE-012, ML-008  
+**Depends on:** BE-012; **ML-008 only when an ML host exists**. Until then implement the API with a **stub FaceService** (`status=no_match` or `not_implemented`) so the guest UI can be wired. Do not load PyTorch on the app EC2.  
 **Area:** `backend/app/api/v1/guest.py`, `guest_service.py`
 
 ## Goal
