@@ -20,8 +20,8 @@ Work **backend** before **ML** (ML is imported by Celery workers). **Infra** can
 
 ## Backend (`docs/stories/backend/`)
 
-| ID | Story | Depends on |
-|----|--------|------------|
+| ID | Story | Depends on | Status |
+|----|--------|------------|-------|
 | BE-001 | FastAPI scaffold, uv, Compose, health | — |
 | BE-002 | Config, exceptions, logging, CORS | BE-001 |
 | BE-003 | SQLAlchemy models and Alembic | BE-002 |
@@ -45,8 +45,8 @@ Work **backend** before **ML** (ML is imported by Celery workers). **Infra** can
 
 ## ML (`docs/stories/ml/`)
 
-| ID | Story | Depends on |
-|----|--------|------------|
+| ID | Story | Depends on | Status |
+|----|--------|------------|-------|
 | ML-001 | ML package, MLConfig, ModelRegistry | BE-001 |
 | ML-002 | SCRFD detection and ArcFace crop | ML-001 |
 | ML-003 | Blur and YPR quality filters | ML-001 |
@@ -60,8 +60,8 @@ Work **backend** before **ML** (ML is imported by Celery workers). **Infra** can
 
 ## Infra (`docs/stories/infra/`)
 
-| ID | Story | Depends on |
-|----|--------|------------|
+| ID | Story | Depends on | Status |
+|----|--------|------------|-------|
 | INF-001 | Terraform state backend | — |
 | INF-002 | VPC, subnets, NAT, security groups | INF-001 |
 | INF-003 | S3 buckets, encryption, lifecycle | INF-002 |
