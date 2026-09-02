@@ -188,3 +188,6 @@ frontend/.env*.local
 # OS
 .DS_Store
 Thumbs.db
+
+# Allow Next.js lib dir
+!frontend/src/lib/
