@@ -1,0 +1,15 @@
+# Copy to backend.hcl and replace BUCKET_NAME with the value from:
+#   cd infrastructure/bootstrap && terraform output -raw state_bucket_name
+#
+# Usage (from infrastructure/):
+#   terraform init -backend-config=environments/storage/backend.hcl -reconfigure
+#
+# This state file holds shared storage-account resources (S3 buckets, IAM user in INF-003).
+# It is separate from dev/ and production/ state keys, which are reserved for future
+# environment-specific infra if needed.
+
+bucket         = "BUCKET_NAME"
+key            = "storage/terraform.tfstate"
+region         = "ap-south-1"
+dynamodb_table = "terraform-locks"
+encrypt        = true

@@ -114,7 +114,7 @@ Buckets (names unique per account id):
 
 | Bucket | Class | Contents |
 |--------|--------|----------|
-| originals | STANDARD → **STANDARD_IA after 1 day** | Full-res uploads |
+| originals | STANDARD → **STANDARD_IA after 7 days** | Full-res uploads |
 | proxies | STANDARD | Watermarked WebP |
 | assets | STANDARD | Logos, watermarks |
 | archive | GLACIER_IR (optional later) | After 2-month event archive |

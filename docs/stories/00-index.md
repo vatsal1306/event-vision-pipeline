@@ -63,10 +63,10 @@ Work **backend** before **ML**. **Infra v2:** S3 + IAM in the cheap account; one
 
 | ID | Story | Depends on | Status |
 |----|--------|------------|-------|
-| INF-001 | Terraform state (storage account) | — |
-| INF-002 | S3 media buckets | INF-001 |
-| INF-003 | IAM user for app EC2 | INF-002 |
-| INF-004 | EC2 m6i.xlarge Ubuntu ap-south-1 | — |
+| INF-001 | Terraform state (storage account) | — | Done |
+| INF-002 | S3 media buckets | INF-001 | Done |
+| INF-003 | IAM user for app EC2 | INF-002 | Done |
+| INF-004 | EC2 m6i.xlarge Ubuntu ap-south-1 | — | Done |
 | INF-005 | Compose + Caddy + tusd upload hardening | INF-004 |
 | INF-006 | GH tests + SSH deploy | INF-005 |
 | INF-007 | Postgres dump to S3 | INF-002, INF-005 |
