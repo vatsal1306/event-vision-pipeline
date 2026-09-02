@@ -7,7 +7,7 @@ export function MSWProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initMsw = async () => {
-      if (process.env.NEXT_PUBLIC_MOCK_API === 'true') {
+      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_MOCK_API === 'true') {
         const { worker } = await import('@/mocks/browser');
         await worker.start({ onUnhandledRequest: 'warn' });
       }
@@ -18,7 +18,7 @@ export function MSWProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // While MSW is starting, wait before rendering to avoid real network requests
-  if (!mswReady && process.env.NEXT_PUBLIC_MOCK_API === 'true') {
+  if (!mswReady && process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_MOCK_API === 'true') {
     return null; 
   }
 

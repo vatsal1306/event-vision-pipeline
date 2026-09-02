@@ -167,7 +167,8 @@ export const api = {
 
   // Guest / Couple
   getEventInfoPublic: (slug: string) => apiClient.get<unknown>(`/api/event/${slug}/info`),
-  guestAuth: (slug: string, data: unknown) => apiClient.post<TokenResponse>(`/api/event/${slug}/auth`, data),
+  sendGuestOtp: (slug: string, data: unknown) => apiClient.post<void>(`/api/event/${slug}/auth`, data),
+  verifyGuestOtp: (slug: string, data: unknown) => apiClient.post<TokenResponse>(`/api/event/${slug}/auth/verify`, data),
   submitSelfie: (slug: string, data: unknown) => apiClient.post<{ matchedPhotoIds: string[]; matchCount: number }>(`/api/event/${slug}/selfie`, data),
   getGuestPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`),
   getMasterPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/master/photos`),

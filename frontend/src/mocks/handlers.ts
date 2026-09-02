@@ -5,6 +5,12 @@ import { mockProfile } from './data/users';
 import { mockAnalyticsSummary, mockAnalyticsTopPhotos } from './data/analytics';
 
 export const handlers = [
+  // ==========================================
+  // NOTE: Partial API Coverage
+  // Handlers for some §10.2 paths (e.g. detailed folders CRUD, settings, master link sharing)
+  // are intentionally omitted here. They will be added as the respective UI screens land.
+  // ==========================================
+
   // Event list
   http.get('*/api/events', () => {
     return HttpResponse.json({
@@ -12,6 +18,7 @@ export const handlers = [
       total: mockEvents.length,
       limit: 50,
       offset: 0,
+      hasMore: false,
     });
   }),
 
@@ -40,6 +47,7 @@ export const handlers = [
       total: photos.length,
       limit,
       offset,
+      hasMore: offset + limit < photos.length,
     });
   }),
 
@@ -54,7 +62,13 @@ export const handlers = [
   }),
 
   // Mock guest auth / OTP validation
-  http.post('*/api/event/:slug/auth', async ({ request }) => {
+  http.post('*/api/event/:slug/auth', async () => {
+    // Send OTP stub
+    await delay(500);
+    return HttpResponse.json({ detail: 'OTP sent' });
+  }),
+  
+  http.post('*/api/event/:slug/auth/verify', async ({ request }) => {
     const data = await request.json() as { code?: string };
     
     // Simulate network delay
