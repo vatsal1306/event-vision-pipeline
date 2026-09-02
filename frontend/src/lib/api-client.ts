@@ -1,4 +1,4 @@
-import { Event, Folder, Photo } from '@/types/event';
+import { Event, Folder, FolderNode, Photo } from '@/types/event';
 import { Photographer } from '@/types/user';
 import { PaginatedResponse, TokenResponse } from '@/types/api';
 
@@ -32,11 +32,11 @@ class ApiClient {
 
   private async handle401() {
     // Placeholder for token refresh logic to be implemented later
-    console.warn('Handling 401 Unauthorized - Token refresh needed');
     if (typeof window !== 'undefined') {
       // e.g. trigger Zustand store logout if refresh fails
       // window.location.href = '/login';
     }
+    throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
   }
 
   private async request<T>(method: string, path: string, options?: RequestOptions): Promise<T> {
@@ -112,6 +112,10 @@ class ApiClient {
   public delete<T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>) {
     return this.request<T>('DELETE', path, options);
   }
+
+  public head<T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>) {
+    return this.request<T>('HEAD', path, options);
+  }
 }
 
 export const apiClient = new ApiClient();
@@ -119,26 +123,26 @@ export const apiClient = new ApiClient();
 // §10.2 Typed API Methods
 export const api = {
   // Auth
-  register: (data: any) => apiClient.post<TokenResponse>('/api/auth/register', data),
-  login: (data: any) => apiClient.post<TokenResponse>('/api/auth/login', data),
+  register: (data: unknown) => apiClient.post<TokenResponse>('/api/auth/register', data),
+  login: (data: unknown) => apiClient.post<TokenResponse>('/api/auth/login', data),
   logout: () => apiClient.post<void>('/api/auth/logout'),
   refresh: () => apiClient.post<TokenResponse>('/api/auth/refresh'),
-  forgotPassword: (data: any) => apiClient.post<void>('/api/auth/forgot-password', data),
-  resetPassword: (data: any) => apiClient.post<void>('/api/auth/reset-password', data),
-  sendOtp: (data: any) => apiClient.post<void>('/api/auth/send-otp', data),
-  verifyOtp: (data: any) => apiClient.post<void>('/api/auth/verify-otp', data),
+  forgotPassword: (data: unknown) => apiClient.post<void>('/api/auth/forgot-password', data),
+  resetPassword: (data: unknown) => apiClient.post<void>('/api/auth/reset-password', data),
+  sendOtp: (data: unknown) => apiClient.post<void>('/api/auth/send-otp', data),
+  verifyOtp: (data: unknown) => apiClient.post<void>('/api/auth/verify-otp', data),
 
   // Events
   getEvents: () => apiClient.get<PaginatedResponse<Event>>('/api/events'),
-  createEvent: (data: any) => apiClient.post<Event>('/api/events', data),
+  createEvent: (data: unknown) => apiClient.post<Event>('/api/events', data),
   getEventDetails: (id: string) => apiClient.get<Event>(`/api/events/${id}`),
-  updateEvent: (id: string, data: any) => apiClient.put<Event>(`/api/events/${id}`, data),
+  updateEvent: (id: string, data: unknown) => apiClient.put<Event>(`/api/events/${id}`, data),
   deleteEvent: (id: string) => apiClient.delete<void>(`/api/events/${id}`),
 
   // Folders
-  getFolders: (eventId: string) => apiClient.get<Folder[]>(`/api/events/${eventId}/folders`),
-  createFolder: (eventId: string, data: any) => apiClient.post<Folder>(`/api/events/${eventId}/folders`, data),
-  updateFolder: (eventId: string, folderId: string, data: any) => apiClient.put<Folder>(`/api/events/${eventId}/folders/${folderId}`, data),
+  getFolders: (eventId: string) => apiClient.get<FolderNode[]>(`/api/events/${eventId}/folders`),
+  createFolder: (eventId: string, data: unknown) => apiClient.post<Folder>(`/api/events/${eventId}/folders`, data),
+  updateFolder: (eventId: string, folderId: string, data: unknown) => apiClient.put<Folder>(`/api/events/${eventId}/folders/${folderId}`, data),
   deleteFolder: (eventId: string, folderId: string) => apiClient.delete<void>(`/api/events/${eventId}/folders/${folderId}`),
 
   // Photos
@@ -148,39 +152,40 @@ export const api = {
     return apiClient.get<PaginatedResponse<Photo>>(`/api/events/${eventId}/photos?${params.toString()}`);
   },
   deletePhoto: (eventId: string, photoId: string) => apiClient.delete<void>(`/api/events/${eventId}/photos/${photoId}`),
-  movePhotos: (eventId: string, data: any) => apiClient.post<void>(`/api/events/${eventId}/photos/move`, data),
+  movePhotos: (eventId: string, data: unknown) => apiClient.post<void>(`/api/events/${eventId}/photos/move`, data),
   downloadPhoto: (eventId: string, photoId: string) => apiClient.get<{ url: string }>(`/api/events/${eventId}/photos/${photoId}/download`),
 
   // Upload
-  createUpload: (data: any) => apiClient.post<{ uploadUrl: string }>('/api/upload/create', data),
-  // Upload chunking is typically handled by tus-js-client natively rather than apiClient
+  createUpload: (data: unknown) => apiClient.post<{ uploadUrl: string }>('/api/upload/create', data),
+  uploadChunk: (uploadId: string, data: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) => apiClient.patch<void>(`/api/upload/${uploadId}`, data, options),
+  getUploadOffset: (uploadId: string) => apiClient.head<{ offset: number }>(`/api/upload/${uploadId}`),
 
   // Sharing
-  getLinks: (eventId: string) => apiClient.get<any>(`/api/events/${eventId}/links`),
+  getLinks: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/links`),
   toggleLink: (eventId: string, type: 'guest' | 'master') => apiClient.put<void>(`/api/events/${eventId}/links/${type}/toggle`),
-  updateEventSettings: (eventId: string, data: any) => apiClient.put<Event>(`/api/events/${eventId}/settings`, data),
+  updateEventSettings: (eventId: string, data: unknown) => apiClient.put<Event>(`/api/events/${eventId}/settings`, data),
 
   // Guest / Couple
-  getEventInfoPublic: (slug: string) => apiClient.get<any>(`/api/event/${slug}/info`),
-  guestAuth: (slug: string, data: any) => apiClient.post<TokenResponse>(`/api/event/${slug}/auth`, data),
-  submitSelfie: (slug: string, data: any) => apiClient.post<any>(`/api/event/${slug}/selfie`, data),
+  getEventInfoPublic: (slug: string) => apiClient.get<unknown>(`/api/event/${slug}/info`),
+  guestAuth: (slug: string, data: unknown) => apiClient.post<TokenResponse>(`/api/event/${slug}/auth`, data),
+  submitSelfie: (slug: string, data: unknown) => apiClient.post<{ matchedPhotoIds: string[]; matchCount: number }>(`/api/event/${slug}/selfie`, data),
   getGuestPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`),
   getMasterPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/master/photos`),
-  getMasterFolders: (slug: string) => apiClient.get<Folder[]>(`/api/event/${slug}/master/folders`),
-  toggleFavorite: (slug: string, data: any) => apiClient.post<void>(`/api/event/${slug}/master/favorite`, data),
+  getMasterFolders: (slug: string) => apiClient.get<FolderNode[]>(`/api/event/${slug}/master/folders`),
+  toggleFavorite: (slug: string, data: unknown) => apiClient.post<void>(`/api/event/${slug}/master/favorite`, data),
   getFavorites: (slug: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/favorites`),
   downloadGuestPhoto: (slug: string, photoId: string) => apiClient.get<{ url: string }>(`/api/event/${slug}/photos/${photoId}/download`),
 
   // Analytics
-  getAnalyticsSummary: (eventId: string) => apiClient.get<any>(`/api/events/${eventId}/analytics/summary`),
-  getAnalyticsTopPhotos: (eventId: string) => apiClient.get<any>(`/api/events/${eventId}/analytics/top-photos`),
-  getAnalyticsGuests: (eventId: string) => apiClient.get<any>(`/api/events/${eventId}/analytics/guests`),
-  exportAnalyticsGuests: (eventId: string) => apiClient.get<any>(`/api/events/${eventId}/analytics/guests/export`),
+  getAnalyticsSummary: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/summary`),
+  getAnalyticsTopPhotos: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/top-photos`),
+  getAnalyticsGuests: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/guests`),
+  exportAnalyticsGuests: (eventId: string) => apiClient.get<Blob>(`/api/events/${eventId}/analytics/guests/export`),
 
   // Profile
   getProfile: () => apiClient.get<Photographer>('/api/profile'),
-  updateProfile: (data: any) => apiClient.put<Photographer>('/api/profile', data),
-  uploadLogo: (data: any) => apiClient.post<any>('/api/profile/logo', data),
-  uploadWatermark: (data: any) => apiClient.post<any>('/api/profile/watermark', data),
-  getStorageUsage: () => apiClient.get<any>('/api/profile/storage'),
+  updateProfile: (data: unknown) => apiClient.put<Photographer>('/api/profile', data),
+  uploadLogo: (data: unknown) => apiClient.post<{ url: string }>('/api/profile/logo', data),
+  uploadWatermark: (data: unknown) => apiClient.post<{ url: string }>('/api/profile/watermark', data),
+  getStorageUsage: () => apiClient.get<{ used: number; limit: number }>('/api/profile/storage'),
 };
