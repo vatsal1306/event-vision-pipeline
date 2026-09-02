@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-8 text-center space-y-8">
+    <main className="flex flex-col items-center justify-center min-h-screen p-8 text-center space-y-8 bg-canvas text-ink">
       <h1 className="text-6xl font-medium tracking-tight -tracking-[0.02em]">SpotMe</h1>
       <p className="text-lg opacity-80 max-w-md font-[450]">
         Every guest, every photo, found.

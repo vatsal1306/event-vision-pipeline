@@ -3,8 +3,55 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 24 20% 94%; /* Canvas Cream #F3F0EE */
+    --foreground: 60 3% 8%; /* Ink Black #141413 */
+    --card: 30 20% 98%; /* Lifted Cream #FCFBFA */
+    --card-foreground: 60 3% 8%;
+    --popover: 30 20% 98%;
+    --popover-foreground: 60 3% 8%;
+    --primary: 60 3% 8%;
+    --primary-foreground: 24 20% 94%;
+    --secondary: 24 20% 94%;
+    --secondary-foreground: 60 3% 8%;
+    --muted: 24 20% 90%;
+    --muted-foreground: 60 3% 40%;
+    --accent: 24 20% 90%;
+    --accent-foreground: 60 3% 8%;
+    --destructive: 20 100% 41%; /* Signal Orange #CF4500 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 60 3% 8%; /* Ink Black for crisp borders */
+    --input: 60 3% 8%;
+    --ring: 60 3% 8%;
+    --radius: 1.25rem; /* 20px default for buttons */
+  }
+
+  .dark {
+    --background: 60 3% 8%;
+    --foreground: 24 20% 94%;
+    --card: 60 3% 10%;
+    --card-foreground: 24 20% 94%;
+    --popover: 60 3% 10%;
+    --popover-foreground: 24 20% 94%;
+    --primary: 24 20% 94%;
+    --primary-foreground: 60 3% 8%;
+    --secondary: 60 3% 15%;
+    --secondary-foreground: 24 20% 94%;
+    --muted: 60 3% 15%;
+    --muted-foreground: 24 20% 60%;
+    --accent: 60 3% 15%;
+    --accent-foreground: 24 20% 94%;
+    --destructive: 20 100% 41%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 24 20% 94%;
+    --input: 24 20% 94%;
+    --ring: 24 20% 94%;
+  }
+}
+
+@layer base {
   body {
-    background-color: theme("colors.canvas");
-    color: theme("colors.ink");
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
