@@ -25,7 +25,7 @@ Monorepo: all API/ML/Celery code lives under `backend/`. Frontend is separate. A
 - `backend/app/main.py` — app factory `create_app()`, include health router
 - `backend/app/api/health.py` — `{ "status": "ok" }`
 - `backend/Dockerfile` — multi-stage, Python 3.10-slim, non-root user
-- `backend/docker-compose.yml` — `db` (`pgvector/pgvector:pg16`), `redis:7-alpine`, `backend` (or document `uv run uvicorn` on host)
+- `backend/docker-compose.yml` — `db` (`pgvector/pgvector:pg16`), `redis:7-alpine`, `backend`. Production adds Caddy, tusd, frontend, Celery on the **app EC2** (`docs/component_infrastructure.md`). No RDS.
 - `backend/Makefile` — `dev`, `lint`, `format`, `typecheck`, `test`, `migrate`
 - `backend/.env.example` — DATABASE_URL, REDIS_URL, SECRET_KEY placeholder
 - Root `.gitignore` — `.venv/`, `__pycache__/`, `backend/.env`, `backend/models/*.onnx` later

@@ -2,11 +2,10 @@
 
 **Type:** Feature  
 **Depends on:** BE-010, ML-007  
-**Area:** `backend/app/services/face_service.py`, `backend/app/tasks/face_tasks.py`
 
 ## Goal
 
-`FaceService.process_photo` orchestrates detect → crop → quality → embed. Persist `FaceEmbedding` only if quality passed. Update `photo.face_count` (detected, including rejects). `detect_and_embed_faces` Celery task retries. `update_event_clusters` with Redis lock `clustering_lock:{event_id}` timeout 300s, non-blocking acquire retry 30s.
+Wire FaceService + Celery `face_processing` **for a future ML machine**. On the **app EC2**, do not register this queue. `process_uploaded_photo` must not require GPU.
 
 ## References
 
@@ -16,7 +15,7 @@
 
 ## Create / edit
 
-- Enqueue from `process_uploaded_photo` after proxy success
+- **Do not** enqueue from `process_uploaded_photo` on the app EC2. Optional feature flag `FACE_PROCESSING_ENABLED=false` by default.
 - Increment `events.total_faces`
 - Sync session in Celery: use dedicated sync engine **or** `asyncio.run` with async session — pick one, document, do not mix leaked sessions
 

@@ -2,7 +2,7 @@
 
 Frontend stories: `docs/stories/frontend/00-index.md`.
 
-Work **backend** before **ML** (ML is imported by Celery workers). **Infra** can start in parallel after local Docker Compose exists (BE-001), but production AWS should wait until the API image builds.
+Work **backend** before **ML**. **Infra v2:** S3 + IAM in the cheap account; one EC2 Compose stack in the compute account. ML does **not** deploy on that EC2.
 
 **Always read:**
 
@@ -15,8 +15,9 @@ Work **backend** before **ML** (ML is imported by Celery workers). **Infra** can
 
 - Python **3.10 only** (`from __future__ import annotations` allowed). No 3.11+ syntax.
 - Thin route handlers and thin Celery tasks. Business logic in services.
-- No secrets in git. Config via env / SSM.
-- Phase 1: no billing, WhatsApp, custom domains, multi-photographer roles, video, real-time camera-to-cloud.
+- No secrets in git. Config via `.env` on laptop and on the app EC2 (not SSM).
+- Phase 1: no billing, WhatsApp, custom domains, multi-photographer roles, video, real-time camera-to-cloud, **no GPU on the app server**.
+- Storage AWS account ≈ $60/year (S3). Compute = one **m6i.xlarge** in **ap-south-1**.
 
 ## Backend (`docs/stories/backend/`)
 
@@ -34,11 +35,11 @@ Work **backend** before **ML** (ML is imported by Celery workers). **Infra** can
 | BE-010 | Web-proxy, HEIC, watermark Celery | BE-009 |
 | BE-011 | Share links and download toggle | BE-005 |
 | BE-012 | Guest and couple OTP sessions | BE-005 |
-| BE-013 | Guest selfie + matched photos API | BE-012, ML-008 |
+| BE-013 | Guest selfie + matched photos API | BE-012; stub until ML host |
 | BE-014 | Couple gallery and favorites | BE-012 |
 | BE-015 | Analytics and CSV export | BE-012 |
 | BE-016 | Profile, logo, watermark, storage quota | BE-008 |
-| BE-017 | Email/SMS notifications | BE-010 |
+| BE-017 | Notifications (log OTP; email optional no-op) | BE-010 |
 | BE-018 | Archival scheduler | BE-008, BE-017 |
 | BE-019 | Rate limits and HTTP security | BE-004 |
 | BE-020 | Backend automated tests | BE-004 onward |
@@ -54,33 +55,26 @@ Work **backend** before **ML** (ML is imported by Celery workers). **Infra** can
 | ML-005 | Incremental DBSCAN + agglomerative | ML-001 |
 | ML-006 | ClusterManager pgvector persistence | BE-003, ML-005 |
 | ML-007 | Selfie match and basic liveness | ML-002, ML-004, ML-006 |
-| ML-008 | FaceService and Celery face tasks | BE-010, ML-007 |
-| ML-009 | Batch GPU embedding path | ML-008 |
+| ML-008 | FaceService and Celery face tasks | BE-010, ML-007 — **not on app EC2** |
+| ML-009 | Batch embedding path (future ML host) | ML-008 |
 | ML-010 | ML tests and fixtures | ML-008 |
 
 ## Infra (`docs/stories/infra/`)
 
 | ID | Story | Depends on | Status |
 |----|--------|------------|-------|
-| INF-001 | Terraform state backend | — |
-| INF-002 | VPC, subnets, NAT, security groups | INF-001 |
-| INF-003 | S3 buckets, encryption, lifecycle | INF-002 |
-| INF-004 | RDS PostgreSQL 16 + pgvector | INF-002 |
-| INF-005 | ElastiCache Redis | INF-002 |
-| INF-006 | Dockerfiles and ECR | BE-001 |
-| INF-007 | ECS cluster, FastAPI + Next.js services | INF-006, INF-004, INF-005 |
-| INF-008 | ALB, ACM, Route 53 | INF-007 |
-| INF-009 | CloudFront CDN | INF-003, INF-008 |
-| INF-010 | GPU Spot workers and queues | INF-007, ML-008 |
-| INF-011 | GitHub Actions CI/CD + migrations | INF-006 |
-| INF-012 | CloudWatch, Sentry, budgets | INF-007 |
-| INF-013 | IAM, SSM secrets, least privilege | INF-007 |
-| INF-014 | Staging environment | INF-007–INF-013 |
-| INF-015 | Production-hardening checklist | INF-014 |
+| INF-001 | Terraform state (storage account) | — | Done |
+| INF-002 | S3 media buckets | INF-001 | Done |
+| INF-003 | IAM user for app EC2 | INF-002 | Done |
+| INF-004 | EC2 m6i.xlarge Ubuntu ap-south-1 | — | Done |
+| INF-005 | Compose + Caddy + tusd upload hardening | INF-004 |
+| INF-006 | GH tests + SSH deploy | INF-005 |
+| INF-007 | Postgres dump to S3 | INF-002, INF-005 |
+| INF-008 | Disk/SSH/S3 spend checks | INF-005 |
 
 ## Suggested batches
 
-1. Local platform: BE-001 → BE-012, BE-014–BE-016 (stub face match until ML-008)
-2. Media pipeline: BE-008 → BE-010, BE-017–BE-018
-3. ML: ML-001 → ML-010 then BE-013
-4. Cloud: INF-001 onward once images exist
+1. Local: BE-001 → BE-012, BE-014–BE-016; stub BE-013
+2. Uploads: BE-008 → BE-010 (CPU Celery only)
+3. Infra: INF-002–INF-005 on the two AWS accounts
+4. ML: code later; **separate host** — do not install CUDA on m6i.xlarge

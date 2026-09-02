@@ -149,6 +149,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# AWS credentials — never commit
+creds.txt
+
 # pytype static type analyzer
 .pytype/
 

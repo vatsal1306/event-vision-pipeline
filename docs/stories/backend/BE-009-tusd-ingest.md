@@ -20,8 +20,9 @@ Accept tusd `post-finish` webhook, create `Photo` row (`processing_status=pendin
 - `TusHookPayload` schema
 - `post-terminate`: optional cleanup of incomplete S3 parts (log if not possible)
 - Celery: queues `photo_processing`, `notifications`; `task_routes` from ML doc
-- docker-compose: `celery-worker` command for photo queue (CPU)
-- tusd service in compose with hook URL `http://backend:8000/api/v1/upload/hook`
+- docker-compose: `celery-worker` on **CPU** queue `photo_processing` only (concurrency 2–3 on 4 vCPU). Do not start a GPU worker.
+- tusd in Compose: S3 store, 5MB parts, long timeouts, hook `http://backend:8000/api/v1/upload/hook`. This is the path for **15k–20k** files — never stream originals through FastAPI.
+- OS/ulimit notes belong in INF-005; webhook must be fast and idempotent.
 
 ## Requirements
 
