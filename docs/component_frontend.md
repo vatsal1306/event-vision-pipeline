@@ -1808,10 +1808,10 @@ NEXT_PUBLIC_MOCK_API=true
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # .env.production
-NEXT_PUBLIC_API_BASE_URL=https://api.platform.com
+NEXT_PUBLIC_API_BASE_URL=https://your-domain.example/api
 NEXT_PUBLIC_MOCK_API=false
-NEXT_PUBLIC_APP_URL=https://platform.com
-NEXT_PUBLIC_CDN_URL=https://cdn.platform.com
+NEXT_PUBLIC_APP_URL=https://your-domain.example
+# Images: presigned S3 URLs from the API — no CloudFront required
 ```
 
 ### 15.2 Build Pipeline
@@ -1833,7 +1833,7 @@ pnpm test:e2e       # Playwright E2E tests
 
 ### 15.3 Deployment Target
 
-The Next.js application is deployed as a Docker container (or serverless via Vercel/AWS Amplify depending on infrastructure decisions).
+The Next.js application is a Docker service on the **same EC2** as the API (`docker-compose.prod.yml`). See `docs/component_infrastructure.md`.
 
 ```dockerfile
 FROM node:20-alpine AS builder

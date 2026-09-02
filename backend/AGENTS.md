@@ -12,7 +12,7 @@
 - **Framework:** FastAPI (async, ASGI).
 - **ORM:** SQLAlchemy 2.x with async engine (`asyncpg` driver).
 - **Validation:** Pydantic v2 for all request/response schemas.
-- **Task queue:** Celery with Redis broker.
+- **Task queue:** Celery with Redis broker. Production app host: CPU queues only.
 - **Package manager:** `uv` for dependency management and virtual environments.
 - **Linting/formatting:** `ruff` (linting + formatting). `mypy` for type checking.
 
@@ -154,7 +154,7 @@ class EventService:
 - Tasks are **thin** — they deserialize input, call a service method, and return a result.
 - Use `bind=True` and `self.retry()` for transient failures (network, S3 timeout). Set `max_retries`.
 - Use separate queues for different workload types: `photo_processing`, `face_processing`, `notifications`.
-- GPU-bound tasks (`face_processing` queue) run on dedicated workers with `concurrency=2` to avoid GPU OOM.
+- Do **not** run `face_processing` on the production app EC2. That host is CPU-only (`m6i.xlarge`): queues `photo_processing` and `notifications` only, Celery concurrency **2–3**. Face/ML workers are a later host.
 - Use Redis distributed locks (`redis.lock()`) for operations that must not run concurrently (e.g., clustering for the same event).
 
 ---
@@ -203,7 +203,7 @@ The ML pipeline is adapted from the **PicSee clustering pipeline** (`/Users/vats
 - All configuration via **environment variables**, loaded through Pydantic `BaseSettings`.
 - No hardcoded URLs, credentials, bucket names, thresholds, or secrets.
 - Configuration class lives in `app/config.py`. ML-specific config in `app/ml/config.py`.
-- Use `.env` files for local development only. Production uses AWS SSM Parameter Store.
+- Use `.env` files for local development and on the app EC2 (`/opt/platform/.env`). Do not require AWS SSM.
 
 ---
 
