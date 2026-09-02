@@ -18,14 +18,15 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
+import { useAuthStore } from '../stores/auth-store';
+
 class ApiClient {
   private baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
-  // In FE-006/FE-008 this will be hooked up to Zustand auth store
   private getToken(): string | null {
-    // Placeholder implementation
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('access_token');
+      // Direct getState call to avoid React hooks rules issue outside of components
+      return useAuthStore.getState().accessToken || localStorage.getItem('access_token');
     }
     return null;
   }

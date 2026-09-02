@@ -13,7 +13,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       photographer: null,
       accessToken: null,
       isAuthenticated: false,
@@ -33,8 +33,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshToken: async () => {
-        // This will be wired up to the apiClient refresh endpoint in the future
-        // For now, it's a stub to satisfy the interface requirements
+        throw new Error('Not implemented'); // TODO FE-008
       },
     }),
     {

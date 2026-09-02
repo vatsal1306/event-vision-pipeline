@@ -4,8 +4,10 @@ import { GuestSession } from '@/types/user';
 
 interface GuestAuthState {
   guestSession: GuestSession | null;
+  sessionToken: string | null;
+  needsSelfie: boolean;
   isVerified: boolean;
-  setGuestSession: (session: GuestSession) => void;
+  setGuestSession: (session: GuestSession, token: string, needsSelfie: boolean) => void;
   clearGuestSession: () => void;
 }
 
@@ -13,14 +15,16 @@ export const useGuestAuthStore = create<GuestAuthState>()(
   persist(
     (set) => ({
       guestSession: null,
+      sessionToken: null,
+      needsSelfie: true,
       isVerified: false,
 
-      setGuestSession: (session: GuestSession) => {
-        set({ guestSession: session, isVerified: true });
+      setGuestSession: (session: GuestSession, token: string, needsSelfie: boolean) => {
+        set({ guestSession: session, sessionToken: token, needsSelfie, isVerified: true });
       },
 
       clearGuestSession: () => {
-        set({ guestSession: null, isVerified: false });
+        set({ guestSession: null, sessionToken: null, needsSelfie: true, isVerified: false });
       },
     }),
     {
