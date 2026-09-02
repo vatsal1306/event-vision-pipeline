@@ -45,3 +45,15 @@ This project uses a bespoke, Mastercard-inspired design system documented in `DE
 ## Component Library
 
 We use Radix UI primitives installed via Shadcn UI, but they are heavily customized in `src/components/ui/` to enforce the 20px pill shapes and tight typography. Do not install raw Shadcn components without adapting their Tailwind classes to match `DESIGN.md`.
+
+## Mock API
+
+Since the frontend is developed before the backend is fully available, we use MSW (Mock Service Worker) to intercept API requests and return mock data.
+
+To enable the mock API, set the following environment variable in `.env.local`:
+```
+NEXT_PUBLIC_MOCK_API=true
+```
+
+**Testing credentials:**
+- When prompted for an OTP in the mocked guest authentication flow, use `123456`.
