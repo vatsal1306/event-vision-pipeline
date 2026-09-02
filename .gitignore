@@ -162,3 +162,26 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
+# ── Project-specific ──────────────────────────────────────────────
+
+# ML model weight files (downloaded separately, see backend/models/README.md)
+backend/models/*.onnx
+backend/models/*.pt
+backend/models/*.tflite
+backend/models/adaface_insightface/
+
+# Backend secrets
+backend/.env
+
+# uv lockfile is committed; virtual env is not
+.venv/
+
+# Node / Next.js (frontend)
+node_modules/
+.next/
+out/
+frontend/.env*.local
+
+# OS
+.DS_Store
+Thumbs.db
