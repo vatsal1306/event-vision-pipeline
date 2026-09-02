@@ -25,7 +25,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    // In a real app, route this to a logging service like Sentry
+    // console.error("Uncaught error:", error, errorInfo);
   }
 
   public render() {
@@ -35,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
       }
       
       return (
-        <div className={cn("flex flex-col items-center justify-center p-12 text-center bg-red-50/50 rounded-stadium border border-red-100", this.props.className)}>
+        <div className={cn("flex flex-col items-center justify-center p-12 text-center bg-canvas rounded-stadium border border-signal/20", this.props.className)}>
           <AlertCircle className="h-10 w-10 text-signal mb-4" />
           <h2 className="text-xl font-medium tracking-tight mb-2">Something went wrong</h2>
           <p className="text-sm opacity-70 max-w-sm font-[450] mb-6">
@@ -43,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-ink text-canvas rounded-button px-6 py-2.5 font-medium -tracking-[0.02em] text-sm"
+            className="bg-ink text-canvas rounded-button px-6 py-2.5 font-medium -tracking-[0.02em] text-sm hover:opacity-90 transition-opacity"
           >
             Refresh page
           </button>
