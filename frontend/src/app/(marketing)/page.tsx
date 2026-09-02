@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { Upload, ScanFace, Images, Smartphone, Zap, Shield } from 'lucide-react';
-import { AnimatedSection } from '@/components/shared/animated-section';
+import dynamic from 'next/dynamic';
 
+const AnimatedSection = dynamic(
+  () => import('@/components/shared/animated-section').then((mod) => mod.AnimatedSection),
+  { ssr: false }
+);
 const steps = [
   {
     icon: Upload,
@@ -69,7 +73,7 @@ export default function MarketingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
                 href="/register"
-                className="w-full sm:w-auto bg-signal text-white rounded-button px-8 py-3 font-semibold text-base hover:bg-signal-light transition-colors"
+                className="w-full sm:w-auto bg-ink text-canvas rounded-button px-8 py-3 font-semibold text-base hover:bg-ink/90 transition-colors"
               >
                 Get Started — It&apos;s Free
               </Link>
@@ -172,7 +176,7 @@ export default function MarketingPage() {
             </p>
             <Link
               href="/register"
-              className="inline-block bg-signal text-white rounded-button px-10 py-3.5 font-semibold text-base hover:bg-signal-light transition-colors"
+              className="inline-block bg-canvas text-ink rounded-button px-10 py-3.5 font-semibold text-base hover:bg-canvas/90 transition-colors"
             >
               Create Free Account
             </Link>
