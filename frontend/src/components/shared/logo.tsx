@@ -1,24 +1,27 @@
-import { Aperture } from 'lucide-react';
+import Image from 'next/image';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
 const sizeMap = {
-  sm: { icon: 16, text: 'text-lg' },
-  md: { icon: 20, text: 'text-2xl' },
-  lg: { icon: 28, text: 'text-4xl' },
+  sm: { height: 24, width: 90 },
+  md: { height: 32, width: 120 },
+  lg: { height: 48, width: 180 },
 } as const;
 
 export function Logo({ size = 'md' }: LogoProps) {
   const config = sizeMap[size];
 
   return (
-    <span className="inline-flex items-center gap-2 select-none">
-      <Aperture size={config.icon} strokeWidth={1.8} className="text-signal" />
-      <span className={`${config.text} font-bold tracking-tight`}>
-        SpotMe
-      </span>
-    </span>
+    <div className="relative inline-block select-none" style={{ height: config.height, width: config.width }}>
+      <Image
+        src="/logo.png"
+        alt="SpotMe Logo"
+        fill
+        className="object-contain"
+        priority
+      />
+    </div>
   );
 }

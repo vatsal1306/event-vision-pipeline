@@ -3,8 +3,7 @@ import { Upload, ScanFace, Images, Smartphone, Zap, Shield } from 'lucide-react'
 import dynamic from 'next/dynamic';
 
 const AnimatedSection = dynamic(
-  () => import('@/components/shared/animated-section').then((mod) => mod.AnimatedSection),
-  { ssr: false }
+  () => import('@/components/shared/animated-section').then((mod) => mod.AnimatedSection)
 );
 const steps = [
   {
