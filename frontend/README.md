@@ -71,3 +71,9 @@ NEXT_PUBLIC_MOCK_API=true
 - Supports drag-and-drop file/folder uploads via `react-dropzone`.
 - State managed by Zustand in `src/stores/upload-store.ts`.
 - Integrated target folder creation logic (automatically creating subfolders matching dragged local directories).
+
+### FE-013: Event Analytics
+- Added AnalyticsOverview with summary metrics (Total Guests, Views, Downloads).
+- Implemented LeadTable with sortable, paginated guest data.
+- Built client-side CSV export functionality for guest lead capture data.
+- Integrated into the existing unified Event Dashboard tabs.

@@ -4,7 +4,7 @@ import { mockEvents } from './data/events';
 import { mockPhotos, mockMatchedPhotos } from './data/photos';
 import { mockFolders } from './data/folders';
 import { mockProfile } from './data/users';
-import { mockAnalyticsSummary, mockAnalyticsTopPhotos } from './data/analytics';
+import { mockAnalyticsSummary, mockAnalyticsTopPhotos, mockGuestAnalytics } from './data/analytics';
 import { EventType } from '@/types/event';
 
 export const handlers = [
@@ -294,5 +294,39 @@ export const handlers = [
 
   http.get('*/api/events/:id/analytics/top-photos', () => {
     return HttpResponse.json(mockAnalyticsTopPhotos);
+  }),
+
+  http.get('*/api/events/:id/analytics/guests', ({ request }) => {
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+    const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+    const sortBy = url.searchParams.get('sortBy') || 'guest_name';
+    const sortOrder = url.searchParams.get('sortOrder') || 'asc';
+
+    let sorted = [...mockGuestAnalytics];
+    
+    sorted.sort((a, b) => {
+      let valA = a[sortBy as keyof typeof a];
+      let valB = b[sortBy as keyof typeof b];
+      
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      
+      return 0;
+    });
+
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const paginated = sorted.slice(start, end);
+
+    return HttpResponse.json({
+      guests: paginated,
+      total: sorted.length
+    });
   })
 ];

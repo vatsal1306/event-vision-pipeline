@@ -9,6 +9,8 @@ import { Photo } from '@/types/event';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { FolderTree } from '@/components/dashboard/folder-tree';
 import { PhotoDetailViewer } from '@/components/dashboard/photo-detail-viewer';
+import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
+import { LeadTable } from '@/components/dashboard/lead-table';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2 } from 'lucide-react';
@@ -151,10 +153,9 @@ export default function EventDetailPage() {
         )}
 
         {currentTab === 'analytics' && (
-          <div className="p-8 max-w-4xl mx-auto text-center mt-12">
-            <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h2 className="text-2xl font-semibold mb-2">Analytics Coming Soon</h2>
-            <p className="text-muted-foreground">This tab will show lead capture tables and event stats. (FE-013)</p>
+          <div className="space-y-8 p-4 md:p-8">
+            <AnalyticsOverview eventId={id} />
+            <LeadTable eventId={id} />
           </div>
         )}
 
