@@ -1,86 +1,95 @@
 'use client';
 
-import Link from 'next/link';
+import { useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { Button } from '@/components/ui/button';
-import { Camera, Plus, Search, Filter, Calendar, Users, FolderOpen } from 'lucide-react';
+import { Camera, Plus, Search, Filter, ChevronDown } from 'lucide-react';
+import { EventCard } from '@/components/dashboard/event-card';
+import { EventForm } from '@/components/dashboard/event-form';
+import { useEvents, useCreateEvent, CreateEventData } from '@/hooks/use-events';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export default function EventsPage() {
-  const { photographer, logout } = useAuthStore();
+  const { photographer } = useAuthStore();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
 
-  const mockEvents = [
-    {
-      id: '1',
-      name: 'Rahul & Priya Wedding',
-      date: '12 Jun 2026',
-      type: 'Wedding',
-      photos: 3450,
-      folders: 12,
-      guestsViewed: 186,
-      status: 'ready' as const,
-      coverImage: null,
-    },
-    {
-      id: '2',
-      name: 'Amit Corporate Summit',
-      date: '28 May 2026',
-      type: 'Corporate',
-      photos: 890,
-      folders: 3,
-      guestsViewed: 0,
-      status: 'processing' as const,
-      progress: 67,
-      coverImage: null,
-    },
-    {
-      id: '3',
-      name: 'Sneha Birthday Party',
-      date: '15 May 2026',
-      type: 'Birthday',
-      photos: 240,
-      folders: 1,
-      guestsViewed: 34,
-      status: 'archived' as const,
-      coverImage: null,
-    },
-  ];
+  const { data: eventsResponse, isLoading, error } = useEvents();
+  const createEventMutation = useCreateEvent();
 
-  const getStatusBadge = (status: string, progress?: number) => {
-    const variants = {
-      ready: 'bg-green-100 text-green-800 border-green-200',
-      processing: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      uploading: 'bg-blue-100 text-blue-800 border-blue-200',
-      draft: 'bg-gray-100 text-gray-800 border-gray-200',
-      archived: 'bg-gray-100 text-gray-600 border-gray-200',
-    };
-    return (
-      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${variants[status as keyof typeof variants] || variants.draft}`}>
-        {status === 'processing' && progress ? (
-          <>
-            <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-            Processing {progress}%
-          </>
-        ) : (
-          status.charAt(0).toUpperCase() + status.slice(1)
-        )}
-      </span>
-    );
+  const events = eventsResponse?.items || [];
+
+  const filteredEvents = events
+    .filter((event) =>
+      event.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'status':
+          const statusOrder = { draft: 0, uploading: 1, processing: 2, ready: 3, archived: 4 };
+          return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
+        default:
+          return 0;
+      }
+    });
+
+  const handleCreateEvent = async (data: CreateEventData) => {
+    await createEventMutation.mutateAsync(data);
+    setIsCreateDialogOpen(false);
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Your Events</h1>
+            <p className="text-muted-foreground mt-1">Manage and organize your photography events</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 animate-pulse">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-muted" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-4 w-3/4 bg-muted rounded" />
+                <div className="h-3 w-1/2 bg-muted rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <Camera className="h-12 w-12 text-muted-foreground/50 mb-4" />
+        <h3 className="text-lg font-medium">Failed to load events</h3>
+        <p className="text-muted-foreground mt-1 mb-4">{error.message}</p>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Your Events</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and organize your photography events
-          </p>
+          <p className="text-muted-foreground mt-1">Manage and organize your photography events</p>
         </div>
-        <Button asChild>
-          <a href="/dashboard/events/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Event
-          </a>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Event
         </Button>
       </div>
 
@@ -90,6 +99,8 @@ export default function EventsPage() {
           <input
             type="text"
             placeholder="Search events..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -98,58 +109,59 @@ export default function EventsPage() {
             <Filter className="mr-2 h-4 w-4" />
             Filters
           </Button>
-          <select className="flex h-10 items-center px-3 text-sm border border-border rounded-lg bg-background">
-            <option>Most Recent</option>
-            <option>Oldest First</option>
-            <option>By Name</option>
-            <option>By Status</option>
-          </select>
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="flex h-10 appearance-none items-center px-3 pr-8 text-sm border border-border rounded-lg bg-background"
+            >
+              <option value="newest">Most Recent</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name">By Name</option>
+              <option value="status">By Status</option>
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {mockEvents.map((event) => (
-          <Link key={event.id} href={`/dashboard/events/${event.id}`} className="block">
-            <div className="group flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-sm">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <Camera className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold truncate">{event.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {event.date} · {event.type} · {event.photos.toLocaleString()} photos · {event.folders} folders
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>{event.guestsViewed} guests</span>
-                    </div>
-                    {getStatusBadge(event.status, event.progress)}
-                  </div>
-                </div>
-              </div>
-              <FolderOpen className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {mockEvents.length === 0 && (
+      {filteredEvents.length > 0 ? (
+        <div className="space-y-4">
+          {filteredEvents.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+      ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Camera className="h-12 w-12 text-muted-foreground/50 mb-4" />
-          <h3 className="text-lg font-medium">No events yet</h3>
-          <p className="text-muted-foreground mt-1 mb-4">Create your first event to get started</p>
-          <Button asChild>
-            <a href="/dashboard/events/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Event
-            </a>
+          <h3 className="text-lg font-medium">
+            {searchQuery ? 'No events found' : 'No events yet'}
+          </h3>
+          <p className="text-muted-foreground mt-1 mb-4">
+            {searchQuery
+              ? 'Try adjusting your search or filters'
+              : 'Create your first event to get started'}
+          </p>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Event
           </Button>
         </div>
       )}
+
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Event</DialogTitle>
+            <DialogDescription>Fill in the details to create a new photography event</DialogDescription>
+          </DialogHeader>
+          <EventForm
+            onSubmit={handleCreateEvent}
+            onCancel={() => setIsCreateDialogOpen(false)}
+            isLoading={createEventMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
