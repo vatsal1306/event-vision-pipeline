@@ -7,6 +7,8 @@ interface AuthState {
   accessToken: string | null;
   isAuthenticated: boolean;
   setPhotographer: (photographer: Photographer, token: string) => void;
+  setTokens: (accessToken: string, refreshToken?: string) => void;
+  clearTokens: () => void;
   logout: () => void;
   refreshToken: () => Promise<void>;
 }
@@ -22,6 +24,20 @@ export const useAuthStore = create<AuthState>()(
         set({ photographer, accessToken: token, isAuthenticated: true });
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', token);
+        }
+      },
+
+      setTokens: (accessToken: string, refreshToken?: string) => {
+        set({ accessToken, isAuthenticated: true });
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('access_token', accessToken);
+        }
+      },
+
+      clearTokens: () => {
+        set({ accessToken: null, isAuthenticated: false, photographer: null });
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access_token');
         }
       },
 
