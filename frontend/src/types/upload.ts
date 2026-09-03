@@ -11,6 +11,7 @@ export interface FileProgress {
 export interface UploadFile {
   id: string;
   file?: File; // Optional because we can't persist File objects
+  relativePath?: string;
   targetFolderId: string;
   status: UploadStatus;
   progress: number;

@@ -29,7 +29,7 @@ interface UploadState {
   activeUploads: number;
   maxConcurrent: number;
   
-  addFiles: (eventId: string, files: File[], targetFolderId: string) => void;
+  addFiles: (eventId: string, files: { file: File; targetFolderId: string; relativePath?: string }[]) => void;
   removeFile: (eventId: string, fileId: string) => void;
   retryFile: (eventId: string, fileId: string) => void;
   pauseEvent: (eventId: string) => void;
@@ -45,10 +45,11 @@ export const useUploadStore = create<UploadState>()(
       activeUploads: 0,
       maxConcurrent: 6,
 
-      addFiles: (eventId: string, newFiles: File[], targetFolderId: string) => {
-        const uploadFiles: UploadFile[] = newFiles.map((file) => ({
+  addFiles: (eventId: string, newFiles: { file: File; targetFolderId: string; relativePath?: string }[]) => {
+        const uploadFiles: UploadFile[] = newFiles.map(({ file, targetFolderId, relativePath }) => ({
           id: crypto.randomUUID(),
           file, 
+          relativePath,
           targetFolderId,
           status: 'queued',
           progress: 0,
