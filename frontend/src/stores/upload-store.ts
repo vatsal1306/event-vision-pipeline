@@ -129,21 +129,44 @@ export const useUploadStore = create<UploadState>()(
       },
 
       pauseEvent: (eventId: string) => {
-        set((state) => ({
-          events: {
-            ...state.events,
-            [eventId]: { ...(state.events[eventId] || defaultEventState), status: 'paused' }
-          }
-        }));
+        set((state) => {
+          const evState = state.events[eventId];
+          if (!evState) return state;
+          let activeDelta = 0;
+          const newFiles = evState.files.map(f => {
+            if (f.status === 'uploading') {
+              activeDelta--;
+              return { ...f, status: 'paused' as const };
+            }
+            return f;
+          });
+          return {
+            events: {
+              ...state.events,
+              [eventId]: { ...evState, status: 'paused', files: newFiles }
+            },
+            activeUploads: Math.max(0, state.activeUploads + activeDelta)
+          };
+        });
       },
 
       resumeEvent: (eventId: string) => {
-        set((state) => ({
-          events: {
-            ...state.events,
-            [eventId]: { ...(state.events[eventId] || defaultEventState), status: 'uploading' }
-          }
-        }));
+        set((state) => {
+          const evState = state.events[eventId];
+          if (!evState) return state;
+          const newFiles = evState.files.map(f => {
+            if (f.status === 'paused') {
+              return { ...f, status: 'queued' as const };
+            }
+            return f;
+          });
+          return {
+            events: {
+              ...state.events,
+              [eventId]: { ...evState, status: 'uploading', files: newFiles }
+            }
+          };
+        });
       },
 
       cancelEvent: (eventId: string) => {

@@ -1,6 +1,9 @@
 import { useUploadStore } from '@/stores/upload-store';
 import { api } from '@/lib/api-client';
 
+import { toast } from 'sonner';
+import { UploadStatus } from '@/types/upload';
+
 const MOCK_DELAY_MS = 200;
 const CHUNK_SIZE = 1024 * 512; // Simulate 512KB chunks for smooth progress
 
@@ -23,7 +26,7 @@ export class UploadManager {
 
   async processQueue() {
     const store = useUploadStore.getState();
-    let { activeUploads, maxConcurrent, events } = store;
+    const { maxConcurrent, events } = store;
 
     // Iterate all events (usually just one is active for uploading)
     for (const [eventId, evState] of Object.entries(events)) {
@@ -32,7 +35,7 @@ export class UploadManager {
       const queuedFiles = evState.files.filter(f => f.status === 'queued');
       
       for (const file of queuedFiles) {
-        if (store.activeUploads >= maxConcurrent) break;
+        if (useUploadStore.getState().activeUploads >= maxConcurrent) break;
         
         if (!this.activeUploads.has(file.id)) {
           this.activeUploads.add(file.id);
@@ -75,7 +78,7 @@ export class UploadManager {
       }
 
       let newUploaded = currentFile.uploadedBytes + CHUNK_SIZE;
-      let status = currentFile.status;
+      let status: UploadStatus = currentFile.status;
       
       if (newUploaded >= currentFile.totalBytes) {
         newUploaded = currentFile.totalBytes;
@@ -156,7 +159,7 @@ export class UploadManager {
               folderCache.set(currentPath, res.id);
               parentId = res.id;
             } catch (err) {
-              console.error('Failed to create nested folder', currentPath, err);
+              toast.error(`Failed to create nested folder: ${currentPath}`);
               // Fallback to parent
             }
           }
