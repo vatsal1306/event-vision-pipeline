@@ -61,10 +61,10 @@ services:
     command:
       - -host=0.0.0.0
       - -port=8080
-      - -s3-store
       - -s3-bucket=${S3_BUCKET_ORIGINALS}
       - -s3-endpoint=https://s3.ap-south-1.amazonaws.com
       - -s3-object-prefix=originals/
+      - -s3-part-size=5242880
       - -hooks-http=http://backend:8000/api/v1/upload/hook
       - -hooks-enabled-events=post-finish,post-terminate
       - -hooks-http-retry=3
