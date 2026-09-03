@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { apiClient } from '@/lib/api-client';
+import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface DownloadButtonProps {
   photoId: string;
+  eventId: string;
   originalFilename: string;
   className?: string;
   variant?: 'default' | 'outline' | 'ghost' | 'secondary';
@@ -17,6 +18,7 @@ interface DownloadButtonProps {
 
 export function DownloadButton({
   photoId,
+  eventId,
   originalFilename,
   className,
   variant = 'outline',
@@ -28,23 +30,15 @@ export function DownloadButton({
     e.stopPropagation();
     setIsDownloading(true);
     try {
-      // In a real app, this might return a presigned URL or a blob.
-      // Here we simulate the API call that returns a blob.
-      const response = await apiClient.get(`/photos/${photoId}/download`, {
-        // @ts-ignore - axios supports responseType but our local RequestOptions type omits it
-        responseType: 'blob',
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response as any]));
+      const { url } = await api.downloadPhoto(eventId, photoId);
+      
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', originalFilename);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download failed', error);
+    } catch (error: unknown) {
       toast.error('Failed to download photo. Please try again.');
     } finally {
       setIsDownloading(false);

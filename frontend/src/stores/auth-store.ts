@@ -5,6 +5,7 @@ import { Photographer } from '@/types/user';
 interface AuthState {
   photographer: Photographer | null;
   accessToken: string | null;
+  refreshTokenString: string | null;
   isAuthenticated: boolean;
   setPhotographer: (photographer: Photographer, token: string) => void;
   setTokens: (accessToken: string, refreshToken?: string) => void;
@@ -18,6 +19,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       photographer: null,
       accessToken: null,
+      refreshTokenString: null,
       isAuthenticated: false,
 
       setPhotographer: (photographer: Photographer, token: string) => {
@@ -28,23 +30,28 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setTokens: (accessToken: string, refreshToken?: string) => {
-        set({ accessToken, isAuthenticated: true });
+        set({ accessToken, refreshTokenString: refreshToken || null, isAuthenticated: true });
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', accessToken);
+          if (refreshToken) {
+            localStorage.setItem('refresh_token', refreshToken);
+          }
         }
       },
 
       clearTokens: () => {
-        set({ accessToken: null, isAuthenticated: false, photographer: null });
+        set({ accessToken: null, refreshTokenString: null, isAuthenticated: false, photographer: null });
         if (typeof window !== 'undefined') {
           localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
         }
       },
 
       logout: () => {
-        set({ photographer: null, accessToken: null, isAuthenticated: false });
+        set({ photographer: null, accessToken: null, refreshTokenString: null, isAuthenticated: false });
         if (typeof window !== 'undefined') {
           localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
         }
       },
 
@@ -57,7 +64,8 @@ export const useAuthStore = create<AuthState>()(
       // omit refreshToken and actions from persistence
       partialize: (state) => ({ 
         photographer: state.photographer, 
-        accessToken: state.accessToken, 
+        accessToken: state.accessToken,
+        refreshTokenString: state.refreshTokenString,
         isAuthenticated: state.isAuthenticated 
       }),
     }

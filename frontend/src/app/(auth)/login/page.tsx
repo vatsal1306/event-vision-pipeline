@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { apiClient } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
 
@@ -45,7 +45,7 @@ export default function LoginPage() {
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
     try {
-      const response = await apiClient.post<{ accessToken: string; refreshToken: string }>('/auth/login', {
+      const response = await api.login({
         email: data.email,
         password: data.password,
       });
@@ -53,8 +53,8 @@ export default function LoginPage() {
       setTokens(response.accessToken, response.refreshToken);
       toast.success('Successfully logged in');
       router.push('/dashboard/events');
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Invalid email or password');
+    } catch (error: unknown) {
+      toast.error(error instanceof ApiError ? error.message : 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +116,7 @@ export default function LoginPage() {
       </Form>
 
       <div className="mt-6 text-center text-sm">
-        Don't have an account?{' '}
+        Don&apos;t have an account?{' '}
         <Link href="/register" className="font-semibold text-primary hover:underline">
           Sign up
         </Link>

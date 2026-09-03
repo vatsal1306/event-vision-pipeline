@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import Image, { ImageProps } from 'next/image';
+import { Blurhash } from 'react-blurhash';
 import { cn } from '@/lib/utils';
 
 interface ResponsiveImageProps extends Omit<ImageProps, 'src'> {
   src: string;
   alt: string;
+  blurhash?: string | null;
   aspectRatio?: number;
   className?: string;
   imageClassName?: string;
@@ -15,6 +17,7 @@ interface ResponsiveImageProps extends Omit<ImageProps, 'src'> {
 export function ResponsiveImage({
   src,
   alt,
+  blurhash,
   aspectRatio,
   className,
   imageClassName,
@@ -43,8 +46,20 @@ export function ResponsiveImage({
         {...props}
       />
       
-      {isLoading && (
-        <div className="absolute inset-0 bg-muted animate-pulse">
+      {isLoading && blurhash && (
+        <div className="absolute inset-0 z-0">
+          <Blurhash
+            hash={blurhash}
+            width="100%"
+            height="100%"
+            resolutionX={32}
+            resolutionY={32}
+            punch={1}
+          />
+        </div>
+      )}
+      {isLoading && !blurhash && (
+        <div className="absolute inset-0 bg-muted animate-pulse z-0">
           <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
         </div>
       )}

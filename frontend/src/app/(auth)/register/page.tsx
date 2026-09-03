@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { apiClient } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
 
@@ -73,7 +73,7 @@ export default function RegisterPage() {
   async function onRegisterSubmit(data: RegisterFormValues) {
     setIsLoading(true);
     try {
-      await apiClient.post('/auth/register', {
+      await api.register({
         studioName: data.studioName,
         email: data.email,
         password: data.password,
@@ -81,8 +81,8 @@ export default function RegisterPage() {
       });
       toast.success('OTP sent to your mobile number');
       setStep(2);
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to register');
+    } catch (error: unknown) {
+      toast.error(error instanceof ApiError ? error.message : 'Failed to register');
     } finally {
       setIsLoading(false);
     }
@@ -91,15 +91,16 @@ export default function RegisterPage() {
   async function onOtpSubmit(data: OtpFormValues) {
     setIsLoading(true);
     try {
-      const response = await apiClient.post<{ accessToken: string; refreshToken: string }>('/auth/verify-otp', {
+      const response = await api.verifyOtp({
+        phone: `+91${form.getValues('mobile')}`,
         code: data.code,
       });
 
       setTokens(response.accessToken, response.refreshToken);
       toast.success('Account created successfully');
       router.push('/dashboard/events');
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Invalid OTP');
+    } catch (error: unknown) {
+      toast.error(error instanceof ApiError ? error.message : 'Invalid OTP');
     } finally {
       setIsLoading(false);
     }

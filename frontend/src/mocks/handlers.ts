@@ -62,7 +62,7 @@ export const handlers = [
   }),
 
   // Photographer Auth
-  http.post('*/api/v1/auth/login', async ({ request }) => {
+  http.post('*/api/auth/login', async ({ request }) => {
     const data = await request.json() as any;
     await delay(800);
     if (data.email === 'admin@spotme.com' && data.password === 'Password123!') {
@@ -71,13 +71,13 @@ export const handlers = [
     return HttpResponse.json({ detail: 'Invalid credentials' }, { status: 401 });
   }),
 
-  http.post('*/api/v1/auth/register', async () => {
+  http.post('*/api/auth/register', async () => {
     await delay(800);
     // return success, expects OTP next
     return HttpResponse.json({ detail: 'OTP sent to mobile' });
   }),
   
-  http.post('*/api/v1/auth/verify-otp', async ({ request }) => {
+  http.post('*/api/auth/verify-otp', async ({ request }) => {
     const data = await request.json() as { code?: string };
     await delay(800);
     if (data.code === '123456') {
@@ -86,7 +86,7 @@ export const handlers = [
     return HttpResponse.json({ detail: 'Invalid code', code: 'INVALID_OTP' }, { status: 400 });
   }),
 
-  http.post('*/api/v1/auth/forgot-password', async () => {
+  http.post('*/api/auth/forgot-password', async () => {
     await delay(500);
     return HttpResponse.json({ detail: 'Reset link sent' });
   }),

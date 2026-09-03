@@ -8,7 +8,8 @@ import { Folder } from '@/types/event';
 import { GalleryGrid } from '@/components/gallery/gallery-grid';
 import { GalleryHeader } from '@/components/gallery/gallery-header';
 import { FolderNav } from '@/components/gallery/folder-nav';
-import { PhotoViewer } from '@/components/gallery/photo-viewer';
+import dynamic from 'next/dynamic';
+const PhotoViewer = dynamic(() => import('@/components/gallery/photo-viewer').then(mod => mod.PhotoViewer), { ssr: false });
 
 export default function GalleryDemoPage() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export default function GalleryDemoPage() {
     : allPhotos;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black text-white">
       <GalleryHeader event={event} photographer={photographer} />
       
       <main className="container mx-auto">
@@ -38,7 +39,7 @@ export default function GalleryDemoPage() {
           folders={folders} 
           selectedFolderId={selectedFolderId} 
           onSelectFolder={setSelectedFolderId} 
-          className="my-4 sticky top-16 bg-background z-10"
+          className="my-4 sticky top-16 bg-black z-10"
         />
         
         <GalleryGrid 

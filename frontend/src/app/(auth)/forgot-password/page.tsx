@@ -17,7 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { apiClient } from '@/lib/api-client';
+import { api } from '@/lib/api-client';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
   async function onSubmit(data: ForgotPasswordFormValues) {
     setIsLoading(true);
     try {
-      await apiClient.post('/auth/forgot-password', {
+      await api.forgotPassword({
         email: data.email,
       });
       setIsSubmitted(true);
@@ -58,7 +58,7 @@ export default function ForgotPasswordPage() {
         <CheckCircle2 className="h-12 w-12 text-primary" />
         <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
         <p className="text-sm text-muted-foreground mb-4">
-          We've sent a password reset link to <br />
+          We&apos;ve sent a password reset link to <br />
           <span className="font-medium text-foreground">{form.getValues('email')}</span>
         </p>
         <Button asChild className="w-full">
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
       <div className="flex flex-col space-y-2 text-center mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Forgot Password</h1>
         <p className="text-sm text-muted-foreground">
-          Enter your email address and we'll send you a link to reset your password.
+          Enter your email address and we&apos;ll send you a link to reset your password.
         </p>
       </div>
 

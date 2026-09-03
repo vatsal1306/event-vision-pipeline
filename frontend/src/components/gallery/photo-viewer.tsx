@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Photo } from '@/types/event';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -27,6 +27,14 @@ export function PhotoViewer({
 }: PhotoViewerProps) {
   const currentPhoto = photos[currentIndex];
 
+  const handlePrevious = useCallback(() => {
+    if (currentIndex > 0) onChangeIndex(currentIndex - 1);
+  }, [currentIndex, onChangeIndex]);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < photos.length - 1) onChangeIndex(currentIndex + 1);
+  }, [currentIndex, photos.length, onChangeIndex]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -43,15 +51,7 @@ export function PhotoViewer({
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'auto';
     };
-  }, [isOpen, currentIndex, photos.length]);
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) onChangeIndex(currentIndex - 1);
-  };
-
-  const handleNext = () => {
-    if (currentIndex < photos.length - 1) onChangeIndex(currentIndex + 1);
-  };
+  }, [isOpen, onClose, handlePrevious, handleNext]);
 
   return (
     <AnimatePresence>
@@ -72,6 +72,7 @@ export function PhotoViewer({
             {downloadEnabled && (
               <DownloadButton
                 photoId={currentPhoto.id}
+                eventId={currentPhoto.eventId}
                 originalFilename={currentPhoto.filename}
                 variant="ghost"
                 className="text-white hover:bg-white/20 hover:text-white rounded-full"

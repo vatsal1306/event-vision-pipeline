@@ -3,6 +3,7 @@ import { Sofia_Sans } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { MSWProvider } from "@/components/providers/msw-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 const sofiaSans = Sofia_Sans({
   subsets: ["latin"],
@@ -28,6 +29,7 @@ export default function RootLayout({
             {children}
           </QueryProvider>
         </MSWProvider>
+        <Toaster />
       </body>
     </html>
   );

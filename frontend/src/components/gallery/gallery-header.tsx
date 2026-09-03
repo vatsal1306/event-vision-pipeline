@@ -3,6 +3,7 @@
 import { Event } from '@/types/event';
 import { Photographer } from '@/types/user';
 import { format } from 'date-fns';
+import Image from 'next/image';
 import { Logo } from '@/components/shared/logo';
 import { cn } from '@/lib/utils';
 import { Share2 } from 'lucide-react';
@@ -26,7 +27,9 @@ export function GalleryHeader({
         {/* Photographer Branding */}
         <div className="flex items-center space-x-3">
           {photographer.logoUrl ? (
-            <img src={photographer.logoUrl} alt={photographer.studioName} className="h-8 w-8 rounded-md object-contain" />
+            <div className="relative h-8 w-8 rounded-md overflow-hidden">
+              <Image src={photographer.logoUrl} alt={photographer.studioName} fill className="object-contain" />
+            </div>
           ) : (
             <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
               {photographer.studioName.charAt(0)}
