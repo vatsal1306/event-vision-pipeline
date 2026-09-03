@@ -1,1 +1,1 @@
-"""AI Photo Sharing Platform — Backend application package."""
+"""SpotMe FastAPI application package."""

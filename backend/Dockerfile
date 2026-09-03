@@ -1,38 +1,28 @@
-# ── Build stage ───────────────────────────────────────────────────
 FROM python:3.10-slim AS builder
 
-# Install uv for fast dependency management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
 WORKDIR /build
-COPY pyproject.toml ./
-RUN uv sync --frozen --no-dev --no-install-project
 
-# ── Runtime stage ─────────────────────────────────────────────────
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml ./
+COPY app ./app
+
+RUN uv pip install --system --no-cache .
+
 FROM python:3.10-slim AS runtime
 
-# System deps for opencv-python-headless and Pillow
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libgl1 libglib2.0-0 libjpeg62-turbo libpng16-16 libwebp7 && \
-    rm -rf /var/lib/apt/lists/*
-
-# Non-root user
-RUN groupadd --gid 1000 appuser && \
-    useradd --uid 1000 --gid appuser --create-home appuser
+RUN useradd --create-home --uid 10001 appuser
 
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder /build/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY app ./app
 
-# Copy application code
-COPY app/ ./app/
-COPY models/ ./models/
-
-# Switch to non-root
 USER appuser
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8000
 

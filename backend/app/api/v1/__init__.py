@@ -1,1 +1,1 @@
-"""API v1 route handlers."""
+"""Version 1 API routes."""
