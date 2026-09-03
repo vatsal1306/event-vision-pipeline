@@ -8,11 +8,13 @@ import { useFolders } from '@/hooks/use-folders';
 import { Photo } from '@/types/event';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { FolderTree } from '@/components/dashboard/folder-tree';
-import { PhotoGrid } from '@/components/dashboard/photo-grid';
 import { PhotoDetailViewer } from '@/components/dashboard/photo-detail-viewer';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const PhotoGrid = dynamic(() => import('@/components/dashboard/photo-grid').then(m => m.PhotoGrid), { ssr: false });
 
 export default function EventDetailPage() {
   const params = useParams();

@@ -43,7 +43,7 @@ export function useDeleteFolder(eventId: string) {
     mutationFn: (folderId: string) => api.deleteFolder(eventId, folderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['folders', eventId] });
-      queryClient.invalidateQueries({ queryKey: ['photos', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['event-photos', eventId] });
     },
   });
 }

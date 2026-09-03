@@ -1,5 +1,5 @@
 import React from 'react';
-import Image from 'next/image';
+import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { Photo, FolderNode } from '@/types/event';
 import { useDeletePhotos } from '@/hooks/use-event-photos';
 import { useFolders } from '@/hooks/use-folders';
@@ -83,12 +83,14 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
           {/* Preview Image */}
           <div className="relative aspect-auto bg-muted rounded-lg overflow-hidden border border-border flex items-center justify-center min-h-[300px]">
             {photo.proxyUrl ? (
-              <Image
+              <ResponsiveImage
                 src={photo.proxyUrl}
                 alt={photo.filename}
+                blurhash={photo.blurhash}
                 width={800}
                 height={600}
-                className="w-full h-auto max-h-[60vh] object-contain"
+                className="w-full h-auto max-h-[60vh]"
+                imageClassName="object-contain"
                 unoptimized
               />
             ) : (

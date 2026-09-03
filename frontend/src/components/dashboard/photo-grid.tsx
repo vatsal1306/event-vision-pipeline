@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
+import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEventPhotos, useMovePhotos, useDeletePhotos } from '@/hooks/use-event-photos';
 import { useFolders } from '@/hooks/use-folders';
@@ -28,7 +29,7 @@ interface PhotoGridProps {
 }
 
 export function PhotoGrid({ eventId, folderId, onPhotoClick }: PhotoGridProps) {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useEventPhotos(eventId, folderId);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useEventPhotos({ eventId, folderId: folderId ?? undefined });
   const { data: folders = [] } = useFolders(eventId);
   
   const moveMutation = useMovePhotos(eventId);
@@ -42,8 +43,28 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick }: PhotoGridProps) {
     return data?.pages.flatMap(page => page.items) ?? [];
   }, [data]);
 
-  // Responsive columns (naive approach for a resize-aware grid, you'd ideally use a ResizeObserver on parentRef)
-  const columns = 4;
+  // Responsive columns using ResizeObserver
+  const [columns, setColumns] = useState(4);
+  
+  useEffect(() => {
+    const scrollElement = parentRef.current;
+    if (!scrollElement) return;
+
+    const updateColumns = () => {
+      const width = scrollElement.clientWidth;
+      if (width < 640) setColumns(2);
+      else if (width < 1024) setColumns(3);
+      else if (width < 1536) setColumns(4);
+      else setColumns(6);
+    };
+
+    const observer = new ResizeObserver(() => updateColumns());
+    observer.observe(scrollElement);
+    updateColumns();
+
+    return () => observer.disconnect();
+  }, []);
+
   const count = photos.length;
 
   const rowVirtualizer = useVirtualizer({
@@ -204,15 +225,15 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick }: PhotoGridProps) {
                       onClick={() => isSelectionMode ? toggleSelection(photo.id, { stopPropagation: () => {} } as any) : onPhotoClick(photo)}
                     >
                       {photo.proxyUrl && (
-                        <Image
+                        <ResponsiveImage
                           src={photo.proxyUrl}
                           alt={photo.filename}
-                          fill
-                          className={cn(
-                            "object-cover transition-transform duration-300",
+                          blurhash={photo.blurhash}
+                          className="w-full h-full"
+                          imageClassName={cn(
                             isSelected ? "scale-95 brightness-90" : "group-hover:scale-105"
                           )}
-                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 16vw"
                           unoptimized // for picsum mocks
                         />
                       )}
