@@ -1,8 +1,10 @@
 import { http, HttpResponse, delay } from 'msw';
+import { v4 as uuidv4 } from 'uuid';
 import { mockEvents } from './data/events';
 import { mockPhotos, mockMatchedPhotos } from './data/photos';
 import { mockProfile } from './data/users';
 import { mockAnalyticsSummary, mockAnalyticsTopPhotos } from './data/analytics';
+import { EventType } from '@/types/event';
 
 export const handlers = [
   // ==========================================
@@ -20,6 +22,47 @@ export const handlers = [
       offset: 0,
       hasMore: false,
     });
+  }),
+
+  // Create event
+  http.post('*/api/events', async ({ request }) => {
+    const data = await request.json() as {
+      name: string;
+      dateStart: string;
+      dateEnd?: string;
+      eventType: EventType;
+      description?: string;
+    };
+    await delay(800);
+
+    const now = new Date().toISOString();
+    const newEvent = {
+      id: uuidv4(),
+      photographerId: 'photog-1234',
+      name: data.name,
+      slug: data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36),
+      dateStart: data.dateStart,
+      dateEnd: data.dateEnd || null,
+      eventType: data.eventType,
+      status: 'draft' as const,
+      description: data.description || null,
+      coverPhotoId: null,
+      downloadEnabled: false,
+      masterLinkActive: false,
+      guestLinkActive: false,
+      totalPhotos: 0,
+      totalFaces: 0,
+      processedPhotos: 0,
+      guestCount: 0,
+      folderCount: 0,
+      archiveAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    mockEvents.unshift(newEvent);
+
+    return HttpResponse.json(newEvent, { status: 201 });
   }),
 
   // Get specific event details
