@@ -5,7 +5,7 @@ import { mockPhotos, mockMatchedPhotos } from './data/photos';
 import { mockFolders } from './data/folders';
 import { mockProfile } from './data/users';
 import { mockAnalyticsSummary, mockAnalyticsTopPhotos, mockGuestAnalytics } from './data/analytics';
-import { EventType } from '@/types/event';
+import { Event, EventType } from '@/types/event';
 
 export const handlers = [
   // ==========================================
@@ -75,10 +75,12 @@ export const handlers = [
 
   // Toggle link (Master / Guest)
   http.put('*/api/events/:id/links/:type/toggle', ({ params }) => {
-    const eventIndex = mockEvents.findIndex(e => e.id === params.id);
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const eventIndex = mockEvents.findIndex(e => e.id === eventId);
     if (eventIndex === -1) return new HttpResponse(null, { status: 404 });
     
-    const type = params.type as 'master' | 'guest';
+    const rawType = Array.isArray(params.type) ? params.type[0] : params.type;
+    const type = rawType as 'master' | 'guest';
     if (type === 'master') {
       mockEvents[eventIndex].masterLinkActive = !mockEvents[eventIndex].masterLinkActive;
     } else if (type === 'guest') {
@@ -90,7 +92,8 @@ export const handlers = [
 
   // Update Event Settings
   http.put('*/api/events/:id/settings', async ({ params, request }) => {
-    const eventIndex = mockEvents.findIndex(e => e.id === params.id);
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const eventIndex = mockEvents.findIndex(e => e.id === eventId);
     if (eventIndex === -1) return new HttpResponse(null, { status: 404 });
     
     const body = await request.json() as Partial<Event>;
