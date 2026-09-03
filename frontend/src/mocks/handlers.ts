@@ -5,7 +5,7 @@ import { mockPhotos, mockMatchedPhotos } from './data/photos';
 import { mockFolders } from './data/folders';
 import { mockProfile } from './data/users';
 import { mockAnalyticsSummary, mockAnalyticsTopPhotos, mockGuestAnalytics } from './data/analytics';
-import { EventType } from '@/types/event';
+import { Event, EventType } from '@/types/event';
 
 export const handlers = [
   // ==========================================
@@ -71,6 +71,35 @@ export const handlers = [
     const event = mockEvents.find(e => e.id === params.id);
     if (!event) return new HttpResponse(null, { status: 404 });
     return HttpResponse.json(event);
+  }),
+
+  // Toggle link (Master / Guest)
+  http.put('*/api/events/:id/links/:type/toggle', ({ params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const eventIndex = mockEvents.findIndex(e => e.id === eventId);
+    if (eventIndex === -1) return new HttpResponse(null, { status: 404 });
+    
+    const rawType = Array.isArray(params.type) ? params.type[0] : params.type;
+    const type = rawType as 'master' | 'guest';
+    if (type === 'master') {
+      mockEvents[eventIndex].masterLinkActive = !mockEvents[eventIndex].masterLinkActive;
+    } else if (type === 'guest') {
+      mockEvents[eventIndex].guestLinkActive = !mockEvents[eventIndex].guestLinkActive;
+    }
+
+    return HttpResponse.json(null, { status: 200 });
+  }),
+
+  // Update Event Settings
+  http.put('*/api/events/:id/settings', async ({ params, request }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const eventIndex = mockEvents.findIndex(e => e.id === eventId);
+    if (eventIndex === -1) return new HttpResponse(null, { status: 404 });
+    
+    const body = await request.json() as Partial<Event>;
+    mockEvents[eventIndex] = { ...mockEvents[eventIndex], ...body };
+
+    return HttpResponse.json(mockEvents[eventIndex]);
   }),
 
   // Photo list with pagination and folder filtering

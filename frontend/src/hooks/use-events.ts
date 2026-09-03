@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { Event, EventType } from '@/types/event';
 
@@ -37,5 +38,33 @@ export function useEvent(id: string) {
     queryKey: ['event', id],
     queryFn: () => api.getEventDetails(id),
     enabled: !!id,
+  });
+}
+
+export function useToggleLink(eventId: string) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (type: 'guest' | 'master') => api.toggleLink(eventId, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+    },
+    onError: () => {
+      toast.error('Failed to toggle link');
+    }
+  });
+}
+
+export function useUpdateEventSettings(eventId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Partial<Event>) => api.updateEventSettings(eventId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+    },
+    onError: () => {
+      toast.error('Failed to update settings');
+    }
   });
 }
