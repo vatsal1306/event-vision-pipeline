@@ -73,6 +73,32 @@ export const handlers = [
     return HttpResponse.json(event);
   }),
 
+  // Toggle link (Master / Guest)
+  http.put('*/api/events/:id/links/:type/toggle', ({ params }) => {
+    const eventIndex = mockEvents.findIndex(e => e.id === params.id);
+    if (eventIndex === -1) return new HttpResponse(null, { status: 404 });
+    
+    const type = params.type as 'master' | 'guest';
+    if (type === 'master') {
+      mockEvents[eventIndex].masterLinkActive = !mockEvents[eventIndex].masterLinkActive;
+    } else if (type === 'guest') {
+      mockEvents[eventIndex].guestLinkActive = !mockEvents[eventIndex].guestLinkActive;
+    }
+
+    return HttpResponse.json(null, { status: 200 });
+  }),
+
+  // Update Event Settings
+  http.put('*/api/events/:id/settings', async ({ params, request }) => {
+    const eventIndex = mockEvents.findIndex(e => e.id === params.id);
+    if (eventIndex === -1) return new HttpResponse(null, { status: 404 });
+    
+    const body = await request.json() as Partial<Event>;
+    mockEvents[eventIndex] = { ...mockEvents[eventIndex], ...body };
+
+    return HttpResponse.json(mockEvents[eventIndex]);
+  }),
+
   // Photo list with pagination and folder filtering
   http.get('*/api/events/:id/photos', ({ request, params }) => {
     const url = new URL(request.url);

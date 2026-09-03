@@ -11,6 +11,7 @@ import { FolderTree } from '@/components/dashboard/folder-tree';
 import { PhotoDetailViewer } from '@/components/dashboard/photo-detail-viewer';
 import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
 import { LeadTable } from '@/components/dashboard/lead-table';
+import { LinkGenerator } from '@/components/dashboard/link-generator';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2 } from 'lucide-react';
@@ -159,11 +160,9 @@ export default function EventDetailPage() {
           </div>
         )}
 
-        {currentTab === 'share' && (
-          <div className="p-8 max-w-4xl mx-auto text-center mt-12">
-            <Share2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h2 className="text-2xl font-semibold mb-2">Sharing Coming Soon</h2>
-            <p className="text-muted-foreground">This tab will allow generating and configuring master/guest links. (FE-014)</p>
+        {currentTab === 'share' && event && (
+          <div className="p-4 md:p-8">
+            <LinkGenerator event={event} />
           </div>
         )}
       </div>

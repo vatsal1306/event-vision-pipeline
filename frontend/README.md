@@ -77,3 +77,9 @@ NEXT_PUBLIC_MOCK_API=true
 - Implemented LeadTable with sortable, paginated guest data.
 - Built client-side CSV export functionality for guest lead capture data.
 - Integrated into the existing unified Event Dashboard tabs.
+
+### FE-014: Share Links & Settings
+- Implemented `LinkGenerator` component in the Event Dashboard Share tab.
+- Generates and allows copying of Master and Guest links using the event slug.
+- Added toggle controls for Master link, Guest link, and "Allow original downloads" setting.
+- Integrated with MSW to mock event link toggling and global settings updates.

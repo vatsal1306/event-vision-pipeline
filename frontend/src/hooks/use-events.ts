@@ -39,3 +39,25 @@ export function useEvent(id: string) {
     enabled: !!id,
   });
 }
+
+export function useToggleLink(eventId: string) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (type: 'guest' | 'master') => api.toggleLink(eventId, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+    },
+  });
+}
+
+export function useUpdateEventSettings(eventId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Partial<Event>) => api.updateEventSettings(eventId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+    },
+  });
+}
