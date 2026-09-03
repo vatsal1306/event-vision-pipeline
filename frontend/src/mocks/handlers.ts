@@ -61,6 +61,36 @@ export const handlers = [
     });
   }),
 
+  // Photographer Auth
+  http.post('*/api/auth/login', async ({ request }) => {
+    const data = await request.json() as any;
+    await delay(800);
+    if (data.email === 'admin@spotme.com' && data.password === 'Password123!') {
+      return HttpResponse.json({ accessToken: 'photographer_token', refreshToken: 'photographer_refresh' });
+    }
+    return HttpResponse.json({ detail: 'Invalid credentials' }, { status: 401 });
+  }),
+
+  http.post('*/api/auth/register', async () => {
+    await delay(800);
+    // return success, expects OTP next
+    return HttpResponse.json({ detail: 'OTP sent to mobile' });
+  }),
+  
+  http.post('*/api/auth/verify-otp', async ({ request }) => {
+    const data = await request.json() as { code?: string };
+    await delay(800);
+    if (data.code === '123456') {
+      return HttpResponse.json({ accessToken: 'photographer_token', refreshToken: 'photographer_refresh' });
+    }
+    return HttpResponse.json({ detail: 'Invalid code', code: 'INVALID_OTP' }, { status: 400 });
+  }),
+
+  http.post('*/api/auth/forgot-password', async () => {
+    await delay(500);
+    return HttpResponse.json({ detail: 'Reset link sent' });
+  }),
+
   // Mock guest auth / OTP validation
   http.post('*/api/event/:slug/auth', async () => {
     // Send OTP stub

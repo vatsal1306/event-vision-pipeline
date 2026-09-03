@@ -131,7 +131,7 @@ export const api = {
   forgotPassword: (data: unknown) => apiClient.post<void>('/api/auth/forgot-password', data),
   resetPassword: (data: unknown) => apiClient.post<void>('/api/auth/reset-password', data),
   sendOtp: (data: unknown) => apiClient.post<void>('/api/auth/send-otp', data),
-  verifyOtp: (data: unknown) => apiClient.post<void>('/api/auth/verify-otp', data),
+  verifyOtp: (data: unknown) => apiClient.post<TokenResponse>('/api/auth/verify-otp', data),
 
   // Events
   getEvents: () => apiClient.get<PaginatedResponse<Event>>('/api/events'),

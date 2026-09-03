@@ -43,7 +43,7 @@ export default function MarketingLayout({
           <div className="flex items-center gap-6">
             <Logo size="sm" />
             <span className="text-sm text-ink/40">
-              © {new Date().getFullYear()} SpotMe. All rights reserved.
+              ©️ {new Date().getFullYear()} HPK AI Labs. All rights reserved
             </span>
           </div>
 
