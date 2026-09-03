@@ -6,6 +6,7 @@ import { mockFolders } from './data/folders';
 import { mockProfile } from './data/users';
 import { mockAnalyticsSummary, mockAnalyticsTopPhotos, mockGuestAnalytics } from './data/analytics';
 import { Event, EventType } from '@/types/event';
+import { Photographer } from '@/types/user';
 
 export const handlers = [
   // ==========================================
@@ -314,6 +315,29 @@ export const handlers = [
   // Profile
   http.get('*/api/profile', () => {
     return HttpResponse.json(mockProfile);
+  }),
+  
+  http.put('*/api/profile', async ({ request }) => {
+    const body = await request.json() as Partial<Photographer>;
+    Object.assign(mockProfile, body);
+    return HttpResponse.json(mockProfile);
+  }),
+
+  http.post('*/api/profile/logo', () => {
+    mockProfile.logoUrl = `https://picsum.photos/seed/${uuidv4()}/200/200`;
+    return HttpResponse.json({ url: mockProfile.logoUrl });
+  }),
+
+  http.post('*/api/profile/watermark', () => {
+    mockProfile.watermarkUrl = `https://picsum.photos/seed/${uuidv4()}/400/200`;
+    return HttpResponse.json({ url: mockProfile.watermarkUrl });
+  }),
+
+  http.get('*/api/profile/storage', () => {
+    return HttpResponse.json({
+      used: mockProfile.storageUsedBytes,
+      limit: mockProfile.storageLimitBytes,
+    });
   }),
 
   // Analytics
