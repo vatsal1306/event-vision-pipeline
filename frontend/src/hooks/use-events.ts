@@ -13,7 +13,11 @@ export interface CreateEventData {
 export function useEvents() {
   return useQuery({
     queryKey: ['events'],
-    queryFn: () => api.getEvents(),
+    queryFn: async () => {
+      const res = await api.getEvents();
+      // Safely handle generic 'items' or specific 'events' key based on backend contract
+      return ((res as any).events || res.items || []) as Event[];
+    },
   });
 }
 

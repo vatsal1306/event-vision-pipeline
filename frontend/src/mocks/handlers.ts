@@ -53,6 +53,8 @@ export const handlers = [
       totalPhotos: 0,
       totalFaces: 0,
       processedPhotos: 0,
+      guestCount: 0,
+      folderCount: 0,
       archiveAt: null,
       createdAt: now,
       updatedAt: now,

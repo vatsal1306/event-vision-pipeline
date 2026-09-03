@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
 import { Button } from '@/components/ui/button';
 import { Camera, Plus, Search, Filter, ChevronDown } from 'lucide-react';
@@ -11,14 +13,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 export default function EventsPage() {
   const { photographer } = useAuthStore();
+  const router = useRouter();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
 
-  const { data: eventsResponse, isLoading, error } = useEvents();
+  const { data: events = [], isLoading, error } = useEvents();
   const createEventMutation = useCreateEvent();
-
-  const events = eventsResponse?.items || [];
 
   const filteredEvents = events
     .filter((event) =>
@@ -41,8 +42,13 @@ export default function EventsPage() {
     });
 
   const handleCreateEvent = async (data: CreateEventData) => {
-    await createEventMutation.mutateAsync(data);
-    setIsCreateDialogOpen(false);
+    try {
+      const created = await createEventMutation.mutateAsync(data);
+      setIsCreateDialogOpen(false);
+      router.push(`/dashboard/events/${created.id}`);
+    } catch (err) {
+      toast.error('Failed to create event. Please try again.');
+    }
   };
 
   if (isLoading) {
