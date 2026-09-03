@@ -5,6 +5,7 @@ import { useGuests } from '@/hooks/use-analytics';
 import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Download, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   Table,
   TableBody,
@@ -33,6 +34,7 @@ export function LeadTable({ eventId }: LeadTableProps) {
       setSortBy(column);
       setSortOrder('asc');
     }
+    setPage(1);
   };
 
   const handleExport = async () => {
@@ -44,7 +46,7 @@ export function LeadTable({ eventId }: LeadTableProps) {
       const headers = ['Name', 'Phone', 'First Visit', 'Photos Matched', 'Downloads'];
       const csvContent = [
         headers.join(','),
-        ...guestsList.map((g: any) => [
+        ...guestsList.map((g: import('@/types/analytics').GuestAnalytics) => [
           `"${g.guest_name}"`,
           `"${g.guest_phone}"`,
           `"${g.first_visit ? new Date(g.first_visit).toLocaleDateString() : 'N/A'}"`,
@@ -61,8 +63,9 @@ export function LeadTable({ eventId }: LeadTableProps) {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export failed', error);
+      toast.error('Export failed');
     }
   };
 
@@ -114,7 +117,7 @@ export function LeadTable({ eventId }: LeadTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              guests.map((guest: any) => (
+              guests.map((guest: import('@/types/analytics').GuestAnalytics) => (
                 <TableRow key={guest.guest_id}>
                   <TableCell className="font-medium">{guest.guest_name}</TableCell>
                   <TableCell>{guest.guest_phone}</TableCell>

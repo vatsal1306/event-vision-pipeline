@@ -59,7 +59,7 @@ export function AnalyticsOverview({ eventId }: AnalyticsOverviewProps) {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {topPhotosData?.photos.map((photo: any) => (
+            {topPhotosData?.photos.map((photo: import('@/types/analytics').AnalyticsTopPhoto) => (
               <div key={photo.photoId} className="group relative rounded-md overflow-hidden border">
                 <ResponsiveImage
                   src={`https://picsum.photos/seed/${photo.photoId}/400/400`}
