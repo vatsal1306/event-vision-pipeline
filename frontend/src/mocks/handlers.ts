@@ -2,6 +2,7 @@ import { http, HttpResponse, delay } from 'msw';
 import { v4 as uuidv4 } from 'uuid';
 import { mockEvents } from './data/events';
 import { mockPhotos, mockMatchedPhotos } from './data/photos';
+import { mockFolders } from './data/folders';
 import { mockProfile } from './data/users';
 import { mockAnalyticsSummary, mockAnalyticsTopPhotos } from './data/analytics';
 import { EventType } from '@/types/event';
@@ -92,6 +93,50 @@ export const handlers = [
       offset,
       hasMore: offset + limit < photos.length,
     });
+  }),
+
+  // Folder list
+  http.get('*/api/events/:id/folders', ({ params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    return HttpResponse.json(mockFolders[eventId] || []);
+  }),
+
+  // Create folder
+  http.post('*/api/events/:id/folders', async ({ request, params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const data = await request.json() as any;
+    const newFolder = {
+      id: `folder-${Date.now()}`,
+      eventId,
+      parentId: data.parentId || null,
+      name: data.name,
+      sortOrder: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      children: [],
+    };
+    return HttpResponse.json(newFolder, { status: 201 });
+  }),
+
+  // Rename folder
+  http.put('*/api/events/:id/folders/:folderId', async ({ request, params }) => {
+    const data = await request.json() as any;
+    return HttpResponse.json({ name: data.name });
+  }),
+
+  // Delete folder
+  http.delete('*/api/events/:id/folders/:folderId', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Move photos
+  http.post('*/api/events/:id/photos/move', async () => {
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  // Delete photo
+  http.delete('*/api/events/:id/photos/:photoId', () => {
+    return new HttpResponse(null, { status: 204 });
   }),
 
   // Guest selfie → simulated match

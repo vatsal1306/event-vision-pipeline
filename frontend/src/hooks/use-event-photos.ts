@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 
 interface UseEventPhotosOptions {
@@ -20,6 +20,33 @@ export function useEventPhotos({ eventId, folderId, limit = 50 }: UseEventPhotos
         return nextOffset;
       }
       return undefined;
+    },
+  });
+}
+
+export function useMovePhotos(eventId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { photoIds: string[]; targetFolderId: string | null }) => 
+      api.movePhotos(eventId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event-photos', eventId] });
+    },
+  });
+}
+
+export function useDeletePhotos(eventId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (photoIds: string[]) => {
+      // API currently only supports single delete, so we do it in parallel
+      await Promise.all(photoIds.map(id => api.deletePhoto(eventId, id)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event-photos', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] }); // update total photos
     },
   });
 }
