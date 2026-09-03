@@ -15,6 +15,8 @@ import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2
 import { cn } from '@/lib/utils';
 
 const PhotoGrid = dynamic(() => import('@/components/dashboard/photo-grid').then(m => m.PhotoGrid), { ssr: false });
+const UploadDropzone = dynamic(() => import('@/components/dashboard/upload-dropzone').then(m => m.UploadDropzone), { ssr: false });
+const UploadProgress = dynamic(() => import('@/components/dashboard/upload-progress').then(m => m.UploadProgress), { ssr: false });
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -142,10 +144,9 @@ export default function EventDetailPage() {
         )}
 
         {currentTab === 'upload' && (
-          <div className="p-8 max-w-4xl mx-auto text-center mt-12">
-            <UploadCloud className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h2 className="text-2xl font-semibold mb-2">Upload Interface Coming Soon</h2>
-            <p className="text-muted-foreground">This tab will feature a chunked resumable uploader. (FE-012)</p>
+          <div className="p-8 max-w-4xl mx-auto mt-6">
+            <UploadDropzone eventId={id} folders={folders} />
+            <UploadProgress eventId={id} />
           </div>
         )}
 

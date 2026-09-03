@@ -57,3 +57,17 @@ NEXT_PUBLIC_MOCK_API=true
 
 **Testing credentials:**
 - When prompted for an OTP in the mocked guest authentication flow, use `123456`.
+
+## Developed Features
+
+### FE-011: Event Details & Photo Grid
+- Integrated dynamic `FolderTree` and virtualized `PhotoGrid`.
+- Responsive layout using `ResizeObserver`.
+- MSW handlers for dynamic folder selection and photo retrieval.
+
+### FE-012: Resumable Uploads
+- Chunked, resumable file and folder uploads.
+- Managed by `UploadManager` communicating with `tus-js-client`.
+- Supports drag-and-drop file/folder uploads via `react-dropzone`.
+- State managed by Zustand in `src/stores/upload-store.ts`.
+- Integrated target folder creation logic (automatically creating subfolders matching dragged local directories).

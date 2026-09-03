@@ -17,7 +17,7 @@ export const useUpload = (eventId: string) => {
     uploadSpeed: eventState?.uploadSpeed || 0,
     status: eventState?.status || 'idle',
     
-    addFiles: (files: File[], targetFolderId: string) => store.addFiles(eventId, files, targetFolderId),
+    addFiles: (files: { file: File; targetFolderId: string; relativePath?: string }[]) => store.addFiles(eventId, files),
     removeFile: (fileId: string) => store.removeFile(eventId, fileId),
     retryFile: (fileId: string) => store.retryFile(eventId, fileId),
     pauseEvent: () => store.pauseEvent(eventId),
