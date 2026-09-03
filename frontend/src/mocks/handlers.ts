@@ -2,6 +2,7 @@ import { http, HttpResponse, delay } from 'msw';
 import { v4 as uuidv4 } from 'uuid';
 import { mockEvents } from './data/events';
 import { mockPhotos, mockMatchedPhotos } from './data/photos';
+import { mockFolders } from './data/folders';
 import { mockProfile } from './data/users';
 import { mockAnalyticsSummary, mockAnalyticsTopPhotos } from './data/analytics';
 import { EventType } from '@/types/event';
@@ -92,6 +93,123 @@ export const handlers = [
       offset,
       hasMore: offset + limit < photos.length,
     });
+  }),
+
+  // Folder list
+  http.get('*/api/events/:id/folders', ({ params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    return HttpResponse.json(mockFolders[eventId] || []);
+  }),
+
+  // Create folder
+  http.post('*/api/events/:id/folders', async ({ request, params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const data = await request.json() as any;
+    const newFolder = {
+      id: `folder-${Date.now()}`,
+      eventId,
+      parentId: data.parentId || null,
+      name: data.name,
+      sortOrder: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      children: [],
+    };
+    
+    if (!mockFolders[eventId]) {
+      mockFolders[eventId] = [];
+    }
+
+    if (data.parentId) {
+      // Helper to find and add
+      const addChild = (nodes: any[]) => {
+        for (const node of nodes) {
+          if (node.id === data.parentId) {
+            node.children = node.children || [];
+            node.children.push(newFolder);
+            return true;
+          }
+          if (node.children && addChild(node.children)) return true;
+        }
+        return false;
+      };
+      addChild(mockFolders[eventId]);
+    } else {
+      mockFolders[eventId].push(newFolder);
+    }
+    
+    return HttpResponse.json(newFolder, { status: 201 });
+  }),
+
+  // Rename folder
+  http.put('*/api/events/:id/folders/:folderId', async ({ request, params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const folderId = Array.isArray(params.folderId) ? params.folderId[0] : params.folderId;
+    const data = await request.json() as any;
+    
+    if (mockFolders[eventId]) {
+      const rename = (nodes: any[]) => {
+        for (const node of nodes) {
+          if (node.id === folderId) {
+            node.name = data.name;
+            return true;
+          }
+          if (node.children && rename(node.children)) return true;
+        }
+        return false;
+      };
+      rename(mockFolders[eventId]);
+    }
+
+    return HttpResponse.json({ name: data.name });
+  }),
+
+  // Delete folder
+  http.delete('*/api/events/:id/folders/:folderId', ({ params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const folderId = Array.isArray(params.folderId) ? params.folderId[0] : params.folderId;
+    
+    if (mockFolders[eventId]) {
+      const del = (nodes: any[]): any[] => {
+        return nodes.filter(node => {
+          if (node.id === folderId) return false;
+          if (node.children) node.children = del(node.children);
+          return true;
+        });
+      };
+      mockFolders[eventId] = del(mockFolders[eventId]);
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Move photos
+  http.post('*/api/events/:id/photos/move', async ({ request, params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const data = await request.json() as any;
+    
+    if (mockPhotos[eventId]) {
+      mockPhotos[eventId] = mockPhotos[eventId].map(p => {
+        if (data.photoIds.includes(p.id)) {
+          return { ...p, folderId: data.targetFolderId };
+        }
+        return p;
+      });
+    }
+
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  // Delete photo
+  http.delete('*/api/events/:id/photos/:photoId', ({ params }) => {
+    const eventId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const photoId = Array.isArray(params.photoId) ? params.photoId[0] : params.photoId;
+    
+    if (mockPhotos[eventId]) {
+      mockPhotos[eventId] = mockPhotos[eventId].filter(p => p.id !== photoId);
+    }
+    
+    return new HttpResponse(null, { status: 204 });
   }),
 
   // Guest selfie → simulated match
