@@ -1,5 +1,6 @@
-import { Event, Folder, FolderNode, Photo } from '@/types/event';
+import { Event, EventType, EventStatus, Folder, FolderNode, Photo } from '@/types/event';
 import { Photographer } from '@/types/user';
+import { AnalyticsSummary, AnalyticsTopPhoto, PaginatedGuests } from '@/types/analytics';
 import { PaginatedResponse, TokenResponse } from '@/types/api';
 
 export class ApiError extends Error {
@@ -179,9 +180,17 @@ export const api = {
   downloadGuestPhoto: (slug: string, photoId: string) => apiClient.get<{ url: string }>(`/api/event/${slug}/photos/${photoId}/download`),
 
   // Analytics
-  getAnalyticsSummary: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/summary`),
-  getAnalyticsTopPhotos: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/top-photos`),
-  getAnalyticsGuests: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/guests`),
+  getAnalyticsSummary: (eventId: string) => apiClient.get<AnalyticsSummary>(`/api/events/${eventId}/analytics/summary`),
+  getAnalyticsTopPhotos: (eventId: string) => apiClient.get<{ photos: AnalyticsTopPhoto[] }>(`/api/events/${eventId}/analytics/top-photos`),
+  getAnalyticsGuests: (eventId: string, page = 1, limit = 10, sortBy = 'guest_name', sortOrder = 'asc') => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      sortBy,
+      sortOrder
+    });
+    return apiClient.get<PaginatedGuests>(`/api/events/${eventId}/analytics/guests?${params.toString()}`);
+  },
   exportAnalyticsGuests: (eventId: string) => apiClient.get<Blob>(`/api/events/${eventId}/analytics/guests/export`),
 
   // Profile
