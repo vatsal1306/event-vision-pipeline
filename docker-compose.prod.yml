@@ -1,0 +1,134 @@
+# Production stack for ~/event-vision-pipeline on the app EC2.
+# Usage (from repo root):
+#   cp .env.prod.example .env   # fill in secrets
+#   chmod 600 .env
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+      - tusd
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_MOCK_API: ${NEXT_PUBLIC_MOCK_API:-false}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/photoshare
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  tusd:
+    image: tusproject/tusd:v2.5.0
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+    command:
+      - -host=0.0.0.0
+      - -port=8080
+      - -s3-store
+      - -s3-bucket=${S3_BUCKET_ORIGINALS}
+      - -s3-endpoint=https://s3.ap-south-1.amazonaws.com
+      - -s3-object-prefix=originals/
+      - -hooks-http=http://backend:8000/api/v1/upload/hook
+      - -hooks-enabled-events=post-finish,post-terminate
+      - -hooks-http-retry=3
+      - -behind-proxy
+      - -base-path=/files/
+      - -max-size=52428800
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    depends_on:
+      - backend
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    command:
+      - celery
+      - -A
+      - app.tasks.celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency=2
+      - -Q
+      - photo_processing,notifications
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/photoshare
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: photoshare
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d photoshare"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

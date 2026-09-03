@@ -1,0 +1,28 @@
+{
+	email admin@hpklabs.ai
+}
+
+spotme.hpklabs.ai {
+	encode gzip zstd
+
+	handle /files/* {
+		reverse_proxy tusd:8080 {
+			transport http {
+				read_timeout 1h
+				write_timeout 1h
+			}
+		}
+	}
+
+	handle /health {
+		reverse_proxy backend:8000
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

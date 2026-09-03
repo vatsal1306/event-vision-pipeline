@@ -122,9 +122,11 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Application secrets (local dev and EC2 production)
 .env
-.venv
+.env.local
+.env.*.local
+!/.env.prod.example
 env/
 venv/
 ENV/

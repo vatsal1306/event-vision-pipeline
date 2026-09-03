@@ -13,7 +13,7 @@ Manual console setup for the **compute AWS account**. S3 lives in the **storage 
 | AWS Console login | **Compute account** (not the storage account) |
 | SSH key pair | Create or import in `ap-south-1` |
 | S3 credentials | From storage account: `terraform output -raw app_env_file_snippet` (INF-003) |
-| Domain | `event-vision.example.com` → will point to Elastic IP |
+| Domain | `spotme.hpklabs.ai` → Elastic IP |
 
 **Cross-account note:** The IAM user (`platform-app-ec2`) lives in the **storage account**. You copy its access key to this EC2. No bucket policy or IAM role on the EC2 is required — the key authenticates directly to S3.
 
@@ -122,37 +122,43 @@ sudo dpkg-reconfigure -plow unattended-upgrades
 
 ---
 
-## 6. App secrets on the EC2
+## 6. App `.env` and deploy (INF-005)
+
+Repo path: **`~/event-vision-pipeline`**. Secrets file: **`~/event-vision-pipeline/.env`**.
 
 ```bash
-sudo mkdir -p /opt/platform
-sudo nano /opt/platform/.env
+cd ~/event-vision-pipeline
+cp .env.prod.example .env
+chmod 600 .env
 ```
 
-Paste from your local saved snippet (INF-003) **plus** app secrets you'll add in INF-005:
+### How to fill each variable
+
+| Variable | How to get it |
+|----------|----------------|
+| `AWS_*`, `S3_BUCKET_*` | Already in your `.env` from Terraform. **Same for laptop and EC2** — one storage account, not dev vs prod. |
+| `SECRET_KEY` | `openssl rand -hex 32` |
+| `POSTGRES_PASSWORD` | `openssl rand -hex 24` |
+| `DATABASE_URL` | `postgresql+asyncpg://postgres:<POSTGRES_PASSWORD>@db:5432/photoshare` |
+| `REDIS_URL`, `CELERY_*` | Copy from `.env.prod.example` (`redis` / `db` = Docker hostnames) |
+| `FRONTEND_URL`, `NEXT_PUBLIC_*` | `https://spotme.hpklabs.ai` and `https://spotme.hpklabs.ai/api` |
+| `SMS_PROVIDER` | `log` |
+| `ENVIRONMENT` / `DEBUG` | `production` / `false` |
+
+### Deploy stack
 
 ```bash
-# --- S3 (storage account) — from terraform output ---
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=ap-south-1
-S3_BUCKET_ORIGINALS=platform-originals-702872201750
-S3_BUCKET_PROXIES=platform-proxies-702872201750
-S3_BUCKET_ASSETS=platform-assets-702872201750
-
-# --- App (add in INF-005) ---
-# DATABASE_URL=postgresql+asyncpg://...
-# REDIS_URL=redis://redis:6379/0
-# JWT_SECRET=...
-# FRONTEND_URL=https://event-vision.example.com
+cd ~/event-vision-pipeline
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+curl -s https://spotme.hpklabs.ai/health
 ```
 
-```bash
-sudo chmod 600 /opt/platform/.env
-sudo chown root:root /opt/platform/.env
-```
-
-**File on disk, not shell export** — survives reboots. Docker Compose reads this file.
+| Route | Service |
+|-------|---------|
+| `/` | Next.js |
+| `/api/*`, `/health` | FastAPI |
+| `/files/*` | tusd → S3 |
 
 ---
 
@@ -163,7 +169,7 @@ sudo chown root:root /opt/platform/.env
 sudo apt install -y awscli
 
 # Load vars temporarily for testing only
-export $(grep -E '^AWS_|^S3_' /opt/platform/.env | xargs)
+export $(grep -E '^AWS_|^S3_' ~/event-vision-pipeline/.env | xargs)
 
 aws sts get-caller-identity
 aws s3 ls s3://$S3_BUCKET_ORIGINALS/
@@ -182,7 +188,7 @@ You should see the storage-account IAM user ARN and an empty bucket listing.
 | RDS / ElastiCache | Postgres + Redis run in Docker on this box |
 | Opening 5432/6379 | Database must not be internet-facing |
 | SSH open to `0.0.0.0/0` | Brute-force risk; restrict to your IP |
-| Putting S3 keys in git | Use `/opt/platform/.env` only |
+| Putting S3 keys in git | Use `~/event-vision-pipeline/.env` only |
 
 ---
 
@@ -195,7 +201,7 @@ You should see the storage-account IAM user ARN and an empty bucket listing.
 - [ ] Security group: 22 (your IP), 80/443 (world), no 5432/6379
 - [ ] DNS A record → EIP
 - [ ] Docker + Compose installed
-- [ ] `/opt/platform/.env` with S3 credentials (chmod 600)
+- [ ] `~/event-vision-pipeline/.env` with secrets (chmod 600)
 - [ ] Optional: `aws s3 ls` smoke test passes
 
 **Next:** INF-005 — `docker-compose.prod.yml`, Caddy TLS, tusd, Postgres, Redis, Celery.
