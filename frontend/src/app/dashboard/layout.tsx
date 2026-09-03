@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/dashboard/sidebar';
 import { Header } from '@/components/dashboard/header';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import { useUiStore } from '@/stores/ui-store';
 
 export default function DashboardLayout({
   children,
@@ -15,34 +16,30 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { accessToken, isAuthenticated } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const { accessToken } = useAuthStore();
+  const { isSidebarCollapsed } = useUiStore();
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('access_token') : null);
-    if (!token) {
+    setIsHydrated(useAuthStore.persist.hasHydrated());
+    const unsub = useAuthStore.persist.onFinishHydration(() => setIsHydrated(true));
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isHydrated && !accessToken) {
       router.push('/login');
-    } else {
-      setIsLoading(false);
     }
-  }, [accessToken, router]);
+  }, [isHydrated, accessToken, router]);
 
-  useEffect(() => {
-    if (isAuthenticated && accessToken) {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated, accessToken]);
-
-  if (isLoading) {
+  if (!isHydrated || !accessToken) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (!accessToken) {
-    return null;
   }
 
   return (
@@ -51,7 +48,7 @@ export default function DashboardLayout({
       <div
         className={cn(
           'transition-all duration-300',
-          'md:pl-64'
+          isSidebarCollapsed ? 'md:pl-16' : 'md:pl-64'
         )}
       >
         <Header />
