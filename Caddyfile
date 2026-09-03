@@ -5,7 +5,8 @@
 spotme.hpklabs.ai {
 	encode gzip zstd
 
-	handle /files/* {
+	# Match /files, /files/, and /files/<upload-id> (Caddy /files/* does not match /files alone)
+	handle /files* {
 		reverse_proxy tusd:8080 {
 			transport http {
 				read_timeout 1h
