@@ -1,0 +1,139 @@
+name: Deploy to EC2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  EC2_NAME_TAG: platform-app
+  EC2_USER: ubuntu
+  REPO_DIR: /home/ubuntu/event-vision-pipeline
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve EC2 instance
+        id: ec2
+        run: |
+          set -euo pipefail
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --region "$AWS_REGION" \
+            --filters "Name=tag:Name,Values=${EC2_NAME_TAG}" \
+            --query 'Reservations[].Instances[] | sort_by(@, &LaunchTime) | [-1].InstanceId' \
+            --output text)
+
+          if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "No EC2 instance found with tag Name=${EC2_NAME_TAG}" >&2
+            exit 1
+          fi
+
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --region "$AWS_REGION" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text)
+
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+          echo "Found instance $INSTANCE_ID (state=$STATE)"
+
+      - name: Start EC2 if stopped
+        if: steps.ec2.outputs.state == 'stopped'
+        run: |
+          aws ec2 start-instances \
+            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --region "$AWS_REGION"
+          echo "Start requested; waiting for instance-running..."
+          aws ec2 wait instance-running \
+            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --region "$AWS_REGION"
+
+      - name: Wait if instance is stopping
+        if: steps.ec2.outputs.state == 'stopping'
+        run: |
+          echo "Instance is stopping; waiting until stopped..."
+          aws ec2 wait instance-stopped \
+            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --region "$AWS_REGION"
+          aws ec2 start-instances \
+            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --region "$AWS_REGION"
+          aws ec2 wait instance-running \
+            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --region "$AWS_REGION"
+
+      - name: Wait for status checks
+        if: steps.ec2.outputs.state != 'running'
+        run: |
+          echo "Waiting for status checks..."
+          aws ec2 wait instance-status-ok \
+            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --region "$AWS_REGION"
+
+      - name: Wait for SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          echo "Waiting for SSH on $EC2_HOST..."
+          for i in $(seq 1 40); do
+            if ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=10 \
+              "${EC2_USER}@${EC2_HOST}" "echo ssh-ok" 2>/dev/null; then
+              echo "SSH ready after attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/40 failed; retrying in 15s..."
+            sleep 15
+          done
+          echo "SSH not reachable after 10 minutes" >&2
+          exit 1
+
+      - name: Deploy over SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "${EC2_USER}@${EC2_HOST}" \
+            "bash -s '${TARGET_SHA}'" < scripts/deploy-ec2.sh
+
+      - name: Health check
+        env:
+          APP_URL: https://spotme.hpklabs.ai
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 12); do
+            if curl -fsS "${APP_URL}/health" | grep -q '"status":"ok"'; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i/12 failed; retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after deploy" >&2
+          exit 1

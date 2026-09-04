@@ -204,7 +204,7 @@ You should see the storage-account IAM user ARN and an empty bucket listing.
 - [ ] `~/event-vision-pipeline/.env` with secrets (chmod 600)
 - [ ] Optional: `aws s3 ls` smoke test passes
 
-**Next:** INF-005 — `docker-compose.prod.yml`, Caddy TLS, tusd, Postgres, Redis, Celery.
+**Next:** INF-006 — GitHub Actions (see `docs/github-actions.md`).
 
 ---
 

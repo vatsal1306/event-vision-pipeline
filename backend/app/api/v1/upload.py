@@ -21,5 +21,9 @@ async def tusd_post_finish_hook(request: Request) -> dict[str, str]:
     body: dict[str, Any] = await request.json()
     event_type = body.get("Type", "unknown")
     upload_id = body.get("Event", {}).get("Upload", {}).get("ID", "unknown")
-    logger.info("tusd hook received type=%s upload_id=%s (stub — no DB write yet)", event_type, upload_id)
+    logger.info(
+        "tusd hook received type=%s upload_id=%s (stub — no DB write yet)",
+        event_type,
+        upload_id,
+    )
     return {"status": "accepted"}

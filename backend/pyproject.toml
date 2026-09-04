@@ -19,6 +19,7 @@ dev = [
     "mypy>=1.13,<2",
     "pytest>=8.3,<9",
     "pytest-asyncio>=0.24,<1",
+    "pytest-cov>=6,<7",
     "ruff>=0.8,<1",
 ]
 
@@ -44,3 +45,11 @@ packages = ["app"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/ml/*"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
