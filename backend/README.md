@@ -68,4 +68,37 @@ One `.env` file for both; flip `DEBUG` when you want to simulate the server. Lea
 
 ## How to run tests
 
-From `backend/`: `uv sync --extra dev` then `make test` (or `uv run pytest`). No database required for BE-002 tests.
+From `backend/`: `uv sync --extra dev` then `make test` (or `uv run pytest`).
+
+`make test` runs pytest with a terminal coverage report (`term-missing`) for `app/` (ML code excluded). Coverage must stay at or above 60% or the run fails.
+
+- BE-002 unit tests run without PostgreSQL.
+- BE-003 integration tests require Docker Postgres (`docker compose up db`) and will skip if it is unreachable.
+- Integration tests use a separate database `photoshare_test` on the same Postgres instance; your main `photoshare` database is migrated too for `/health/ready`.
+- Migrations run in a sync session fixture (`migrated_databases`); per-test DB work uses `run_migrations_async()` so Alembic's `asyncio.run()` is not nested inside pytest's event loop.
+
+## Database (BE-003)
+
+- ORM models: `app/models/` — UUID PKs, timezone-aware timestamps. `updated_at` only on tables where the schema defines it.
+- Async engine/session: `app/core/database.py` → `get_db()` (commit on success, rollback on error). Re-exported from `app/api/deps.py`.
+- Migrations: `alembic/` — initial revision `enable_pgvector_and_core_tables` enables `vector`, creates all core tables, enums, partial indexes, and HNSW on `face_embeddings.embedding`.
+- `events.cover_photo_id` is an unlinked UUID (no FK) to avoid circular dependency with `photos`.
+- Folder names are unique per event via partial indexes: root folders `(event_id, name) WHERE parent_id IS NULL`, nested `(event_id, parent_id, name) WHERE parent_id IS NOT NULL`.
+- Readiness: `GET /health/ready` runs `SELECT 1` against Postgres; returns `503` when the database is down.
+
+### Migrate locally
+
+```bash
+cd backend
+docker compose up -d db
+uv sync
+make migrate
+```
+
+Verify extension and tables:
+
+```bash
+docker compose exec db psql -U postgres -d photoshare -c "\\dx"
+docker compose exec db psql -U postgres -d photoshare -c "\\dt"
+```
+
