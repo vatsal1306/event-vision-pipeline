@@ -13,6 +13,7 @@ interface GalleryGridProps {
   onPhotoClick: (index: number) => void;
   className?: string;
   downloadEnabled?: boolean;
+  layoutMode?: 'guest' | 'couple' | 'dashboard';
 }
 
 function VirtualColumn({ 
@@ -89,17 +90,28 @@ export function GalleryGrid({
   onPhotoClick,
   className,
   downloadEnabled = true,
+  layoutMode = 'dashboard',
 }: GalleryGridProps) {
   const [columns, setColumns] = useState(3);
 
   useEffect(() => {
     const updateCols = () => {
       const w = window.innerWidth;
-      if (w < 640) setColumns(2);
-      else if (w < 768) setColumns(3);
-      else if (w < 1024) setColumns(4);
-      else if (w < 1280) setColumns(5);
-      else setColumns(6);
+      
+      if (w < 640) {
+        setColumns(2); // Mobile: 2 cols for all
+      } else if (w < 768) {
+        setColumns(3); // Tablet: 3 cols for all
+      } else if (w < 1024) {
+        // 768-1024px
+        setColumns(layoutMode === 'guest' ? 3 : 4);
+      } else if (w < 1280) {
+        // 1024-1280px
+        setColumns(layoutMode === 'guest' ? 4 : 5);
+      } else {
+        // > 1280px
+        setColumns(layoutMode === 'guest' ? 4 : 6);
+      }
     };
     updateCols();
     window.addEventListener('resize', updateCols);
