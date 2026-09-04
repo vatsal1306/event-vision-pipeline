@@ -27,7 +27,7 @@ export function ProcessingScreen({ photographerName, photographerLogo }: Process
         </motion.div>
 
         <div className="space-y-4 max-w-sm mx-auto">
-          <h2 className="text-2xl font-bold text-white">We're gathering your memories...</h2>
+          <h2 className="text-2xl font-bold text-white">We&apos;re gathering your memories...</h2>
           <p className="text-zinc-400 leading-relaxed">
             This might take a moment. You can close this page and come back later — just log in with your mobile number.
           </p>

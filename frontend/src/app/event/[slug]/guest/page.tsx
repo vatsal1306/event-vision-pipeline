@@ -28,7 +28,12 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   
   // Ensure we show the correct step based on stored state
   useEffect(() => {
-    if (isVerified && sessionToken) {
+    if (isVerified && sessionToken && guestSession) {
+      if (infoData?.event && guestSession.eventId !== infoData.event.id) {
+        clearGuestSession();
+        setStep('auth');
+        return;
+      }
       if (needsSelfie) {
         setStep('selfie');
       } else {
@@ -37,7 +42,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
     } else {
       setStep('auth');
     }
-  }, [isVerified, sessionToken, needsSelfie]);
+  }, [isVerified, sessionToken, needsSelfie, guestSession, infoData?.event, clearGuestSession]);
 
   // Authenticated Queries
   const { data: photosData, isLoading: photosLoading } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
@@ -54,6 +59,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       toast.success('OTP sent to your phone');
     } catch (err) {
       toast.error('Failed to send OTP. Please try again.');
+      throw err;
     }
   };
 
@@ -132,9 +138,17 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   const { event, photographer } = infoData;
 
-  // Assuming guest flow uses isActive or similar. We will just use masterLinkActive as a proxy for the event being active if guestLinkActive doesn't exist, but PRD doesn't explicitly restrict this.
-  // Actually, PRD says "Inactive guest link handled", let's assume `event.isActive === false` means inactive.
-  // The mock event doesn't have isActive? We will check if `event` exists.
+  if (!event.guestLinkActive) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black p-4">
+        <EmptyState 
+          title="Gallery Unavailable" 
+          description="The guest link for this event is currently inactive." 
+          icon={<Lock className="h-12 w-12 text-zinc-600" />} 
+        />
+      </div>
+    );
+  }
   
   const branding = (
     <div className="text-center w-full">
@@ -198,6 +212,8 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
               guestName={guestSession?.name || 'Guest'} 
               onRetakeSelfie={handleRetakeSelfie}
               downloadEnabled={event.downloadEnabled}
+              photographerLogo={photographer.logoUrl}
+              eventName={event.name}
             />
           )}
         </div>

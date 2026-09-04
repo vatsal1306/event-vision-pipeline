@@ -3,6 +3,7 @@ import Webcam from 'react-webcam';
 import { Button } from '@/components/ui/button';
 import { Camera, RefreshCw, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 interface SelfieCaptureProps {
   onCapture: (imageBlob: Blob) => Promise<void>;
@@ -34,7 +35,7 @@ export function SelfieCapture({ onCapture, isLoading }: SelfieCaptureProps) {
       const blob = await res.blob();
       await onCapture(blob);
     } catch (err) {
-      console.error('Failed to process image', err);
+      toast.error('Failed to process image');
     }
   };
 

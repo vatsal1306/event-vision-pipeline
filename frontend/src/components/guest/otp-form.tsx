@@ -37,8 +37,12 @@ export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
   });
 
   const handleAuthSubmit = async (values: z.infer<typeof authSchema>) => {
-    await onSendOtp(values);
-    setStep('otp');
+    try {
+      await onSendOtp(values);
+      setStep('otp');
+    } catch (error) {
+      // Error is handled by onSendOtp (toast shown)
+    }
   };
 
   const handleOtpSubmit = async (values: z.infer<typeof otpSchema>) => {

@@ -17,9 +17,18 @@ interface PersonalizedGalleryProps {
   guestName: string;
   onRetakeSelfie: () => void;
   downloadEnabled?: boolean;
+  photographerLogo?: string | null;
+  eventName?: string;
 }
 
-export function PersonalizedGallery({ photos, guestName, onRetakeSelfie, downloadEnabled = true }: PersonalizedGalleryProps) {
+export function PersonalizedGallery({ 
+  photos, 
+  guestName, 
+  onRetakeSelfie, 
+  downloadEnabled = true,
+  photographerLogo,
+  eventName
+}: PersonalizedGalleryProps) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
 
@@ -47,7 +56,15 @@ export function PersonalizedGallery({ photos, guestName, onRetakeSelfie, downloa
 
   return (
     <div className="flex flex-col w-full h-full max-w-7xl mx-auto">
-      <div className="px-6 py-8 md:py-12">
+      <div className="px-6 py-8 md:py-12 border-b border-white/5">
+        <div className="flex items-center gap-4 mb-6">
+          {photographerLogo && (
+            <img src={photographerLogo} alt="Logo" className="h-8 w-auto opacity-80" />
+          )}
+          {eventName && (
+            <span className="text-zinc-500 font-medium text-sm tracking-wide uppercase">{eventName}</span>
+          )}
+        </div>
         <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
           Hi {guestName}!
         </h2>
