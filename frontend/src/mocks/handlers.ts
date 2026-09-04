@@ -285,28 +285,6 @@ export const handlers = [
     return HttpResponse.json({ detail: 'Reset link sent' });
   }),
 
-  // Mock guest auth / OTP validation
-  http.post('*/api/event/:slug/auth', async () => {
-    // Send OTP stub
-    await delay(500);
-    return HttpResponse.json({ detail: 'OTP sent' });
-  }),
-  
-  http.post('*/api/event/:slug/auth/verify', async ({ request }) => {
-    const data = await request.json() as { code?: string };
-    
-    // Simulate network delay
-    await delay(500);
-
-    if (data.code === '123456') {
-      return HttpResponse.json({ accessToken: 'mock_guest_token', refreshToken: 'mock_refresh' });
-    }
-    
-    return HttpResponse.json({ 
-      detail: 'Invalid code',
-      code: 'INVALID_OTP'
-    }, { status: 400 });
-  }),
 
   // Fallback upload URL mock
   http.post('*/api/upload/create', () => {
@@ -459,5 +437,56 @@ export const handlers = [
     }
     
     return HttpResponse.json({ success: true });
+  }),
+
+  // ==========================================
+  // Guest Link Endpoints
+  // ==========================================
+
+  http.post('*/api/event/:slug/auth', async () => {
+    await delay(500);
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('*/api/event/:slug/auth/verify', async ({ request }) => {
+    const data = await request.json() as { otp: string };
+    await delay(500);
+    
+    if (data.otp === '123456') {
+      return HttpResponse.json({ 
+        accessToken: `mock-guest-token-${Date.now()}`,
+        refreshToken: `mock-refresh-token`
+      });
+    }
+    return new HttpResponse(JSON.stringify({ message: 'Invalid OTP' }), { status: 400 });
+  }),
+
+  http.post('*/api/event/:slug/selfie', async () => {
+    // Simulate processing time
+    await delay(2500);
+    // Return mock matches (e.g. 5 random photos)
+    return HttpResponse.json({ 
+      matchedPhotoIds: ['mock-1', 'mock-2'], 
+      matchCount: 5 
+    });
+  }),
+
+  http.get('*/api/event/:slug/guest/photos', ({ params }) => {
+    const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
+    const event = mockEvents.find(e => e.slug === slug);
+    
+    if (!event) return new HttpResponse(null, { status: 404 });
+    
+    const photos = mockPhotos[event.id] || [];
+    // Mock matching photos (take first 5)
+    const matchedPhotos = photos.slice(0, 5);
+    
+    return HttpResponse.json({
+      items: matchedPhotos, // Depending on PaginatedResponse structure, maybe data or items? Let's assume data/items. The types will tell if there's an error. 
+      total: matchedPhotos.length,
+      page: 1,
+      limit: 20,
+      totalPages: 1
+    });
   }),
 ];

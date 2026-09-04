@@ -109,3 +109,10 @@ NEXT_PUBLIC_MOCK_API=true
 - Added a heart icon toggle to the `GalleryGrid` thumbnails (on hover) and the `PhotoViewer` header.
 - Implemented a `FavoritesFab` floating action button that displays the favorite count and toggles the view to show only favorite photos across all folders.
 - Mocked the favorites API state in MSW to test the flow end-to-end.
+
+### FE-019: Guest Link & Personalized Gallery
+- Implemented the end-to-end PWA flow for wedding guests via the `/event/[slug]/guest` link.
+- Created a robust state machine utilizing `useGuestAuthStore` (zustand persist) to guide users through Auth -> OTP -> Selfie Capture -> Processing -> Personalized Gallery.
+- Integrated `react-webcam` to capture the guest's selfie seamlessly on both mobile and desktop browsers with an intuitive face guide overlay.
+- Displayed a branded processing state simulating backend face matching.
+- Developed a personalized photo grid greeting the guest by name and displaying only the photos they appear in. Return visits bypass the selfie step entirely if they've already been matched.
