@@ -25,7 +25,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
-  const { data: profile, isLoading } = useProfile();
+  const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const uploadLogo = useUploadLogo();
   const uploadWatermark = useUploadWatermark();
@@ -57,8 +57,29 @@ export default function ProfilePage() {
     }
   }, [profile, form, localLogoPreview, localWatermarkPreview]);
 
-  if (isLoading || !profile) {
-    return <div className="p-8">Loading profile...</div>;
+  // Cleanup object URLs to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (localLogoPreview && localLogoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(localLogoPreview);
+      }
+      if (localWatermarkPreview && localWatermarkPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(localWatermarkPreview);
+      }
+    };
+  }, [localLogoPreview, localWatermarkPreview]);
+
+  if (isLoading) {
+    return <div className="p-8 text-muted-foreground">Loading profile...</div>;
+  }
+
+  if (isError || !profile) {
+    return (
+      <div className="p-8 flex flex-col items-start gap-4">
+        <p className="text-destructive">Failed to load profile.</p>
+        <Button variant="outline" onClick={() => refetch()}>Retry</Button>
+      </div>
+    );
   }
 
   const onSubmit = (data: ProfileFormValues) => {
@@ -68,6 +89,10 @@ export default function ProfilePage() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (localLogoPreview && localLogoPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(localLogoPreview);
+    }
 
     // Create local preview instantly
     const previewUrl = URL.createObjectURL(file);
@@ -91,6 +116,10 @@ export default function ProfilePage() {
       return;
     }
 
+    if (localWatermarkPreview && localWatermarkPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(localWatermarkPreview);
+    }
+
     // Create local preview instantly
     const previewUrl = URL.createObjectURL(file);
     setLocalWatermarkPreview(previewUrl);
@@ -100,11 +129,17 @@ export default function ProfilePage() {
   };
 
   const removeLocalLogo = () => {
+    if (localLogoPreview && localLogoPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(localLogoPreview);
+    }
     setLocalLogoPreview(null);
     updateProfile.mutate({ logoUrl: null });
   };
 
   const removeLocalWatermark = () => {
+    if (localWatermarkPreview && localWatermarkPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(localWatermarkPreview);
+    }
     setLocalWatermarkPreview(null);
     updateProfile.mutate({ watermarkUrl: null });
   };
