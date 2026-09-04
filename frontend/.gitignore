@@ -1,1 +1,12 @@
 *.tsbuildinfo
+# PWA
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/fallback-*.js
+
+# Testing
+playwright-report/
+test-results/
+blob-report/

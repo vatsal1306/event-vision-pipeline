@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Sofia_Sans } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { MSWProvider } from "@/components/providers/msw-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 const sofiaSans = Sofia_Sans({
   subsets: ["latin"],
@@ -13,6 +14,11 @@ const sofiaSans = Sofia_Sans({
 export const metadata: Metadata = {
   title: "SpotMe",
   description: "Find yourself in every shot",
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
@@ -28,6 +34,7 @@ export default function RootLayout({
             {children}
           </QueryProvider>
         </MSWProvider>
+        <Toaster />
       </body>
     </html>
   );

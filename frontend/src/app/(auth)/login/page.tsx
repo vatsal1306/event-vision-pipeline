@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,16 @@ import { api, ApiError } from '@/lib/api-client';
 import { loginSchema, type LoginFormValues } from '@/lib/auth-schemas';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
+
+import { useAuthStore } from '@/stores/auth-store';
+import { toast } from 'sonner';
+
+export const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address.'),
+  password: z.string().min(1, 'Password is required.'),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();

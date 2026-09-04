@@ -1,5 +1,6 @@
-import { Event, Folder, FolderNode, Photo } from '@/types/event';
+import { Event, EventType, EventStatus, Folder, FolderNode, Photo } from '@/types/event';
 import { Photographer } from '@/types/user';
+import { AnalyticsSummary, AnalyticsTopPhoto, PaginatedGuests } from '@/types/analytics';
 import { PaginatedResponse, TokenResponse } from '@/types/api';
 
 export class ApiError extends Error {
@@ -18,14 +19,15 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
+import { useAuthStore } from '../stores/auth-store';
+
 class ApiClient {
   private baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
-  // In FE-006/FE-008 this will be hooked up to Zustand auth store
   private getToken(): string | null {
-    // Placeholder implementation
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('access_token');
+      // Direct getState call to avoid React hooks rules issue outside of components
+      return useAuthStore.getState().accessToken || localStorage.getItem('access_token');
     }
     return null;
   }
@@ -42,9 +44,13 @@ class ApiClient {
   private async request<T>(method: string, path: string, options?: RequestOptions): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     };
+
+    const isFormData = options?.body instanceof FormData;
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     // Safely cast or merge options headers
     if (options?.headers) {
@@ -58,7 +64,7 @@ class ApiClient {
     };
 
     if (options?.body) {
-      fetchOptions.body = JSON.stringify(options.body);
+      fetchOptions.body = isFormData ? (options.body as FormData) : JSON.stringify(options.body);
     }
 
     try {
@@ -130,7 +136,7 @@ export const api = {
   forgotPassword: (data: unknown) => apiClient.post<void>('/api/auth/forgot-password', data),
   resetPassword: (data: unknown) => apiClient.post<void>('/api/auth/reset-password', data),
   sendOtp: (data: unknown) => apiClient.post<void>('/api/auth/send-otp', data),
-  verifyOtp: (data: unknown) => apiClient.post<void>('/api/auth/verify-otp', data),
+  verifyOtp: (data: unknown) => apiClient.post<TokenResponse>('/api/auth/verify-otp', data),
 
   // Events
   getEvents: () => apiClient.get<PaginatedResponse<Event>>('/api/events'),
@@ -167,20 +173,31 @@ export const api = {
 
   // Guest / Couple
   getEventInfoPublic: (slug: string) => apiClient.get<unknown>(`/api/event/${slug}/info`),
+  getEventInfo: (slug: string) => apiClient.get<{ event: Event; photographer: Photographer }>(`/api/event/${slug}/info`),
+  masterAuth: (slug: string, data: { name: string; phone: string }) => apiClient.post<{ success: boolean }>(`/api/event/${slug}/master/auth`, data),
+  verifyMasterAuth: (slug: string, data: { otp: string }) => apiClient.post<{ token: string }>(`/api/event/${slug}/master/verify`, data),
   sendGuestOtp: (slug: string, data: unknown) => apiClient.post<void>(`/api/event/${slug}/auth`, data),
   verifyGuestOtp: (slug: string, data: unknown) => apiClient.post<TokenResponse>(`/api/event/${slug}/auth/verify`, data),
-  submitSelfie: (slug: string, data: unknown) => apiClient.post<{ matchedPhotoIds: string[]; matchCount: number }>(`/api/event/${slug}/selfie`, data),
-  getGuestPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`),
-  getMasterPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/master/photos`),
-  getMasterFolders: (slug: string) => apiClient.get<FolderNode[]>(`/api/event/${slug}/master/folders`),
-  toggleFavorite: (slug: string, data: unknown) => apiClient.post<void>(`/api/event/${slug}/master/favorite`, data),
-  getFavorites: (slug: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/favorites`),
+  submitSelfie: (slug: string, data: unknown, token?: string) => apiClient.post<{ matchedPhotoIds: string[]; matchCount: number }>(`/api/event/${slug}/selfie`, data, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  getGuestPhotos: (slug: string, token?: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  getMasterPhotos: (slug: string, token?: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/photos`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  getMasterFolders: (slug: string, token?: string) => apiClient.get<FolderNode[]>(`/api/event/${slug}/master/folders`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  toggleFavorite: (slug: string, data: { photoId: string }, token?: string) => apiClient.post<{ success: boolean }>(`/api/event/${slug}/master/favorite`, data, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  getFavorites: (slug: string, token?: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/favorites`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   downloadGuestPhoto: (slug: string, photoId: string) => apiClient.get<{ url: string }>(`/api/event/${slug}/photos/${photoId}/download`),
 
   // Analytics
-  getAnalyticsSummary: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/summary`),
-  getAnalyticsTopPhotos: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/top-photos`),
-  getAnalyticsGuests: (eventId: string) => apiClient.get<unknown>(`/api/events/${eventId}/analytics/guests`),
+  getAnalyticsSummary: (eventId: string) => apiClient.get<AnalyticsSummary>(`/api/events/${eventId}/analytics/summary`),
+  getAnalyticsTopPhotos: (eventId: string) => apiClient.get<{ photos: AnalyticsTopPhoto[] }>(`/api/events/${eventId}/analytics/top-photos`),
+  getAnalyticsGuests: (eventId: string, page = 1, limit = 10, sortBy = 'guest_name', sortOrder = 'asc') => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      sortBy,
+      sortOrder
+    });
+    return apiClient.get<PaginatedGuests>(`/api/events/${eventId}/analytics/guests?${params.toString()}`);
+  },
   exportAnalyticsGuests: (eventId: string) => apiClient.get<Blob>(`/api/events/${eventId}/analytics/guests/export`),
 
   // Profile

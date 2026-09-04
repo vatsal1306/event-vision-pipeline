@@ -1,16 +1,23 @@
-export type UploadStatus = 'queued' | 'uploading' | 'done' | 'failed';
+export type UploadStatus = 'queued' | 'uploading' | 'paused' | 'processing' | 'complete' | 'failed';
 
 export interface FileProgress {
-  percentage: number;
-  bytesUploaded: number;
-  speedMBps: number;
+  progress: number;
+  uploadedBytes: number;
+  status?: UploadStatus;
+  tusUploadUrl?: string;
+  error?: string;
 }
 
 export interface UploadFile {
-  id: string; // UUID or unique id per file
-  file: File;
-  folderId: string | null;
+  id: string;
+  file?: File; // Optional because we can't persist File objects
+  relativePath?: string;
+  targetFolderId: string;
   status: UploadStatus;
-  progress: FileProgress;
-  size: number;
+  progress: number;
+  uploadedBytes: number;
+  totalBytes: number;
+  tusUploadUrl?: string;
+  error?: string;
+  retryCount: number;
 }
