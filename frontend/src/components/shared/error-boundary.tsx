@@ -8,6 +8,7 @@ interface Props {
   children?: ReactNode;
   fallback?: ReactNode;
   className?: string;
+  onRetry?: () => void;
 }
 
 interface State {
@@ -29,6 +30,15 @@ export class ErrorBoundary extends Component<Props, State> {
     // console.error("Uncaught error:", error, errorInfo);
   }
 
+  private handleRetry = () => {
+    if (this.props.onRetry) {
+      this.setState({ hasError: false, error: undefined });
+      this.props.onRetry();
+    } else {
+      window.location.reload();
+    }
+  };
+
   public render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -43,10 +53,10 @@ export class ErrorBoundary extends Component<Props, State> {
             We encountered an unexpected error. Please try refreshing the page.
           </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={this.handleRetry}
             className="bg-ink text-canvas rounded-button px-6 py-2.5 font-medium -tracking-[0.02em] text-sm hover:opacity-90 transition-opacity"
           >
-            Refresh page
+            {this.props.onRetry ? 'Try again' : 'Refresh page'}
           </button>
         </div>
       );

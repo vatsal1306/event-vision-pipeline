@@ -11,7 +11,13 @@ import { OtpForm } from '@/components/guest/otp-form';
 import { SelfieCapture } from '@/components/guest/selfie-capture';
 import { ProcessingScreen } from '@/components/guest/processing-screen';
 import { PersonalizedGallery } from '@/components/guest/personalized-gallery';
+import { GallerySkeleton } from '@/components/gallery/gallery-skeleton';
+import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+const Throw = ({ error }: { error: Error }) => { throw error; };
 
 type FlowStep = 'auth' | 'selfie' | 'processing' | 'gallery';
 
@@ -19,7 +25,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   const { slug } = params;
   
   // Queries
-  const { data: infoData, isLoading: infoLoading, error: infoError } = useEventInfo(slug);
+  const { data: infoData, isLoading: infoLoading, error: infoError, refetch: refetchInfo } = useEventInfo(slug);
   
   // Auth state
   const { guestSession, sessionToken, needsSelfie, isVerified, setGuestSession, clearGuestSession } = useGuestAuthStore();
@@ -45,7 +51,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   }, [isVerified, sessionToken, needsSelfie, guestSession, infoData?.event, clearGuestSession]);
 
   // Authenticated Queries
-  const { data: photosData, isLoading: photosLoading } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
+  const { data: photosData, isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
 
   // Mutations
   const authMutation = useGuestAuth();
@@ -124,11 +130,37 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
     setStep('selfie');
   };
 
-  if (infoLoading) {
-    return <div className="flex h-screen items-center justify-center bg-black"><LoadingSpinner /></div>;
+  if (infoError) {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-black">
+        <EmptyState
+          title="Failed to load gallery"
+          description={infoError.message}
+          icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+          action={<Button onClick={() => refetchInfo()}>Try again</Button>}
+          className="bg-zinc-950 text-white border-zinc-800"
+        />
+      </div>
+    );
   }
 
-  if (infoError || !infoData) {
+  if (infoLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <div className="w-full flex-1 p-4 max-w-md mx-auto space-y-8 mt-12 animate-pulse">
+           <div className="h-12 w-12 bg-zinc-800 rounded-md mx-auto" />
+           <div className="h-8 w-3/4 bg-zinc-800 rounded mx-auto" />
+           <div className="h-4 w-1/2 bg-zinc-800 rounded mx-auto" />
+           <div className="space-y-4 pt-8">
+             <div className="h-12 bg-zinc-800 rounded" />
+             <div className="h-12 bg-zinc-800 rounded" />
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!infoData?.event) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
         <EmptyState title="Event Not Found" description="The event you are looking for does not exist." />
@@ -165,6 +197,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   );
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-black text-white flex flex-col items-center">
       {step === 'auth' && (
         <div className="w-full flex-1 flex flex-col items-center justify-center p-4">
@@ -204,8 +237,19 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
       {step === 'gallery' && (
         <div className="w-full flex-1 flex flex-col">
-          {photosLoading ? (
-            <div className="flex-1 flex items-center justify-center"><LoadingSpinner /></div>
+          {photosError ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <EmptyState
+                title="Failed to load photos"
+                description={photosError.message}
+                icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+                action={<Button onClick={() => refetchPhotos()}>Try again</Button>}
+              />
+            </div>
+          ) : photosLoading ? (
+            <div className="flex-1 p-6">
+              <GallerySkeleton count={12} className="opacity-50" />
+            </div>
           ) : (
             <PersonalizedGallery 
               photos={photosData?.items || []} 
@@ -219,5 +263,6 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

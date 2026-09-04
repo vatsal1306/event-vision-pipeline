@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { Photo } from '@/types/event';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ export function PhotoViewer({
 }: PhotoViewerProps) {
   const currentPhoto = photos[currentIndex];
   const isFavorite = currentPhoto ? favoritePhotoIds?.has(currentPhoto.id) : false;
+  const prefersReducedMotion = useReducedMotion();
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) onChangeIndex(currentIndex - 1);
@@ -136,11 +137,11 @@ export function PhotoViewer({
         {/* Main Image */}
         <motion.div
           key={currentPhoto.id}
-          layoutId={`photo-container-${currentPhoto.id}`}
-          initial={{ opacity: 0, scale: 0.95 }}
+          layoutId={prefersReducedMotion ? undefined : `photo-container-${currentPhoto.id}`}
+          initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-          transition={{ duration: 0.2 }}
+          exit={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.95, transition: { duration: 0.2 } }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
           className="relative w-full h-full p-4 sm:p-12 flex items-center justify-center"
           // Basic swipe handling
           drag="x"

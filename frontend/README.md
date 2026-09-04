@@ -125,3 +125,9 @@ NEXT_PUBLIC_MOCK_API=true
   - `NetworkFirst` for API routes to prioritize fresh data while falling back to cached responses.
   - `StaleWhileRevalidate` for static assets like fonts and JS bundles.
 - Conditionally disabled the service worker during local development to prevent caching issues.
+
+### FE-021: Polish, Accessibility, Empty States, Skeletons, and Error Boundaries
+- Replaced generic loading spinners with structured skeleton screens (`EventListSkeleton`, `GallerySkeleton`) for a smoother perceived performance.
+- Integrated `ErrorBoundary` across primary application routes (Dashboard Events, Event Detail, Master Link, Guest Link) to gracefully catch and display errors inline instead of crashing the React tree.
+- Polished empty states (`EmptyState`) across the application to provide clear, actionable feedback when no events or photos exist.
+- Implemented `useReducedMotion` from `framer-motion` in `PhotoViewer` and `AnimatedSection` to respect user accessibility preferences (`prefers-reduced-motion: reduce`) by disabling transition animations when appropriate.

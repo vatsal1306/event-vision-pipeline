@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, type Variants } from 'framer-motion';
+import { motion, type Variants, useReducedMotion } from 'framer-motion';
 import { fadeIn, slideUp, scaleIn } from '@/lib/motion';
 
 const variantMap: Record<string, Variants> = {
@@ -22,7 +22,8 @@ export function AnimatedSection({
   className,
   delay = 0,
 }: AnimatedSectionProps) {
-  const variants = variantMap[variant];
+  const prefersReducedMotion = useReducedMotion();
+  const variants = prefersReducedMotion ? variantMap.fadeIn : variantMap[variant];
 
   return (
     <motion.div
@@ -30,7 +31,7 @@ export function AnimatedSection({
       whileInView="animate"
       viewport={{ once: true, margin: '-80px' }}
       variants={variants}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.16, 1, 0.3, 1], delay: prefersReducedMotion ? 0 : delay }}
       className={className}
     >
       {children}
