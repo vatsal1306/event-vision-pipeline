@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { loginSchema, registerSchema } from '@/lib/auth-schemas';
 import { loginSchema } from '@/app/(auth)/login/page';
 import { registerSchema } from '@/app/(auth)/register/page';
 import { authSchema as guestAuthSchema } from '@/components/guest/otp-form';
