@@ -1,0 +1,58 @@
+name: Stop EC2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+env:
+  AWS_REGION: ap-south-1
+  EC2_NAME_TAG: platform-app
+
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Stop instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --region "$AWS_REGION" \
+            --filters "Name=tag:Name,Values=${EC2_NAME_TAG}" \
+            --query 'Reservations[].Instances[] | sort_by(@, &LaunchTime) | [-1].InstanceId' \
+            --output text)
+
+          if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "No EC2 instance found with tag Name=${EC2_NAME_TAG}" >&2
+            exit 1
+          fi
+
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --region "$AWS_REGION" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text)
+
+          echo "Instance $INSTANCE_ID is $STATE"
+
+          if [ "$STATE" = "stopped" ]; then
+            echo "Already stopped."
+            exit 0
+          fi
+
+          if [ "$STATE" = "stopping" ]; then
+            echo "Already stopping."
+            exit 0
+          fi
+
+          aws ec2 stop-instances --instance-ids "$INSTANCE_ID" --region "$AWS_REGION"
+          echo "Stop requested for $INSTANCE_ID"
