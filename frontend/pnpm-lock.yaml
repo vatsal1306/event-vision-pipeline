@@ -159,6 +159,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vite:
+        specifier: ^8.2.2
+        version: 8.2.2(@types/node@20.19.43)(jiti@1.21.7)(terser@5.51.2)
       vitest:
         specifier: ^5.0.0
         version: 5.0.0(@types/node@20.19.43)(@vitest/ui@5.0.0)(jsdom@30.0.1)(msw@2.15.0(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.2(@types/node@20.19.43)(jiti@1.21.7)(terser@5.51.2))
