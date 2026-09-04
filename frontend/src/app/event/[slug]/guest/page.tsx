@@ -11,7 +11,11 @@ import { OtpForm } from '@/components/guest/otp-form';
 import { SelfieCapture } from '@/components/guest/selfie-capture';
 import { ProcessingScreen } from '@/components/guest/processing-screen';
 import { PersonalizedGallery } from '@/components/guest/personalized-gallery';
+import { GallerySkeleton } from '@/components/gallery/gallery-skeleton';
+import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { toast } from 'sonner';
+
+const Throw = ({ error }: { error: Error }) => { throw error; };
 
 type FlowStep = 'auth' | 'selfie' | 'processing' | 'gallery';
 
@@ -124,11 +128,33 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
     setStep('selfie');
   };
 
-  if (infoLoading) {
-    return <div className="flex h-screen items-center justify-center bg-black"><LoadingSpinner /></div>;
+  if (infoError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black">
+        <ErrorBoundary>
+          <Throw error={infoError} />
+        </ErrorBoundary>
+      </div>
+    );
   }
 
-  if (infoError || !infoData) {
+  if (infoLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <div className="w-full flex-1 p-4 max-w-md mx-auto space-y-8 mt-12 animate-pulse">
+           <div className="h-12 w-12 bg-zinc-800 rounded-md mx-auto" />
+           <div className="h-8 w-3/4 bg-zinc-800 rounded mx-auto" />
+           <div className="h-4 w-1/2 bg-zinc-800 rounded mx-auto" />
+           <div className="space-y-4 pt-8">
+             <div className="h-12 bg-zinc-800 rounded" />
+             <div className="h-12 bg-zinc-800 rounded" />
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!infoData?.event) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
         <EmptyState title="Event Not Found" description="The event you are looking for does not exist." />
@@ -205,7 +231,9 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       {step === 'gallery' && (
         <div className="w-full flex-1 flex flex-col">
           {photosLoading ? (
-            <div className="flex-1 flex items-center justify-center"><LoadingSpinner /></div>
+            <div className="flex-1 p-6">
+              <GallerySkeleton count={12} className="opacity-50" />
+            </div>
           ) : (
             <PersonalizedGallery 
               photos={photosData?.items || []} 

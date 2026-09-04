@@ -10,6 +10,11 @@ import { EventCard } from '@/components/dashboard/event-card';
 import { EventForm } from '@/components/dashboard/event-form';
 import { useEvents, useCreateEvent, CreateEventData } from '@/hooks/use-events';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { EventListSkeleton } from '@/components/dashboard/event-list-skeleton';
+import { ErrorBoundary } from '@/components/shared/error-boundary';
+import { EmptyState } from '@/components/shared/empty-state';
+
+const Throw = ({ error }: { error: Error }) => { throw error; };
 
 export default function EventsPage() {
   const { photographer } = useAuthStore();
@@ -60,29 +65,16 @@ export default function EventsPage() {
             <p className="text-muted-foreground mt-1">Manage and organize your photography events</p>
           </div>
         </div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 animate-pulse">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-muted" />
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="h-4 w-3/4 bg-muted rounded" />
-                <div className="h-3 w-1/2 bg-muted rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <EventListSkeleton count={3} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <Camera className="h-12 w-12 text-muted-foreground/50 mb-4" />
-        <h3 className="text-lg font-medium">Failed to load events</h3>
-        <p className="text-muted-foreground mt-1 mb-4">{error.message}</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
-      </div>
+      <ErrorBoundary>
+        <Throw error={error} />
+      </ErrorBoundary>
     );
   }
 
@@ -138,21 +130,18 @@ export default function EventsPage() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Camera className="h-12 w-12 text-muted-foreground/50 mb-4" />
-          <h3 className="text-lg font-medium">
-            {searchQuery ? 'No events found' : 'No events yet'}
-          </h3>
-          <p className="text-muted-foreground mt-1 mb-4">
-            {searchQuery
-              ? 'Try adjusting your search or filters'
-              : 'Create your first event to get started'}
-          </p>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Event
-          </Button>
-        </div>
+        <EmptyState
+          title={searchQuery ? 'No events found' : 'No events yet'}
+          description={searchQuery ? 'Try adjusting your search or filters' : 'Create your first event to get started'}
+          icon={<Camera className="h-8 w-8 text-ink opacity-70" />}
+          action={
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Event
+            </Button>
+          }
+          className="mt-8 py-16"
+        />
       )}
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>

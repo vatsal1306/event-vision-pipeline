@@ -21,6 +21,10 @@ const PhotoGrid = dynamic(() => import('@/components/dashboard/photo-grid').then
 const UploadDropzone = dynamic(() => import('@/components/dashboard/upload-dropzone').then(m => m.UploadDropzone), { ssr: false });
 const UploadProgress = dynamic(() => import('@/components/dashboard/upload-progress').then(m => m.UploadProgress), { ssr: false });
 
+import { ErrorBoundary } from '@/components/shared/error-boundary';
+
+const Throw = ({ error }: { error: Error }) => { throw error; };
+
 export default function EventDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -30,13 +34,41 @@ export default function EventDetailPage() {
   const currentTab = searchParams.get('tab') || 'photos';
   const folderId = searchParams.get('folderId');
 
-  const { data: event, isLoading: isEventLoading } = useEvent(id);
+  const { data: event, isLoading: isEventLoading, error: eventError } = useEvent(id);
   const { data: folders = [], isLoading: isFoldersLoading } = useFolders(id);
   
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 
+  if (eventError) {
+    return (
+      <ErrorBoundary>
+        <Throw error={eventError} />
+      </ErrorBoundary>
+    );
+  }
+
   if (isEventLoading) {
-    return <div className="p-8 animate-pulse text-muted-foreground">Loading event details...</div>;
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex-none border-b bg-card px-6 py-4 animate-pulse">
+          <div className="mb-4 h-4 w-24 bg-muted rounded" />
+          <div className="flex items-start justify-between">
+            <div className="space-y-3">
+              <div className="h-8 w-64 bg-muted rounded" />
+              <div className="h-4 w-48 bg-muted rounded" />
+            </div>
+            <div className="h-10 w-32 bg-muted rounded" />
+          </div>
+          <div className="flex items-center gap-6 mt-6">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-8 w-20 bg-muted rounded" />)}
+          </div>
+        </div>
+        <div className="flex-1 p-6 flex flex-col gap-4 animate-pulse">
+          <div className="h-12 w-full max-w-sm bg-muted rounded" />
+          <div className="flex-1 w-full bg-muted rounded-lg" />
+        </div>
+      </div>
+    );
   }
 
   if (!event) {

@@ -16,6 +16,10 @@ import { EmptyState } from '@/components/shared/empty-state';
 import { GalleryGrid } from '@/components/gallery/gallery-grid';
 import { GalleryHeader } from '@/components/gallery/gallery-header';
 import { FolderNav } from '@/components/gallery/folder-nav';
+import { GallerySkeleton } from '@/components/gallery/gallery-skeleton';
+import { ErrorBoundary } from '@/components/shared/error-boundary';
+
+const Throw = ({ error }: { error: Error }) => { throw error; };
 
 import { 
   useEventInfo, 
@@ -154,11 +158,28 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
     return counts;
   }, [photos]);
 
-  if (infoLoading) {
-    return <div className="flex h-screen items-center justify-center bg-black"><LoadingSpinner /></div>;
+  if (infoError) {
+    return (
+      <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center">
+        <ErrorBoundary>
+          <Throw error={infoError} />
+        </ErrorBoundary>
+      </div>
+    );
   }
 
-  if (infoError || !infoData) {
+  if (infoLoading) {
+    return (
+      <div className="dark min-h-screen bg-background text-foreground flex flex-col">
+        <div className="h-16 w-full bg-card border-b animate-pulse" />
+        <div className="p-6">
+          <GallerySkeleton count={10} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!infoData?.event) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
         <EmptyState title="Event Not Found" description="The event you are looking for does not exist." />
@@ -288,8 +309,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
         />
 
         {foldersLoading || photosLoading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <LoadingSpinner />
+          <div className="flex-1 p-6">
+            <GallerySkeleton count={15} />
           </div>
         ) : showFavoritesOnly && displayedPhotos.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
