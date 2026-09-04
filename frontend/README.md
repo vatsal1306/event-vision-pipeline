@@ -90,3 +90,8 @@ NEXT_PUBLIC_MOCK_API=true
 - Implemented Logo and Watermark upload features with immediate local preview generation (`URL.createObjectURL`).
 - Added `WatermarkPreview` component to visualize how the watermark will appear overlaid on photos.
 - Updated the global sidebar and profile page to display real mocked storage usage limits (progress bar and human-readable bytes).
+
+### FE-016: Shared Gallery Grid & Viewer
+- Fully integrated the guest/couple gallery UI primitives (`GalleryGrid`, `PhotoViewer`, `FolderNav`, `GalleryHeader`).
+- `GalleryGrid` now supports responsive column layouts corresponding to 'guest', 'couple', and 'dashboard' contexts.
+- Added a dedicated throwaway demo page at `/gallery-demo` to showcase the dark-theme gallery experience with masonry layouts, virtualization, and the full-screen photo lightbox viewer.
