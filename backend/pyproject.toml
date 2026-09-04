@@ -9,7 +9,9 @@ dependencies = [
     "fastapi>=0.115,<1",
     "pydantic-settings>=2.6,<3",
     "redis>=5.2,<6",
+    "sentry-sdk[fastapi]>=2.19,<3",
     "sqlalchemy[asyncio]>=2.0,<3",
+    "structlog>=24.4,<26",
     "asyncpg>=0.30,<1",
     "uvicorn[standard]>=0.32,<1",
 ]
@@ -44,7 +46,7 @@ strict = true
 packages = ["app"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "celery.*"]
+module = ["celery", "celery.*", "sentry_sdk.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
