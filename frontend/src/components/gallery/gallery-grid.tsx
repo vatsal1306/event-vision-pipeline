@@ -4,9 +4,11 @@ import { Photo } from '@/types/event';
 import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { Heart } from 'lucide-react';
 import { DownloadButton } from './download-button';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 interface GalleryGridProps {
   photos: Photo[];
@@ -14,16 +16,22 @@ interface GalleryGridProps {
   className?: string;
   downloadEnabled?: boolean;
   layoutMode?: 'guest' | 'couple' | 'dashboard';
+  favoritePhotoIds?: Set<string>;
+  onToggleFavorite?: (photoId: string) => void;
 }
 
 function VirtualColumn({ 
   photos, 
   onPhotoClick,
-  downloadEnabled
+  downloadEnabled,
+  favoritePhotoIds,
+  onToggleFavorite
 }: { 
   photos: { photo: Photo, originalIndex: number }[], 
   onPhotoClick: (idx: number) => void,
-  downloadEnabled: boolean
+  downloadEnabled: boolean,
+  favoritePhotoIds?: Set<string>,
+  onToggleFavorite?: (id: string) => void
 }) {
   const virtualizer = useWindowVirtualizer({
     count: photos.length,
@@ -40,6 +48,7 @@ function VirtualColumn({
       {virtualizer.getVirtualItems().map((virtualItem) => {
         const { photo, originalIndex } = photos[virtualItem.index];
         const aspectRatio = photo.width && photo.height ? photo.width / photo.height : 1;
+        const isFavorite = favoritePhotoIds?.has(photo.id);
 
         return (
           <div
@@ -64,6 +73,30 @@ function VirtualColumn({
               />
               
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+              
+              {onToggleFavorite && (
+                <div className={cn(
+                  "absolute top-2 right-2 transition-opacity duration-300",
+                  isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className={cn(
+                      "rounded-full shadow-lg h-8 w-8",
+                      isFavorite 
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                        : "bg-background/80 hover:bg-background text-foreground backdrop-blur-md"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavorite(photo.id);
+                    }}
+                  >
+                    <Heart className={cn("h-4 w-4", isFavorite && "fill-current")} />
+                  </Button>
+                </div>
+              )}
               
               {downloadEnabled && (
                 <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -91,6 +124,8 @@ export function GalleryGrid({
   className,
   downloadEnabled = true,
   layoutMode = 'dashboard',
+  favoritePhotoIds,
+  onToggleFavorite
 }: GalleryGridProps) {
   const [columns, setColumns] = useState(3);
 
@@ -148,6 +183,8 @@ export function GalleryGrid({
           photos={colPhotos} 
           onPhotoClick={onPhotoClick} 
           downloadEnabled={downloadEnabled}
+          favoritePhotoIds={favoritePhotoIds}
+          onToggleFavorite={onToggleFavorite}
         />
       ))}
     </div>

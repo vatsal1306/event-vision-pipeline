@@ -3,8 +3,9 @@
 import { useEffect, useCallback } from 'react';
 import { Photo } from '@/types/event';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { DownloadButton } from './download-button';
 import Image from 'next/image';
 
@@ -15,6 +16,8 @@ interface PhotoViewerProps {
   onClose: () => void;
   onChangeIndex: (index: number) => void;
   downloadEnabled?: boolean;
+  favoritePhotoIds?: Set<string>;
+  onToggleFavorite?: (photoId: string) => void;
 }
 
 export function PhotoViewer({
@@ -24,8 +27,11 @@ export function PhotoViewer({
   onClose,
   onChangeIndex,
   downloadEnabled = true,
+  favoritePhotoIds,
+  onToggleFavorite
 }: PhotoViewerProps) {
   const currentPhoto = photos[currentIndex];
+  const isFavorite = currentPhoto ? favoritePhotoIds?.has(currentPhoto.id) : false;
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) onChangeIndex(currentIndex - 1);
@@ -69,6 +75,21 @@ export function PhotoViewer({
             {currentIndex + 1} / {photos.length}
           </div>
           <div className="flex items-center gap-2">
+            {onToggleFavorite && currentPhoto && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "rounded-full transition-colors",
+                  isFavorite 
+                    ? "text-primary hover:text-primary hover:bg-white/10" 
+                    : "text-white hover:bg-white/20 hover:text-white"
+                )}
+                onClick={() => onToggleFavorite(currentPhoto.id)}
+              >
+                <Heart className={cn("h-6 w-6", isFavorite && "fill-current")} />
+              </Button>
+            )}
             {downloadEnabled && (
               <DownloadButton
                 photoId={currentPhoto.id}

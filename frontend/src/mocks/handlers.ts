@@ -8,6 +8,9 @@ import { mockAnalyticsSummary, mockAnalyticsTopPhotos, mockGuestAnalytics } from
 import { Event, EventType } from '@/types/event';
 import { Photographer } from '@/types/user';
 
+// Mock state for favorites
+const mockedFavorites = new Set<string>();
+
 export const handlers = [
   // ==========================================
   // NOTE: Partial API Coverage
@@ -433,5 +436,28 @@ export const handlers = [
     
     const photos = mockPhotos[event.id] || [];
     return HttpResponse.json(photos);
+  }),
+
+  http.get('*/api/event/:slug/master/favorites', ({ params }) => {
+    const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
+    const event = mockEvents.find(e => e.slug === slug);
+    
+    if (!event) return new HttpResponse(null, { status: 404 });
+    
+    const photos = mockPhotos[event.id] || [];
+    const favoritePhotos = photos.filter(p => mockedFavorites.has(p.id));
+    return HttpResponse.json(favoritePhotos);
+  }),
+
+  http.post('*/api/event/:slug/master/favorite', async ({ request, params }) => {
+    const data = await request.json() as { photoId: string };
+    
+    if (mockedFavorites.has(data.photoId)) {
+      mockedFavorites.delete(data.photoId);
+    } else {
+      mockedFavorites.add(data.photoId);
+    }
+    
+    return HttpResponse.json({ success: true });
   }),
 ];
