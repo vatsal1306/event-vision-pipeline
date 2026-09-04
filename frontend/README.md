@@ -83,3 +83,10 @@ NEXT_PUBLIC_MOCK_API=true
 - Generates and allows copying of Master and Guest links using the event slug.
 - Added toggle controls for Master link, Guest link, and "Allow original downloads" setting.
 - Integrated with MSW to mock event link toggling and global settings updates.
+
+### FE-015: Photographer Profile & Branding
+- Built the Photographer Profile page (`/dashboard/profile`).
+- Added editable form for Studio Name, Email, and Phone with Zod validation.
+- Implemented Logo and Watermark upload features with immediate local preview generation (`URL.createObjectURL`).
+- Added `WatermarkPreview` component to visualize how the watermark will appear overlaid on photos.
+- Updated the global sidebar and profile page to display real mocked storage usage limits (progress bar and human-readable bytes).

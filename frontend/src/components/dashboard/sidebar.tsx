@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import { Camera, User, Settings, ChevronLeft, ChevronRight, HardDrive } from 'lucide-react';
 import { useUiStore } from '@/stores/ui-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { cn } from '@/lib/utils';
+import { useProfile } from '@/hooks/use-profile';
+import { cn, formatBytes } from '@/lib/utils';
 
 const navigation = [
   { name: 'Events', href: '/dashboard/events', icon: Camera },
@@ -17,6 +18,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isSidebarCollapsed, toggleSidebar } = useUiStore();
   const { photographer } = useAuthStore();
+  const { data: profile } = useProfile();
 
   return (
     <aside
@@ -74,18 +76,18 @@ export function Sidebar() {
           })}
         </nav>
 
-        {!isSidebarCollapsed && photographer && (
+        {!isSidebarCollapsed && photographer && profile && (
           <div className="border-t border-border p-4">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>Storage Used</span>
-              <span className="font-mono">2.4 / 50 GB</span>
+              <span className="font-mono">{formatBytes(profile.storageUsedBytes)} / {formatBytes(profile.storageLimitBytes)}</span>
             </div>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
               <div
                 className="h-full bg-primary transition-all duration-300"
-                style={{ width: '4.8%' }}
+                style={{ width: `${Math.min(100, (profile.storageUsedBytes / profile.storageLimitBytes) * 100)}%` }}
                 role="progressbar"
-                aria-valuenow={4.8}
+                aria-valuenow={(profile.storageUsedBytes / profile.storageLimitBytes) * 100}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label="Storage usage"

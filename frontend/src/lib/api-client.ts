@@ -44,9 +44,13 @@ class ApiClient {
   private async request<T>(method: string, path: string, options?: RequestOptions): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     };
+
+    const isFormData = options?.body instanceof FormData;
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     // Safely cast or merge options headers
     if (options?.headers) {
@@ -60,7 +64,7 @@ class ApiClient {
     };
 
     if (options?.body) {
-      fetchOptions.body = JSON.stringify(options.body);
+      fetchOptions.body = isFormData ? (options.body as FormData) : JSON.stringify(options.body);
     }
 
     try {
