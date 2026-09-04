@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "AI photo sharing platform API"
 requires-python = ">=3.10,<3.11"
 dependencies = [
+    "alembic>=1.14,<2",
     "celery[redis]>=5.4,<6",
     "fastapi>=0.115,<1",
     "pydantic-settings>=2.6,<3",
@@ -41,6 +42,10 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.10"
 strict = true
 packages = ["app"]
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

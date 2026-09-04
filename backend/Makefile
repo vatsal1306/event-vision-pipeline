@@ -1,4 +1,4 @@
-.PHONY: dev lint format typecheck test docker-up
+.PHONY: dev lint format typecheck test migrate docker-up
 
 dev:
 	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -15,6 +15,9 @@ typecheck:
 
 test:
 	uv run pytest
+
+migrate:
+	uv run alembic upgrade head
 
 docker-up:
 	docker compose up --build db redis backend
