@@ -18,8 +18,7 @@ import { GalleryHeader } from '@/components/gallery/gallery-header';
 import { FolderNav } from '@/components/gallery/folder-nav';
 import { GallerySkeleton } from '@/components/gallery/gallery-skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
-
-const Throw = ({ error }: { error: Error }) => { throw error; };
+import { AlertCircle } from 'lucide-react';
 
 import { 
   useEventInfo, 
@@ -53,7 +52,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   const { slug } = params;
   
   // Queries
-  const { data: infoData, isLoading: infoLoading, error: infoError } = useEventInfo(slug);
+  const { data: infoData, isLoading: infoLoading, error: infoError, refetch: refetchInfo } = useEventInfo(slug);
   
   // Auth state
   const { isAuthenticated, getToken, login, logout } = useMasterAuthStore();
@@ -80,7 +79,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   // Authenticated Queries
   const { data: folders = [], isLoading: foldersLoading } = useMasterFolders(slug, isAuth ? token : null);
-  const { data: photos = [], isLoading: photosLoading } = useMasterPhotos(slug, isAuth ? token : null);
+  const { data: photos = [], isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = useMasterPhotos(slug, isAuth ? token : null);
   const { data: favoritePhotos = [] } = useFavorites(slug, isAuth ? token : null);
 
   const favoritePhotoIds = useMemo(() => new Set(favoritePhotos.map(p => p.id)), [favoritePhotos]);
@@ -161,9 +160,12 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   if (infoError) {
     return (
       <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center">
-        <ErrorBoundary>
-          <Throw error={infoError} />
-        </ErrorBoundary>
+        <EmptyState
+          title="Failed to load gallery"
+          description={infoError.message}
+          icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+          action={<Button onClick={() => refetchInfo()}>Try again</Button>}
+        />
       </div>
     );
   }
@@ -287,6 +289,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   }
 
   return (
+    <ErrorBoundary>
     <div className="dark min-h-screen bg-background text-foreground flex flex-col">
       <GalleryHeader event={event} photographer={photographer} />
       
@@ -308,7 +311,16 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           className="sticky top-16 z-10 bg-background/90 backdrop-blur-sm border-b border-border/10 mb-6"
         />
 
-        {foldersLoading || photosLoading ? (
+        {photosError ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <EmptyState
+              title="Failed to load photos"
+              description={photosError.message}
+              icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+              action={<Button onClick={() => refetchPhotos()}>Try again</Button>}
+            />
+          </div>
+        ) : foldersLoading || photosLoading ? (
           <div className="flex-1 p-6">
             <GallerySkeleton count={15} />
           </div>
@@ -354,5 +366,6 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
         }}
       />
     </div>
+    </ErrorBoundary>
   );
 }

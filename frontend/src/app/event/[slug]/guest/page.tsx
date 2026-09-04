@@ -14,6 +14,8 @@ import { PersonalizedGallery } from '@/components/guest/personalized-gallery';
 import { GallerySkeleton } from '@/components/gallery/gallery-skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Throw = ({ error }: { error: Error }) => { throw error; };
 
@@ -23,7 +25,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   const { slug } = params;
   
   // Queries
-  const { data: infoData, isLoading: infoLoading, error: infoError } = useEventInfo(slug);
+  const { data: infoData, isLoading: infoLoading, error: infoError, refetch: refetchInfo } = useEventInfo(slug);
   
   // Auth state
   const { guestSession, sessionToken, needsSelfie, isVerified, setGuestSession, clearGuestSession } = useGuestAuthStore();
@@ -49,7 +51,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   }, [isVerified, sessionToken, needsSelfie, guestSession, infoData?.event, clearGuestSession]);
 
   // Authenticated Queries
-  const { data: photosData, isLoading: photosLoading } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
+  const { data: photosData, isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
 
   // Mutations
   const authMutation = useGuestAuth();
@@ -130,10 +132,14 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   if (infoError) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <ErrorBoundary>
-          <Throw error={infoError} />
-        </ErrorBoundary>
+      <div className="flex h-[100dvh] items-center justify-center bg-black">
+        <EmptyState
+          title="Failed to load gallery"
+          description={infoError.message}
+          icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+          action={<Button onClick={() => refetchInfo()}>Try again</Button>}
+          className="bg-zinc-950 text-white border-zinc-800"
+        />
       </div>
     );
   }
@@ -191,6 +197,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   );
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-black text-white flex flex-col items-center">
       {step === 'auth' && (
         <div className="w-full flex-1 flex flex-col items-center justify-center p-4">
@@ -230,7 +237,16 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
       {step === 'gallery' && (
         <div className="w-full flex-1 flex flex-col">
-          {photosLoading ? (
+          {photosError ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <EmptyState
+                title="Failed to load photos"
+                description={photosError.message}
+                icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+                action={<Button onClick={() => refetchPhotos()}>Try again</Button>}
+              />
+            </div>
+          ) : photosLoading ? (
             <div className="flex-1 p-6">
               <GallerySkeleton count={12} className="opacity-50" />
             </div>
@@ -247,5 +263,6 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

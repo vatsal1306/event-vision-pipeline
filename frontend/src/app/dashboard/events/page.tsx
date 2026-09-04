@@ -13,8 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { EventListSkeleton } from '@/components/dashboard/event-list-skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { EmptyState } from '@/components/shared/empty-state';
-
-const Throw = ({ error }: { error: Error }) => { throw error; };
+import { AlertCircle } from 'lucide-react';
 
 export default function EventsPage() {
   const { photographer } = useAuthStore();
@@ -23,7 +22,7 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
 
-  const { data: events = [], isLoading, error } = useEvents();
+  const { data: events = [], isLoading, error, refetch } = useEvents();
   const createEventMutation = useCreateEvent();
 
   const filteredEvents = events
@@ -72,14 +71,20 @@ export default function EventsPage() {
 
   if (error) {
     return (
-      <ErrorBoundary>
-        <Throw error={error} />
-      </ErrorBoundary>
+      <div className="py-16">
+        <EmptyState
+          title="Failed to load events"
+          description={error.message}
+          icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+          action={<Button onClick={() => refetch()}>Try again</Button>}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Your Events</h1>
@@ -158,5 +163,6 @@ export default function EventsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </ErrorBoundary>
   );
 }

@@ -22,8 +22,8 @@ const UploadDropzone = dynamic(() => import('@/components/dashboard/upload-dropz
 const UploadProgress = dynamic(() => import('@/components/dashboard/upload-progress').then(m => m.UploadProgress), { ssr: false });
 
 import { ErrorBoundary } from '@/components/shared/error-boundary';
-
-const Throw = ({ error }: { error: Error }) => { throw error; };
+import { EmptyState } from '@/components/shared/empty-state';
+import { AlertCircle } from 'lucide-react';
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -34,16 +34,21 @@ export default function EventDetailPage() {
   const currentTab = searchParams.get('tab') || 'photos';
   const folderId = searchParams.get('folderId');
 
-  const { data: event, isLoading: isEventLoading, error: eventError } = useEvent(id);
+  const { data: event, isLoading: isEventLoading, error: eventError, refetch } = useEvent(id);
   const { data: folders = [], isLoading: isFoldersLoading } = useFolders(id);
   
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 
   if (eventError) {
     return (
-      <ErrorBoundary>
-        <Throw error={eventError} />
-      </ErrorBoundary>
+      <div className="flex h-full items-center justify-center p-8">
+        <EmptyState
+          title="Failed to load event"
+          description={eventError.message}
+          icon={<AlertCircle className="h-8 w-8 text-destructive" />}
+          action={<Button onClick={() => refetch()}>Try again</Button>}
+        />
+      </div>
     );
   }
 
@@ -72,7 +77,19 @@ export default function EventDetailPage() {
   }
 
   if (!event) {
-    return <div className="p-8 text-destructive">Event not found</div>;
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <EmptyState
+          title="Event not found"
+          description="The event you are looking for does not exist or you don't have access to it."
+          action={
+            <Button asChild>
+              <Link href="/dashboard/events">Back to Events</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
   }
 
   const tabs = [
@@ -99,6 +116,7 @@ export default function EventDetailPage() {
   };
 
   return (
+    <ErrorBoundary>
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex-none border-b bg-card px-6 py-4">
@@ -205,5 +223,6 @@ export default function EventDetailPage() {
         onClose={() => setSelectedPhoto(null)}
       />
     </div>
+    </ErrorBoundary>
   );
 }
