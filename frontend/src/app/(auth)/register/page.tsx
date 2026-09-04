@@ -22,7 +22,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
 
-const registerSchema = z.object({
+export const registerSchema = z.object({
   studioName: z.string().min(2, 'Studio name must be at least 2 characters.'),
   email: z.string().email('Please enter a valid email address.'),
   password: z
