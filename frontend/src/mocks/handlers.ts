@@ -381,5 +381,57 @@ export const handlers = [
       guests: paginated,
       total: sorted.length
     });
-  })
+  }),
+  // ==========================================
+  // Public / Master Link Endpoints
+  // ==========================================
+
+  http.get('*/api/event/:slug/info', ({ params }) => {
+    const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
+    const event = mockEvents.find(e => e.slug === slug);
+    
+    if (!event) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    
+    return HttpResponse.json({
+      event,
+      photographer: mockProfile
+    });
+  }),
+
+  http.post('*/api/event/:slug/master/auth', async () => {
+    await delay(500);
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('*/api/event/:slug/master/verify', async ({ request }) => {
+    const data = await request.json() as { otp: string };
+    await delay(500);
+    
+    if (data.otp === '123456') {
+      return HttpResponse.json({ token: `mock-master-token-${Date.now()}` });
+    }
+    return new HttpResponse(JSON.stringify({ message: 'Invalid OTP' }), { status: 400 });
+  }),
+
+  http.get('*/api/event/:slug/master/folders', ({ params }) => {
+    const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
+    const event = mockEvents.find(e => e.slug === slug);
+    
+    if (!event) return new HttpResponse(null, { status: 404 });
+    
+    const folders = mockFolders[event.id] || [];
+    return HttpResponse.json(folders);
+  }),
+
+  http.get('*/api/event/:slug/master/photos', ({ params }) => {
+    const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
+    const event = mockEvents.find(e => e.slug === slug);
+    
+    if (!event) return new HttpResponse(null, { status: 404 });
+    
+    const photos = mockPhotos[event.id] || [];
+    return HttpResponse.json(photos);
+  }),
 ];

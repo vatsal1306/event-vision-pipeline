@@ -173,12 +173,15 @@ export const api = {
 
   // Guest / Couple
   getEventInfoPublic: (slug: string) => apiClient.get<unknown>(`/api/event/${slug}/info`),
+  getEventInfo: (slug: string) => apiClient.get<{ event: Event; photographer: Photographer }>(`/api/event/${slug}/info`),
+  masterAuth: (slug: string, data: { name: string; phone: string }) => apiClient.post<{ success: boolean }>(`/api/event/${slug}/master/auth`, data),
+  verifyMasterAuth: (slug: string, data: { otp: string }) => apiClient.post<{ token: string }>(`/api/event/${slug}/master/verify`, data),
   sendGuestOtp: (slug: string, data: unknown) => apiClient.post<void>(`/api/event/${slug}/auth`, data),
   verifyGuestOtp: (slug: string, data: unknown) => apiClient.post<TokenResponse>(`/api/event/${slug}/auth/verify`, data),
   submitSelfie: (slug: string, data: unknown) => apiClient.post<{ matchedPhotoIds: string[]; matchCount: number }>(`/api/event/${slug}/selfie`, data),
   getGuestPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`),
-  getMasterPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/master/photos`),
-  getMasterFolders: (slug: string) => apiClient.get<FolderNode[]>(`/api/event/${slug}/master/folders`),
+  getMasterPhotos: (slug: string, token?: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/photos`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  getMasterFolders: (slug: string, token?: string) => apiClient.get<FolderNode[]>(`/api/event/${slug}/master/folders`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   toggleFavorite: (slug: string, data: unknown) => apiClient.post<void>(`/api/event/${slug}/master/favorite`, data),
   getFavorites: (slug: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/favorites`),
   downloadGuestPhoto: (slug: string, photoId: string) => apiClient.get<{ url: string }>(`/api/event/${slug}/photos/${photoId}/download`),

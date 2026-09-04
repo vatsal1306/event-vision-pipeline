@@ -33,6 +33,16 @@ export default function GalleryDemoPage() {
     return eventPhotos.filter((p: any) => p.folderId === selectedFolderId);
   }, [selectedFolderId, eventPhotos]);
 
+  const photoCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    eventPhotos.forEach((p: any) => {
+      if (p.folderId) {
+        counts[p.folderId] = (counts[p.folderId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [eventPhotos]);
+
   const handlePhotoClick = (index: number) => {
     setViewerIndex(index);
     setViewerOpen(true);
@@ -47,6 +57,8 @@ export default function GalleryDemoPage() {
           folders={folders}
           selectedFolderId={selectedFolderId}
           onSelectFolder={setSelectedFolderId}
+          photoCounts={photoCounts}
+          totalCount={eventPhotos.length}
           className="sticky top-16 z-10 bg-background/90 backdrop-blur-sm border-b border-border/10 mb-6"
         />
 

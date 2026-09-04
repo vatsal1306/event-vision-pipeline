@@ -1,13 +1,15 @@
 'use client';
 
-import { Folder } from '@/types/event';
+import { FolderNode } from '@/types/event';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface FolderNavProps {
-  folders: Folder[];
+  folders: FolderNode[];
   selectedFolderId: string | null;
   onSelectFolder: (id: string | null) => void;
+  photoCounts?: Record<string, number>;
+  totalCount?: number;
   className?: string;
 }
 
@@ -15,8 +17,24 @@ export function FolderNav({
   folders,
   selectedFolderId,
   onSelectFolder,
+  photoCounts,
+  totalCount,
   className,
 }: FolderNavProps) {
+  // Flatten folder tree
+  const flattenedFolders: { id: string; name: string }[] = [];
+  
+  const flatten = (nodes: FolderNode[], parentPath = '') => {
+    for (const node of nodes) {
+      const currentPath = parentPath ? `${parentPath} > ${node.name}` : node.name;
+      flattenedFolders.push({ id: node.id, name: currentPath });
+      if (node.children && node.children.length > 0) {
+        flatten(node.children, currentPath);
+      }
+    }
+  };
+  
+  flatten(folders);
   return (
     <div className={cn('w-full overflow-x-auto no-scrollbar py-2', className)}>
       <div className="flex gap-2 min-w-max px-4">
@@ -29,10 +47,10 @@ export function FolderNav({
             selectedFolderId === null && 'bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground'
           )}
         >
-          All Photos
+          All Photos {totalCount !== undefined ? `(${totalCount})` : ''}
         </Button>
         
-        {folders.map((folder) => (
+        {flattenedFolders.map((folder) => (
           <Button
             key={folder.id}
             variant="outline"
@@ -43,7 +61,7 @@ export function FolderNav({
               selectedFolderId === folder.id && 'bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground'
             )}
           >
-            {folder.name}
+            {folder.name} {photoCounts?.[folder.id] !== undefined ? `(${photoCounts[folder.id]})` : ''}
           </Button>
         ))}
       </div>

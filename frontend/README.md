@@ -95,3 +95,10 @@ NEXT_PUBLIC_MOCK_API=true
 - Fully integrated the guest/couple gallery UI primitives (`GalleryGrid`, `PhotoViewer`, `FolderNav`, `GalleryHeader`).
 - `GalleryGrid` now supports responsive column layouts corresponding to 'guest', 'couple', and 'dashboard' contexts.
 - Added a dedicated throwaway demo page at `/gallery-demo` to showcase the dark-theme gallery experience with masonry layouts, virtualization, and the full-screen photo lightbox viewer.
+
+### FE-017: Couple Master Link & Auth
+- Implemented the public-facing "Master Link" page at `/event/[slug]/master` for couples to view their complete gallery.
+- Added an OTP-based authentication flow (Name + Phone -> OTP) before the gallery is accessible. You can use the mock OTP `123456` to test.
+- The authentication session is persisted locally on the device using a lightweight `zustand` store with `persist` middleware.
+- Refined the `GalleryGrid` layout for couples by enforcing a `'couple'` mode which sets a comfortable, expansive column structure up to 6 columns.
+- The gallery integrates the `FolderNav` allowing the couple to browse their event's photos across all folders in a sleek dark theme.
