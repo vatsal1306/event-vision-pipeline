@@ -4,6 +4,7 @@ const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
   workboxOptions: {
+    exclude: [/mockServiceWorker\.js$/],
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/cdn\..*\.(webp|jpg|jpeg|png)$/,
