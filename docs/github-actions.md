@@ -12,12 +12,20 @@ CI/CD for this monorepo. **No auto-deploy on push to `main`.**
 
 ## AWS auth (deploy / stop)
 
-Uses **GitHub OIDC** → `sts:AssumeRoleWithWebIdentity`. No long-lived AWS access keys in GitHub.
+Uses **IAM access keys** for the **compute account** (not the storage account used for S3/Terraform).
 
-- Repository variable: `AWS_ROLE_ARN` (compute account IAM role ARN)
-- Workflows need `permissions: id-token: write`
+GitHub repository **secrets**:
 
-OIDC covers **EC2 start/stop/describe only**. SSH deploy still uses GitHub secrets `EC2_HOST` and `EC2_SSH_PRIVATE_KEY` (EC2 key pair `.pem`, not IAM).
+| Secret | Purpose |
+|--------|---------|
+| `AWS_ACCESS_KEY_ID` | Compute-account IAM user access key |
+| `AWS_SECRET_ACCESS_KEY` | Matching secret key |
+| `EC2_HOST` | Elastic IP for SSH |
+| `EC2_SSH_PRIVATE_KEY` | EC2 key pair `.pem` contents (not an IAM key) |
+
+IAM user needs `ec2:DescribeInstances`, `ec2:DescribeInstanceStatus`, `ec2:StartInstances`, `ec2:StopInstances` (or admin). Do not reuse storage-account Terraform keys.
+
+OIDC is not used.
 
 ## EC2 instance lookup
 
@@ -59,6 +67,5 @@ Find instance by same tag; `stop-instances` unless already stopped/stopping.
 ## Constraints for agents
 
 - Do not add `on: push` deploy to `main` unless explicitly requested.
-- Do not put AWS access keys in workflows; use OIDC role.
-- Deploy workflows target **compute account** EC2 only (not storage-account Terraform).
+- Do not put storage-account Terraform keys in deploy workflows; use compute-account IAM keys.
 - Production app URL: `https://spotme.hpklabs.ai`
