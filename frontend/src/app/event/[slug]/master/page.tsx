@@ -24,8 +24,10 @@ import {
   useMasterFolders, 
   useMasterPhotos 
 } from '@/hooks/use-master-gallery';
+import { useFavorites, useToggleFavorite } from '@/hooks/use-couple-favorites';
 import { useMasterAuthStore } from '@/stores/master-auth-store';
 import { Lock, LogOut } from 'lucide-react';
+import { FavoritesFab } from '@/components/couple/favorites-fab';
 
 const PhotoViewer = dynamic(
   () => import('@/components/gallery/photo-viewer').then(mod => mod.PhotoViewer),
@@ -56,6 +58,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   
   // Gallery state
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
 
@@ -74,10 +77,14 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   // Authenticated Queries
   const { data: folders = [], isLoading: foldersLoading } = useMasterFolders(slug, isAuth ? token : null);
   const { data: photos = [], isLoading: photosLoading } = useMasterPhotos(slug, isAuth ? token : null);
+  const { data: favoritePhotos = [] } = useFavorites(slug, isAuth ? token : null);
+
+  const favoritePhotoIds = useMemo(() => new Set(favoritePhotos.map(p => p.id)), [favoritePhotos]);
 
   // Mutations
   const authMutation = useMasterAuth();
   const verifyMutation = useMasterVerify();
+  const toggleFavoriteMutation = useToggleFavorite(slug, isAuth ? token : null);
 
   // Forms
   const form = useForm<z.infer<typeof authSchema>>({
@@ -113,9 +120,18 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   };
 
   const displayedPhotos = useMemo(() => {
-    if (!selectedFolderId) return photos;
-    return photos.filter(p => p.folderId === selectedFolderId);
-  }, [selectedFolderId, photos]);
+    let filtered = photos;
+    
+    if (showFavoritesOnly) {
+      filtered = filtered.filter(p => favoritePhotoIds.has(p.id));
+    }
+    
+    if (selectedFolderId) {
+      filtered = filtered.filter(p => p.folderId === selectedFolderId);
+    }
+    
+    return filtered;
+  }, [selectedFolderId, showFavoritesOnly, photos, favoritePhotoIds]);
 
   const handlePhotoClick = (index: number) => {
     setViewerIndex(index);
@@ -275,6 +291,13 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           <div className="flex-1 flex items-center justify-center">
             <LoadingSpinner />
           </div>
+        ) : showFavoritesOnly && displayedPhotos.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState 
+              title="No favorites yet" 
+              description="Tap the ♡ on any photo to save it here."
+            />
+          </div>
         ) : (
           <LayoutGroup>
             <GalleryGrid
@@ -282,6 +305,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
               onPhotoClick={handlePhotoClick}
               downloadEnabled={event.downloadEnabled}
               layoutMode="couple"
+              favoritePhotoIds={favoritePhotoIds}
+              onToggleFavorite={(id) => toggleFavoriteMutation.mutate(id)}
               className="flex-1"
             />
           </LayoutGroup>
@@ -295,6 +320,17 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
         onClose={() => setViewerOpen(false)}
         onChangeIndex={setViewerIndex}
         downloadEnabled={event.downloadEnabled}
+        favoritePhotoIds={favoritePhotoIds}
+        onToggleFavorite={(id) => toggleFavoriteMutation.mutate(id)}
+      />
+
+      <FavoritesFab
+        count={favoritePhotoIds.size}
+        isActive={showFavoritesOnly}
+        onClick={() => {
+          setShowFavoritesOnly(prev => !prev);
+          setSelectedFolderId(null);
+        }}
       />
     </div>
   );

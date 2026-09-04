@@ -182,8 +182,8 @@ export const api = {
   getGuestPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`),
   getMasterPhotos: (slug: string, token?: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/photos`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   getMasterFolders: (slug: string, token?: string) => apiClient.get<FolderNode[]>(`/api/event/${slug}/master/folders`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
-  toggleFavorite: (slug: string, data: unknown) => apiClient.post<void>(`/api/event/${slug}/master/favorite`, data),
-  getFavorites: (slug: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/favorites`),
+  toggleFavorite: (slug: string, data: { photoId: string }, token?: string) => apiClient.post<{ success: boolean }>(`/api/event/${slug}/master/favorite`, data, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+  getFavorites: (slug: string, token?: string) => apiClient.get<Photo[]>(`/api/event/${slug}/master/favorites`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   downloadGuestPhoto: (slug: string, photoId: string) => apiClient.get<{ url: string }>(`/api/event/${slug}/photos/${photoId}/download`),
 
   // Analytics

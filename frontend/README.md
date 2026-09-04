@@ -102,3 +102,10 @@ NEXT_PUBLIC_MOCK_API=true
 - The authentication session is persisted locally on the device using a lightweight `zustand` store with `persist` middleware.
 - Refined the `GalleryGrid` layout for couples by enforcing a `'couple'` mode which sets a comfortable, expansive column structure up to 6 columns.
 - The gallery integrates the `FolderNav` allowing the couple to browse their event's photos across all folders in a sleek dark theme.
+
+### FE-018: Couple Favorites
+- Added the ability for couples to "favorite" photos within the master gallery.
+- Created `useFavorites` and `useToggleFavorite` React Query hooks to fetch favorites and optimistically update the UI, enabling instant feedback on toggling.
+- Added a heart icon toggle to the `GalleryGrid` thumbnails (on hover) and the `PhotoViewer` header.
+- Implemented a `FavoritesFab` floating action button that displays the favorite count and toggles the view to show only favorite photos across all folders.
+- Mocked the favorites API state in MSW to test the flow end-to-end.
