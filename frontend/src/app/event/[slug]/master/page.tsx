@@ -128,6 +128,16 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
     }
   };
 
+  const photoCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    photos.forEach(p => {
+      if (p.folderId) {
+        counts[p.folderId] = (counts[p.folderId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [photos]);
+
   if (infoLoading) {
     return <div className="flex h-screen items-center justify-center bg-black"><LoadingSpinner /></div>;
   }
@@ -256,6 +266,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           folders={folders}
           selectedFolderId={selectedFolderId}
           onSelectFolder={setSelectedFolderId}
+          photoCounts={photoCounts}
+          totalCount={photos.length}
           className="sticky top-16 z-10 bg-background/90 backdrop-blur-sm border-b border-border/10 mb-6"
         />
 
