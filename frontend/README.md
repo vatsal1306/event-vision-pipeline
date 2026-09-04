@@ -116,3 +116,12 @@ NEXT_PUBLIC_MOCK_API=true
 - Integrated `react-webcam` to capture the guest's selfie seamlessly on both mobile and desktop browsers with an intuitive face guide overlay.
 - Displayed a branded processing state simulating backend face matching.
 - Developed a personalized photo grid greeting the guest by name and displaying only the photos they appear in. Return visits bypass the selfie step entirely if they've already been matched.
+
+### FE-020: PWA Manifest & Caching
+- Transformed the web application into an installable Progressive Web App (PWA) using `@ducanh2912/next-pwa`.
+- Configured a `public/manifest.json` with appropriate dark theme (`#0a0a0a`) and generated 192x192, 512x512, and maskable icons.
+- Implemented robust service worker runtime caching strategies:
+  - `CacheFirst` for CDN photos (up to 7 days, 200 entries max) to allow extremely fast offline viewing of previously loaded images.
+  - `NetworkFirst` for API routes to prioritize fresh data while falling back to cached responses.
+  - `StaleWhileRevalidate` for static assets like fonts and JS bundles.
+- Conditionally disabled the service worker during local development to prevent caching issues.

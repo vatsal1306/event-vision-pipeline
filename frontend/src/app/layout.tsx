@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Sofia_Sans } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
@@ -14,6 +14,11 @@ const sofiaSans = Sofia_Sans({
 export const metadata: Metadata = {
   title: "SpotMe",
   description: "Find yourself in every shot",
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
