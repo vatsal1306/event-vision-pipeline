@@ -1,7 +1,4 @@
-"""Alembic migration environment.
-
-Model metadata is wired in BE-003 when SQLAlchemy models are introduced.
-"""
+"""Alembic migration environment."""
 
 from __future__ import annotations
 
@@ -15,12 +12,14 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
+from app.models import Base  # noqa: F401 — register model metadata
+
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def _database_url() -> str:

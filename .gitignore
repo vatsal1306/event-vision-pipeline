@@ -193,3 +193,4 @@ Thumbs.db
 
 # Allow Next.js lib dir
 !frontend/src/lib/
+dummy.txt

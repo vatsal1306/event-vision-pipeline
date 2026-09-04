@@ -14,7 +14,7 @@ typecheck:
 	uv run mypy app
 
 test:
-	uv run pytest
+	uv run pytest --cov=app --cov-report=term-missing
 
 migrate:
 	uv run alembic upgrade head
