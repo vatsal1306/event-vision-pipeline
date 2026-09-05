@@ -29,8 +29,26 @@ class NotFoundError(AppException):
 class AuthenticationError(AppException):
     """Raised when credentials or tokens are missing or invalid."""
 
-    def __init__(self, message: str = "Authentication failed") -> None:
-        super().__init__(message, "AUTH_FAILED", 401)
+    def __init__(self, message: str = "Authentication failed", code: str = "AUTH_FAILED") -> None:
+        super().__init__(message, code, 401)
+
+
+class PhoneNotVerifiedError(AppException):
+    """Raised when login is attempted before phone OTP verification."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "OTP verification failed. Please complete phone verification.",
+            "PHONE_NOT_VERIFIED",
+            401,
+        )
+
+
+class ConflictError(AppException):
+    """Raised when a unique resource constraint would be violated."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "CONFLICT", 409)
 
 
 class AuthorizationError(AppException):

@@ -26,7 +26,8 @@ Raise `app.core.exceptions` types from services (not ad-hoc `HTTPException` for 
 | Class | HTTP | `code` |
 |---|---|---|
 | `NotFoundError` | 404 | `NOT_FOUND` |
-| `AuthenticationError` | 401 | `AUTH_FAILED` |
+| `ConflictError` | 409 | `CONFLICT` |
+| `PhoneNotVerifiedError` | 401 | `PHONE_NOT_VERIFIED` |
 | `AuthorizationError` | 403 | `FORBIDDEN` |
 | `OTPCooldownError` | 429 | `OTP_COOLDOWN` |
 | `OTPMaxAttemptsError` | 429 | `OTP_MAX_ATTEMPTS` |
@@ -101,4 +102,47 @@ Verify extension and tables:
 docker compose exec db psql -U postgres -d photoshare -c "\\dx"
 docker compose exec db psql -U postgres -d photoshare -c "\\dt"
 ```
+
+## Photographer auth (BE-004)
+
+- Routes: `app/api/v1/auth.py` under `/api/v1/auth/*` (register, login, send-otp, verify-otp, refresh, logout, forgot-password, reset-password).
+- Business logic: `app/services/auth_service.py`. OTP: `app/utils/otp.py` + Redis. JWT/password: `app/core/security.py`.
+- Dependency: `get_current_photographer` in `app/api/deps.py` — requires JWT `type=access`.
+- Redis client: `app/core/redis_client.py` (`get_redis` / `get_redis_dep`). Used for OTP keys and refresh-token denylist (`jwt:denylist:{jti}`).
+- SMS: `app/services/sms_service.py` logs messages locally (`sms_provider=log`). Real MSG91 in BE-017.
+- Schemas: `app/schemas/auth.py`. Password: 8–16 chars with upper, lower, digit, special (`PASSWORD_PATTERN` in constants).
+- Phone numbers are unique on `photographers.phone` (migration `add_unique_photographers_phone`).
+
+### Flows (implemented)
+
+| Flow | Steps |
+|---|---|
+| Register | `register` (auto-sends OTP, no JWT) → `verify-otp` purpose `registration` (returns tokens) |
+| Login | `login` email_or_phone + password (sends OTP) → `verify-otp` purpose `login` (returns tokens). Blocked with `PHONE_NOT_VERIFIED` until registration OTP done. |
+| Reset password | `forgot-password` → OTP to registered phone → `reset-password` with OTP + new password |
+| Refresh / logout | `refresh` rotates tokens; `logout` denylists refresh `jti` |
+
+OTP: 6 digits, 300s expiry, 3 attempts, 60s send cooldown (Redis). Fourth verify attempt → `OTP_MAX_ATTEMPTS`.
+
+When `DEBUG=true`, OTP is logged at INFO as `local_only` on event `otp.dev_delivery` (for local testing only).
+
+### Auth integration tests
+
+`tests/test_auth.py` requires Docker Postgres **and** Redis (`docker compose up -d db redis`). Tests read OTP from Redis via `OTPService.peek_otp`.
+
+```bash
+cd backend
+docker compose up -d db redis
+uv sync --extra dev
+make migrate
+make test
+```
+
+### Frontend wiring
+
+Auth API paths use `/api/v1/auth/*` with snake_case JSON (`access_token`, `studio_name`, etc.). Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` and `NEXT_PUBLIC_MOCK_API=false` to hit the real backend.
+
+New exceptions: `PhoneNotVerifiedError` (`PHONE_NOT_VERIFIED`), `ConflictError` (`CONFLICT`).
+
+Dependencies added: `python-jose[cryptography]`, `passlib[bcrypt]`, `email-validator`, `bcrypt>=4.0.1,<4.1` (passlib compatibility pin).
 

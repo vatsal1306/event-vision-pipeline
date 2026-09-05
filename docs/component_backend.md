@@ -604,20 +604,34 @@ CREATE INDEX idx_analytics_downloads ON analytics_events (event_id, photo_id)
 ```
 Registration:
   1. POST /api/v1/auth/register (email, password, studio_name, phone)
-  2. Send OTP to phone → POST /api/v1/auth/send-otp
-  3. Verify OTP → POST /api/v1/auth/verify-otp
-  4. Account created; return JWT access_token + refresh_token
+     → creates account with phone_verified=false; auto-sends registration OTP
+  2. POST /api/v1/auth/verify-otp (phone, otp, purpose=registration)
+     → marks phone_verified=true; returns access_token + refresh_token + photographer profile
+  3. Optional resend: POST /api/v1/auth/send-otp (phone, purpose=registration)
 
-Login:
-  1. POST /api/v1/auth/login (email, password)
-  2. Verify password hash
-  3. Return JWT access_token (15min expiry) + refresh_token (7d expiry)
+Login (two-step — password + OTP to registered phone):
+  1. POST /api/v1/auth/login (email_or_phone, password)
+     → validates password; blocked with PHONE_NOT_VERIFIED if registration OTP incomplete
+     → sends login OTP to the account's registered phone (not tokens yet)
+  2. POST /api/v1/auth/verify-otp (phone, otp, purpose=login)
+     → returns access_token + refresh_token + photographer profile
 
-Token Refresh:
-  1. POST /api/v1/auth/refresh (refresh_token)
-  2. Validate refresh_token
-  3. Issue new access_token + refresh_token (rotate)
+Password reset (OTP to registered phone, not email link):
+  1. POST /api/v1/auth/forgot-password (email_or_phone) → generic success message; OTP sent if account exists
+  2. POST /api/v1/auth/reset-password (email_or_phone, otp, new_password)
+
+Token refresh / logout:
+  1. POST /api/v1/auth/refresh (refresh_token) → rotate; old refresh jti denylisted
+  2. POST /api/v1/auth/logout (refresh_token) + Bearer access token → denylist refresh jti
+
+Email verification via link: deferred until BE-017 (real email provider).
 ```
+
+**Password rules:** 8–16 characters; at least one uppercase, lowercase, digit, and special character. Enforced in API schemas (and mirrored in frontend Zod).
+
+**Phone uniqueness:** `photographers.phone` is unique (`+91` + 10 digits).
+
+**Local/dev OTP/SMS:** Redis-backed OTP; SMS adapter logs messages. When `DEBUG=true`, OTP is also logged at INFO under `local_only` (never in production logging policy).
 
 **JWT Structure:**
 ```json
@@ -794,11 +808,11 @@ async def get_photographer_event(
 # Request
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str  # 8-16 chars, upper, lower, digit, special
     studio_name: str = Field(min_length=2, max_length=255)
     phone: str = Field(pattern=r"^\+91\d{10}$")
 
-# Response (201 Created)
+# Response (201 Created) — no JWT until verify-otp
 class RegisterResponse(BaseModel):
     id: UUID
     email: str
@@ -812,16 +826,15 @@ class RegisterResponse(BaseModel):
 ```python
 # Request
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email_or_phone: str
     password: str
 
-# Response (200 OK)
-class LoginResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int  # seconds
-    photographer: PhotographerProfile
+# Response (200 OK) — OTP step, not tokens
+class LoginOtpPendingResponse(BaseModel):
+    otp_sent: bool
+    phone: str  # registered phone for verify-otp step
+    message: str
+    expires_in: int
 ```
 
 **POST `/api/v1/auth/send-otp`**
@@ -830,12 +843,12 @@ class LoginResponse(BaseModel):
 # Request
 class SendOTPRequest(BaseModel):
     phone: str
-    purpose: Literal["registration", "login", "guest_auth"]
+    purpose: Literal["registration", "login", "password_reset"]
 
 # Response (200 OK)
 class SendOTPResponse(BaseModel):
-    message: str  # "OTP sent successfully"
-    expires_in: int  # seconds
+    message: str
+    expires_in: int
 ```
 
 **POST `/api/v1/auth/verify-otp`**
@@ -845,12 +858,24 @@ class SendOTPResponse(BaseModel):
 class VerifyOTPRequest(BaseModel):
     phone: str
     otp: str = Field(min_length=6, max_length=6)
-    purpose: str
+    purpose: Literal["registration", "login", "password_reset"]
 
-# Response (200 OK)
-class VerifyOTPResponse(BaseModel):
-    verified: bool
+# Response (200 OK) for registration/login — returns JWT pair
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    photographer: PhotographerProfile
 ```
+
+**POST `/api/v1/auth/forgot-password`** → generic message; OTP to registered phone if account exists
+
+**POST `/api/v1/auth/reset-password`** → `{ email_or_phone, otp, new_password }`
+
+**POST `/api/v1/auth/refresh`** → rotate refresh token (old jti denylisted)
+
+**POST `/api/v1/auth/logout`** → Bearer access token + `{ refresh_token }`; denylist refresh jti
 
 #### Events
 

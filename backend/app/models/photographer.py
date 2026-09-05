@@ -24,7 +24,7 @@ class Photographer(Base, UUIDPrimaryKeyMixin, CreatedAtMixin, UpdatedAtMixin):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     studio_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     phone_verified: Mapped[bool] = mapped_column(
         Boolean,
         server_default=text("false"),

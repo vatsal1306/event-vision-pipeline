@@ -20,7 +20,7 @@ export function Header() {
   const { photographer, logout } = useAuthStore();
   const { toggleSidebar } = useUiStore();
 
-  const initials = photographer?.studioName
+  const initials = photographer?.studio_name
     ?.split(' ')
     .map((n) => n[0])
     .join('')
@@ -58,8 +58,8 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full" aria-label="User menu">
                 <div className="flex h-full w-full items-center justify-center rounded-full bg-primary text-primary-foreground font-medium">
-                  {photographer?.logoUrl ? (
-                    <Image src={photographer.logoUrl} alt="" fill className="rounded-full object-cover" />
+                  {photographer?.logo_url ? (
+                    <Image src={photographer.logo_url} alt="" fill className="rounded-full object-cover" />
                   ) : (
                     initials
                   )}
@@ -70,7 +70,7 @@ export function Header() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="font-medium truncate">{photographer?.studioName || 'Photographer'}</p>
+                  <p className="font-medium truncate">{photographer?.studio_name || 'Photographer'}</p>
                   <p className="text-xs text-muted-foreground truncate">{photographer?.email || 'studio@example.com'}</p>
                 </div>
               </DropdownMenuLabel>
@@ -91,8 +91,9 @@ export function Header() {
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={() => {
-                  logout();
-                  window.location.href = '/login';
+                  void logout().finally(() => {
+                    window.location.href = '/login';
+                  });
                 }}
               >
                 <LogOut className="h-4 w-4" />

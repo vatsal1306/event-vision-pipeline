@@ -305,19 +305,19 @@ export const handlers = [
   }),
 
   http.post('*/api/profile/logo', () => {
-    mockProfile.logoUrl = `https://picsum.photos/seed/${uuidv4()}/200/200`;
-    return HttpResponse.json({ url: mockProfile.logoUrl });
+    mockProfile.logo_url = `https://picsum.photos/seed/${uuidv4()}/200/200`;
+    return HttpResponse.json({ url: mockProfile.logo_url });
   }),
 
   http.post('*/api/profile/watermark', () => {
-    mockProfile.watermarkUrl = `https://picsum.photos/seed/${uuidv4()}/400/200`;
-    return HttpResponse.json({ url: mockProfile.watermarkUrl });
+    mockProfile.watermark_url = `https://picsum.photos/seed/${uuidv4()}/400/200`;
+    return HttpResponse.json({ url: mockProfile.watermark_url });
   }),
 
   http.get('*/api/profile/storage', () => {
     return HttpResponse.json({
-      used: mockProfile.storageUsedBytes,
-      limit: mockProfile.storageLimitBytes,
+      used: mockProfile.storage_used_bytes,
+      limit: mockProfile.storage_limit_bytes,
     });
   }),
 

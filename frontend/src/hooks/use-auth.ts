@@ -2,15 +2,16 @@ import { useAuthStore } from '../stores/auth-store';
 import { useGuestAuthStore } from '../stores/guest-auth-store';
 
 export const useAuth = () => {
-  const { photographer, accessToken, isAuthenticated, setPhotographer, logout, refreshToken } = useAuthStore();
-  
+  const { photographer, accessToken, isAuthenticated, setSession, logout, refreshToken } =
+    useAuthStore();
+
   return {
     photographer,
     accessToken,
     isAuthenticated,
-    setPhotographer,
+    setSession,
     logout,
-    refreshToken
+    refreshToken,
   };
 };
 

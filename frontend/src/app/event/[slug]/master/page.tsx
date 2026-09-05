@@ -208,11 +208,11 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md space-y-8 bg-zinc-900 p-8 rounded-xl border border-white/10">
           <div className="text-center">
-            {photographer.logoUrl ? (
-              <img src={photographer.logoUrl} alt={photographer.studioName} className="h-12 w-auto mx-auto mb-4" />
+            {photographer.logo_url ? (
+              <img src={photographer.logo_url} alt={photographer.studio_name} className="h-12 w-auto mx-auto mb-4" />
             ) : (
               <div className="h-12 w-12 rounded-md bg-primary flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-                {photographer.studioName.charAt(0)}
+                {photographer.studio_name.charAt(0)}
               </div>
             )}
             <h2 className="text-2xl font-bold tracking-tight">{event.name}</h2>

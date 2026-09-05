@@ -1,7 +1,7 @@
 import { Event, EventType, EventStatus, Folder, FolderNode, Photo } from '@/types/event';
 import { Photographer } from '@/types/user';
 import { AnalyticsSummary, AnalyticsTopPhoto, PaginatedGuests } from '@/types/analytics';
-import { PaginatedResponse, TokenResponse } from '@/types/api';
+import { PaginatedResponse, RegisterResponse, LoginOtpPendingResponse, TokenResponse } from '@/types/api';
 
 export class ApiError extends Error {
   constructor(
@@ -129,14 +129,19 @@ export const apiClient = new ApiClient();
 // §10.2 Typed API Methods
 export const api = {
   // Auth
-  register: (data: unknown) => apiClient.post<TokenResponse>('/api/auth/register', data),
-  login: (data: unknown) => apiClient.post<TokenResponse>('/api/auth/login', data),
-  logout: () => apiClient.post<void>('/api/auth/logout'),
-  refresh: () => apiClient.post<TokenResponse>('/api/auth/refresh'),
-  forgotPassword: (data: unknown) => apiClient.post<void>('/api/auth/forgot-password', data),
-  resetPassword: (data: unknown) => apiClient.post<void>('/api/auth/reset-password', data),
-  sendOtp: (data: unknown) => apiClient.post<void>('/api/auth/send-otp', data),
-  verifyOtp: (data: unknown) => apiClient.post<TokenResponse>('/api/auth/verify-otp', data),
+  register: (data: unknown) => apiClient.post<RegisterResponse>('/api/v1/auth/register', data),
+  login: (data: unknown) => apiClient.post<LoginOtpPendingResponse>('/api/v1/auth/login', data),
+  logout: (refreshToken: string) =>
+    apiClient.post<void>('/api/v1/auth/logout', { refresh_token: refreshToken }),
+  refresh: (refreshToken: string) =>
+    apiClient.post<TokenResponse>('/api/v1/auth/refresh', { refresh_token: refreshToken }),
+  forgotPassword: (data: unknown) =>
+    apiClient.post<{ message: string }>('/api/v1/auth/forgot-password', data),
+  resetPassword: (data: unknown) =>
+    apiClient.post<{ message: string }>('/api/v1/auth/reset-password', data),
+  sendOtp: (data: unknown) =>
+    apiClient.post<{ message: string; expires_in: number }>('/api/v1/auth/send-otp', data),
+  verifyOtp: (data: unknown) => apiClient.post<TokenResponse>('/api/v1/auth/verify-otp', data),
 
   // Events
   getEvents: () => apiClient.get<PaginatedResponse<Event>>('/api/events'),

@@ -184,11 +184,11 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   
   const branding = (
     <div className="text-center w-full">
-      {photographer.logoUrl ? (
-        <img src={photographer.logoUrl} alt={photographer.studioName} className="h-12 w-auto mx-auto mb-4" />
+      {photographer.logo_url ? (
+        <img src={photographer.logo_url} alt={photographer.studio_name} className="h-12 w-auto mx-auto mb-4" />
       ) : (
         <div className="h-12 w-12 rounded-md bg-primary flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-          {photographer.studioName.charAt(0)}
+          {photographer.studio_name.charAt(0)}
         </div>
       )}
       <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
@@ -229,8 +229,8 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       {step === 'processing' && (
         <div className="w-full flex-1 flex flex-col items-center justify-center">
           <ProcessingScreen 
-            photographerName={photographer.studioName}
-            photographerLogo={photographer.logoUrl}
+            photographerName={photographer.studio_name}
+            photographerLogo={photographer.logo_url}
           />
         </div>
       )}
@@ -256,7 +256,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
               guestName={guestSession?.name || 'Guest'} 
               onRetakeSelfie={handleRetakeSelfie}
               downloadEnabled={event.downloadEnabled}
-              photographerLogo={photographer.logoUrl}
+              photographerLogo={photographer.logo_url}
               eventName={event.name}
             />
           )}

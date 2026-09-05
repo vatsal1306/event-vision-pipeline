@@ -25,8 +25,8 @@ Work **backend** before **ML**. **Infra v2:** S3 + IAM in the cheap account; one
 |--------|-----------------------------------------------|----------------------------|--------|
 | BE-001 | FastAPI scaffold, uv, Compose, health         | —                          | Done   |
 | BE-002 | Config, exceptions, logging, CORS             | BE-001                     | Done   |
-| BE-003 | SQLAlchemy models and Alembic                 | BE-002                     |
-| BE-004 | Security, JWT, photographer auth + OTP        | BE-003                     |
+| BE-003 | SQLAlchemy models and Alembic                 | BE-002                     | Done   |
+| BE-004 | Security, JWT, photographer auth + OTP        | BE-003                     | Done   |
 | BE-005 | Event CRUD and slugs                          | BE-004                     |
 | BE-006 | Nested folders                                | BE-005                     |
 | BE-007 | Photos list, move, delete, download URL       | BE-006, BE-008             |
