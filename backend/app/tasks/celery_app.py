@@ -22,6 +22,8 @@ celery_app.conf.update(
     enable_utc=True,
     task_default_queue="photo_processing",
     task_routes={
-        "app.tasks.*": {"queue": "photo_processing"},
+        "app.tasks.photo_tasks.*": {"queue": "photo_processing"},
+        "app.tasks.face_tasks.*": {"queue": "photo_processing"},
+        "app.tasks.notification_tasks.*": {"queue": "notifications"},
     },
 )
