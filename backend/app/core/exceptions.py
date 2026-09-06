@@ -91,3 +91,10 @@ class ProcessingError(AppException):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, "PROCESSING_ERROR", 500)
+
+
+class StorageError(AppException):
+    """Raised when an operation on the underlying storage backend fails."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "STORAGE_ERROR", 500)
