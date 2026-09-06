@@ -150,11 +150,12 @@ async def update_folder(
 @router.delete("/{event_id}/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_folder(
     folder_id: UUID,
+    delete_photos: bool = Query(False),
     event: Event = Depends(get_photographer_event),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Delete a folder; photos move to root via FK SET NULL."""
-    await FolderService(db).delete_folder(event.id, folder_id)
+    """Delete a folder; photos move to root or are deleted based on the flag."""
+    await FolderService(db).delete_folder(event.id, folder_id, delete_photos=delete_photos)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

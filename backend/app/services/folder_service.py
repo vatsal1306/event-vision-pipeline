@@ -127,9 +127,31 @@ class FolderService:
             children=[],
         )
 
-    async def delete_folder(self, event_id: UUID, folder_id: UUID) -> None:
-        """Delete a folder; photos are set NULL via FK."""
+    async def delete_folder(
+        self, event_id: UUID, folder_id: UUID, delete_photos: bool = False
+    ) -> None:
+        """Delete a folder; photos are set NULL via FK, or deleted if requested."""
         folder = await self._get_folder(event_id, folder_id)
+
+        if delete_photos:
+            descendants_cte = (
+                select(Folder.id)
+                .where(Folder.id == folder_id)
+                .cte(name="descendants", recursive=True)
+            )
+            descendants_cte = descendants_cte.union_all(
+                select(Folder.id).where(Folder.parent_id == descendants_cte.c.id)
+            )
+            photo_ids_result = await self.db.execute(
+                select(Photo.id).where(Photo.folder_id.in_(select(descendants_cte.c.id)))
+            )
+            photo_ids = photo_ids_result.scalars().all()
+
+            if photo_ids:
+                from app.services.photo_service import PhotoService
+
+                await PhotoService(self.db).delete_photos(event_id, photo_ids)
+
         await self.db.delete(folder)
         await self.db.flush()
 

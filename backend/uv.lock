@@ -917,6 +917,12 @@ dev = [
     { name = "types-python-jose" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "types-passlib" },
+    { name = "types-python-jose" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14,<2" },
@@ -944,6 +950,12 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "types-passlib", specifier = ">=1.7.7.20260211" },
+    { name = "types-python-jose", specifier = ">=3.5.0.20260408" },
+]
 
 [[package]]
 name = "sqlalchemy"
