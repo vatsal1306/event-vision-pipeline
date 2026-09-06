@@ -19,6 +19,8 @@ dependencies = [
     "asyncpg>=0.30,<1",
     "pgvector>=0.3,<1",
     "uvicorn[standard]>=0.32,<1",
+    "boto3>=1.40.61",
+    "aioboto3>=15.5.0",
 ]
 
 [project.optional-dependencies]
@@ -53,7 +55,7 @@ strict = true
 packages = ["app"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "celery.*", "sentry_sdk.*", "pgvector.*"]
+module = ["celery", "celery.*", "sentry_sdk.*", "pgvector.*", "aioboto3", "aioboto3.*", "botocore.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -71,6 +73,7 @@ show_missing = true
 
 [dependency-groups]
 dev = [
+    "moto[s3]>=5.2.3",
     "types-passlib>=1.7.7.20260211",
     "types-python-jose>=3.5.0.20260408",
 ]

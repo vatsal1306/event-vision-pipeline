@@ -193,3 +193,10 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - `delete_photo`: Reuses the `delete_photos` utility from BE-006 inside `app/services/photo_service.py` to keep counters consistent.
 - `get_download_url`: Mocks `original_s3_key` presigned URL generation (until BE-008).
 - Tests: `tests/test_photos.py`. Cartesian product issue with `select_from(subquery)` using `func.count(Photo.id)` was resolved by correctly using `func.count()`.
+
+## Storage (BE-008)
+
+- Unified `StorageService` interface handling object creation, deletion, getting, presigned URLs, and storage class management.
+- Implementations include `S3StorageService` (using async `aioboto3`) for production AWS S3 and `LocalStorageService` (storing to `.data/s3` directory) for offline testing without AWS.
+- Standard storage exceptions wrapped in `StorageError`.
+- Tests mock S3 operations using python `unittest.mock.AsyncMock` because `aioboto3` async streams can be complicated to mock perfectly with `moto` in unit tests.
