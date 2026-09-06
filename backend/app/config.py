@@ -1,3 +1,43 @@
+"""Application configuration."""
+
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application configuration loaded from environment variables."""
+
+    # Application
+    app_name: str = "AI Photo Sharing Platform"
+    debug: bool = False
+    environment: str = "development"  # development, staging, production
+    api_base_url: str = "http://localhost:8000"
+    frontend_url: str = "http://localhost:3000"
+    secret_key: str = "dummy_secret_for_local_dev"  # for JWT signing
+
+    # Database
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+    database_pool_size: int = 20
+    database_max_overflow: int = 10
+
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+
+    # Celery
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
+
+    # AWS S3
+    aws_access_key_id: str = "dummy"
+    aws_secret_access_key: str = "dummy"
+    aws_region: str = "ap-south-1"
+    s3_bucket_originals: str = "platform-originals"
+    s3_bucket_proxies: str = "platform-proxies"
+    s3_bucket_assets: str = "platform-assets"  # logos, watermarks
+    s3_presigned_url_expiry: int = 3600  # 1 hour
+
+    # JWT
 """Application configuration loaded from environment variables."""
 
 from __future__ import annotations
