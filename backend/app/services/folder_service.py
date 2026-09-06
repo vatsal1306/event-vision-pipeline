@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -142,8 +142,15 @@ class FolderService:
             descendants_cte = descendants_cte.union_all(
                 select(Folder.id).where(Folder.parent_id == descendants_cte.c.id)
             )
-            stmt = delete(Photo).where(Photo.folder_id.in_(select(descendants_cte.c.id)))
-            await self.db.execute(stmt)
+            photo_ids_result = await self.db.execute(
+                select(Photo.id).where(Photo.folder_id.in_(select(descendants_cte.c.id)))
+            )
+            photo_ids = photo_ids_result.scalars().all()
+
+            if photo_ids:
+                from app.services.photo_service import PhotoService
+
+                await PhotoService(self.db).delete_photos(event_id, photo_ids)
 
         await self.db.delete(folder)
         await self.db.flush()
