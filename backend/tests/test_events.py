@@ -70,6 +70,7 @@ async def _verify_registration(
 @pytest_asyncio.fixture
 async def authed_client(db_session, redis_client) -> AsyncIterator[AsyncClient]:
     """Authenticated HTTP client for the primary photographer."""
+
     async def override_get_db() -> AsyncIterator:
         yield db_session
 
@@ -169,6 +170,7 @@ async def test_other_photographer_event_returns_404(
     redis_client,
 ) -> None:
     """Accessing another photographer's event returns 404, not 403."""
+
     async def override_get_db() -> AsyncIterator:
         yield db_session
 

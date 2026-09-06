@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
+
 @router.post("/create")
 async def create_upload_not_implemented() -> None:
     """Resumable upload init requires tusd + S3 (BE-008/BE-009)."""
