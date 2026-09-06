@@ -23,8 +23,8 @@ For each ingested original: generate WebP proxy (max edge 2048, target ~500KB, q
 ## Requirements
 
 - Originals never watermarked
-- GPU not required
-- Worker concurrency default 4 on CPU queue
+- GPU not required. **Do not enqueue face detection** on the app server (stub/skip).
+- Worker concurrency **2–3** on `m6i.xlarge` (leave CPU for tusd + Postgres).
 - Structured logs: photo_id, event_id, duration_ms
 
 ## Acceptance

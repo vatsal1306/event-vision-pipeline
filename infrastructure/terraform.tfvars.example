@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (gitignored) and fill in your real origins.
+#
+# Usage (from infrastructure/):
+#   cp terraform.tfvars.example terraform.tfvars
+#   terraform init -backend-config=environments/storage/backend.hcl -reconfigure
+#   terraform plan
+#   terraform apply
+
+cors_allowed_origins = [
+  "https://your-production-domain.com",
+  "https://dev.your-production-domain.com",
+  "http://localhost:3000",
+]
+
+# Optional: override IA transition (default is 7 days)
+# originals_ia_transition_days = 7

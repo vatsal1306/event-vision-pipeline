@@ -1,29 +1,28 @@
-# INF-001 — Terraform bootstrap: state bucket and lock table
+# INF-001 — Terraform state (storage account) — keep
 
 **Type:** Foundation  
-**Depends on:** none (needs AWS account + IAM user/role)  
-**Area:** `infrastructure/` bootstrap (can live outside main state)
+**Depends on:** none  
+**Area:** `infrastructure/bootstrap/`
 
 ## Goal
 
-Create S3 bucket `platform-terraform-state` (versioned, encrypted, public access blocked) and DynamoDB `terraform-locks` in ap-south-1. Document backend.hcl. Never commit state files.
+Already implemented: S3 state bucket + DynamoDB lock in **ap-south-1** on the **storage (cheap) account**. Keep it. Do not add versioning if you skipped it for cost. This stays off the compute account.
+
+## Context
+
+v2 infra: no VPC/ECS/RDS Terraform in this account. Later stories only add S3 media buckets + IAM.
 
 ## References
 
-- `docs/component_infrastructure.md` §14.2, §14.3 steps 1–3
-
-## Create / edit
-
-- `infrastructure/bootstrap/` small TF or scripted AWS CLI with warnings
-- `infrastructure/backend.tf` template
-- `infrastructure/versions.tf` AWS provider pin
+- `docs/component_infrastructure.md` §1, §15
+- `infrastructure/README.md`
 
 ## Requirements
 
-- MFA delete optional; encryption required
-- Separate AWS account note for prod vs personal
+- Do not create NAT, ECS, RDS as a follow-on in this account
+- README must not promise INF-002 VPC
 
 ## Acceptance
 
-- [ ] `terraform init` against remote backend works
-- [ ] README: who can assume the role
+- [ ] Remote backend init still works
+- [ ] README environment section matches “storage vs compute accounts”

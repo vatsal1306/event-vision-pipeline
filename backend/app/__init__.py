@@ -1,0 +1,1 @@
+"""SpotMe FastAPI application package."""

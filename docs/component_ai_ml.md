@@ -4,7 +4,8 @@
 > **Last Updated:** September 2026  
 > **Scope:** Face Detection, Embedding Extraction, Clustering, Guest Selfie Matching, Liveness Detection  
 > **Development Order:** This is Component 3 — built after the backend, integrating the existing PicSee clustering pipeline.  
-> **Foundation:** Based on the PicSee clustering pipeline at `/Users/vatsal/Documents/picsee/clustering_pipeline`
+> **Foundation:** Based on the PicSee clustering pipeline at `/Users/vatsal/Documents/picsee/clustering_pipeline`  
+> **Deployment:** The production app server is **CPU-only EC2**. Do **not** run SCRFD/R100 there. Implement ML in-repo; production Compose must stub/skip face Celery until a separate ML host is chosen.
 
 ---
 

@@ -1,9 +1,7 @@
 # ML stories — index
 
-PicSee source of truth for algorithms: `/Users/vatsal/Documents/picsee/clustering_pipeline` (notebook + `adaface_insightface/` + `update_crops_reject_situation.md`). Copy **needed Python modules** into `backend/app/ml/` and `backend/models/` weights gitignored.
+Algorithms: PicSee at `/Users/vatsal/Documents/picsee/clustering_pipeline`.
 
-Do not call this a research notebook in production — wrap as services.
+**Do not deploy these workers on the production app EC2** (`m6i.xlarge`, CPU-only). Implement in `backend/app/ml/` for a **future ML host**. Until then BE-013 uses a stub.
 
-Thresholds live in `MLConfig` env, not scattered literals.
-
-See `docs/stories/00-index.md` for dependencies on backend.
+ML-009 is batch inference for that future host (GPU optional later), not for the app server.

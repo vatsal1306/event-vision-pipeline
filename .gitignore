@@ -122,9 +122,11 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Application secrets (local dev and EC2 production)
 .env
-.venv
+.env.local
+.env.*.local
+!/.env.prod.example
 env/
 venv/
 ENV/
@@ -149,6 +151,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# AWS credentials — never commit
+creds.txt
+
 # pytype static type analyzer
 .pytype/
 
@@ -162,3 +167,30 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
+# ── Project-specific ──────────────────────────────────────────────
+
+# ML model weight files (downloaded separately, see backend/models/README.md)
+backend/models/*.onnx
+backend/models/*.pt
+backend/models/*.tflite
+backend/models/adaface_insightface/
+
+# Backend secrets
+backend/.env
+
+# uv lockfile is committed; virtual env is not
+.venv/
+
+# Node / Next.js (frontend)
+node_modules/
+.next/
+out/
+frontend/.env*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Allow Next.js lib dir
+!frontend/src/lib/
+dummy.txt

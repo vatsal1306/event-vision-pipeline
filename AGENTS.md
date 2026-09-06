@@ -75,13 +75,11 @@ event-vision-pipeline/
 | ORM | SQLAlchemy 2.x | Async with asyncpg |
 | Database | PostgreSQL + pgvector | Face embedding vector search |
 | Cache / Broker | Redis | Celery broker + OTP storage + caching |
-| Task Queue | Celery | Background photo/face processing |
-| Face Detection | SCRFD (det_10g) | ONNX Runtime |
-| Face Embeddings | InsightFace R100 | PyTorch, 512-d L2-normalized |
-| Clustering | scikit-learn | DBSCAN + AgglomerativeClustering |
-| Object Storage | AWS S3 | Dual-tier: Standard (proxies) + IA (originals) |
-| CDN | AWS CloudFront | Web-proxy delivery |
-| Infrastructure | Terraform | AWS Mumbai (ap-south-1) |
+| Task Queue | Celery | CPU: proxy + watermark. Face jobs stubbed until ML host exists |
+| Face Detection / embeddings | PicSee pipeline | **Not on the app EC2.** Later separate machine. |
+| Object Storage | AWS S3 (storage account) | Dual-tier: Standard (proxies) + IA (originals). Presigned URLs, no CloudFront |
+| App server | EC2 `m6i.xlarge` Ubuntu | Compute account, **ap-south-1**, Docker Compose (Postgres, Redis, API, web, tusd, Celery) |
+| IaC | Terraform | Storage account only: S3 + IAM + TF state. Not ECS/RDS/ALB |
 
 ## Documentation
 
@@ -154,4 +152,4 @@ Before writing code for any component, **always read** the corresponding documen
 1. **Frontend** (with mock data via MSW — no backend needed)
 2. **Backend** (FastAPI + database + upload pipeline)
 3. **AI/ML Pipeline** (integrate PicSee into backend)
-4. **Infrastructure** (set up incrementally, harden last)
+4. **Infrastructure** (S3 + one EC2 Compose stack; ML host later)

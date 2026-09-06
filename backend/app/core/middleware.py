@@ -1,48 +1,76 @@
-"""Cross-cutting middleware (Request ID, Logging, CORS)."""
+"""HTTP middleware for request IDs, timing, and access logs."""
 
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import structlog
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.datastructures import MutableHeaders
+from starlette.requests import Request
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-if TYPE_CHECKING:
-    from fastapi import Request
-    from starlette.middleware.base import RequestResponseEndpoint
-    from starlette.responses import Response
-
-logger = structlog.get_logger()
+from app.core.constants import MAX_INCOMING_REQUEST_ID_LENGTH, REQUEST_ID_HEADER
+from app.core.logging import get_logger
 
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware for injecting Request ID and logging HTTP access."""
+def resolve_request_id(request: Request) -> str:
+    """Reuse a valid incoming request ID or generate a new UUID.
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        """Process the request and log timing/status."""
-        request_id = request.headers.get("X-Request-ID", str(uuid4()))
+    Args:
+        request: Incoming HTTP request.
+
+    Returns:
+        Request ID written to logs and the response header.
+    """
+    incoming = request.headers.get(REQUEST_ID_HEADER, "").strip()
+    if incoming and len(incoming) <= MAX_INCOMING_REQUEST_ID_LENGTH and incoming.isprintable():
+        return incoming
+    return str(uuid4())
+
+
+class RequestContextMiddleware:
+    """ASGI middleware: bind ``request_id``, time the request, emit an access log."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Process one ASGI connection.
+
+        Args:
+            scope: ASGI connection scope.
+            receive: ASGI receive callable.
+            send: ASGI send callable.
+        """
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+        request_id = resolve_request_id(request)
         structlog.contextvars.bind_contextvars(request_id=request_id)
-
         start_time = time.perf_counter()
+        logger = get_logger()
+        status_code = 500
+
+        async def send_with_request_id(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = int(message["status"])
+                headers = MutableHeaders(raw=message.setdefault("headers", []))
+                headers[REQUEST_ID_HEADER] = request_id
+            await send(message)
 
         try:
-            response = await call_next(request)
-            status_code = response.status_code
-        except Exception:
-            status_code = 500
-            raise
+            await self.app(scope, receive, send_with_request_id)
         finally:
-            elapsed_ms = (time.perf_counter() - start_time) * 1000
-
+            elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
             logger.info(
                 "http.request",
                 method=request.method,
                 path=request.url.path,
                 status_code=status_code,
-                elapsed_ms=round(elapsed_ms, 2),
+                elapsed_ms=elapsed_ms,
             )
-
-        response.headers["X-Request-ID"] = request_id
-        return response
+            structlog.contextvars.clear_contextvars()

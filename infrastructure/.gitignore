@@ -1,0 +1,23 @@
+# Local Terraform state — never commit
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Per-environment backend config (contains account-specific bucket name)
+environments/**/backend.hcl
+
+# Terraform working directory
+.terraform/
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Variable files that may contain secrets (domains, etc.)
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

@@ -6,7 +6,7 @@
 
 ## Goal
 
-SMS for OTP (production provider MSG91/Twilio/SNS from `sms_provider` setting). Email via SES for processing complete and archival warnings. Celery queue `notifications`.
+Phase 1: **no paid SMS/SES required.** OTP: Redis + **log the code** (or accept `123456` when `debug=True`). Processing complete / archival: log + optional in-app; email adapters may exist but must no-op without credentials.
 
 ## References
 
@@ -22,5 +22,5 @@ SMS for OTP (production provider MSG91/Twilio/SNS from `sms_provider` setting). 
 
 ## Acceptance
 
-- [ ] Tests assert email task called when event becomes ready (mock SES)
-- [ ] SMS adapter called on send_otp in non-debug without leaking body in logs
+- [ ] Tests assert processing-complete is **logged** (or no-op email) when event becomes ready
+- [ ] OTP send does not call a paid SMS API when unset

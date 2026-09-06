@@ -87,8 +87,7 @@
                                    │ HTTPS
                                    ▼
                     ┌─────────────────────────────────────────┐
-                    │         Nginx / ALB (Reverse Proxy)      │
-                    │         + SSL Termination                 │
+                    │     Caddy on EC2 (TLS, reverse proxy)     │
                     └───────┬──────────────────┬──────────────┘
                             │                  │
                     ┌───────▼──────┐   ┌───────▼──────┐
@@ -113,10 +112,8 @@
                           │                  │
                           │  • Resize/proxy  │
                           │  • Watermark     │
-                          │  • Face detect   │
-                          │  • Embeddings    │
-                          │  • Clustering    │
                           │  • Notifications │
+                          │  • Face tasks: stub until ML host │
                           └─────────────────┘
 ```
 
@@ -126,10 +123,10 @@
 |---|---|
 | **FastAPI Application** | REST API, authentication, business logic, database operations, S3 presigned URL generation |
 | **tusd Upload Server** | Handles tus protocol chunked/resumable uploads directly to S3. Sends webhook to FastAPI on upload completion. |
-| **PostgreSQL + pgvector** | Primary database (users, events, photos, analytics) + vector storage for face embeddings |
-| **Redis** | Celery message broker, session caching, rate limiting counters, OTP storage |
-| **Celery Workers** | Background processing: image resizing, watermark application, face detection/embedding (via AI/ML pipeline), notifications |
-| **AWS S3** | Object storage: originals in S3 Infrequent Access, web-proxies in S3 Standard |
+| **PostgreSQL + pgvector** | Runs in Docker on the app EC2 (not RDS) |
+| **Redis** | Docker on the app EC2 (not ElastiCache). OTP may be logged in dev instead of SMS |
+| **Celery Workers** | CPU only: resize, watermark. Do not load InsightFace on this box |
+| **AWS S3** | Separate storage account, same region `ap-south-1`. tusd uploads originals here |
 
 ### 2.3 Request Flow Patterns
 
@@ -142,10 +139,9 @@
 - Link generation
 
 **Asynchronous (API Request → Queue → Worker → Callback):**
-- Photo upload processing (resize, watermark, face detection)
-- Face embedding extraction and clustering
-- Original file download preparation (cold storage retrieval)
-- Notification delivery (email, SMS)
+- Face embedding extraction and clustering (**later ML host**; stub on app server)
+- Original file download (presigned S3)
+- Notification delivery (log / optional email)
 - Data archival
 
 ---
@@ -2023,12 +2019,12 @@ class Settings(BaseSettings):
     otp_cooldown_seconds: int = 60
 
     # SMS Provider
-    sms_provider: str = "msg91"  # msg91, twilio, aws_sns
+    sms_provider: str = "log"  # log | msg91 | twilio — Phase 1: log OTP
     sms_api_key: str = ""
     sms_sender_id: str = "PHOTOS"
 
     # Email
-    email_provider: str = "ses"  # ses, smtp
+    email_provider: str = "none"  # none | log | ses | smtp — Phase 1: none/log
     email_from: str = "noreply@platform.com"
     ses_region: str = "ap-south-1"
 
