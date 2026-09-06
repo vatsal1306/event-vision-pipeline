@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -127,9 +127,24 @@ class FolderService:
             children=[],
         )
 
-    async def delete_folder(self, event_id: UUID, folder_id: UUID) -> None:
-        """Delete a folder; photos are set NULL via FK."""
+    async def delete_folder(
+        self, event_id: UUID, folder_id: UUID, delete_photos: bool = False
+    ) -> None:
+        """Delete a folder; photos are set NULL via FK, or deleted if requested."""
         folder = await self._get_folder(event_id, folder_id)
+
+        if delete_photos:
+            descendants_cte = (
+                select(Folder.id)
+                .where(Folder.id == folder_id)
+                .cte(name="descendants", recursive=True)
+            )
+            descendants_cte = descendants_cte.union_all(
+                select(Folder.id).where(Folder.parent_id == descendants_cte.c.id)
+            )
+            stmt = delete(Photo).where(Photo.folder_id.in_(select(descendants_cte.c.id)))
+            await self.db.execute(stmt)
+
         await self.db.delete(folder)
         await self.db.flush()
 

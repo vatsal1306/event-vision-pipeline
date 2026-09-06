@@ -173,4 +173,13 @@ Tests: `tests/test_events.py` (Postgres + Redis). Existing smoke in `tests/test_
 
 Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps snake_case API JSON.
 
+## Folders (BE-006)
 
+- Nested folders logic is integrated with the `events` router (`/api/v1/events/{id}/folders`).
+- Folders are strictly scoped to the event and photographer, maintaining a maximum nested depth of 10 (`MAX_FOLDER_DEPTH = 10`).
+- Sibling folders (folders sharing the same parent under the same event) enforce unique names via PostgreSQL partial indexes.
+- Prevents creating cycles when reparenting (e.g., trying to move a parent folder under its own descendant).
+- Deletion behavior:
+  - Without query parameter: `DELETE /folders/{id}` removes the folder and its descendant folders, cascading cleanly. Photos inside deleted folders are moved to the event root (their `folder_id` becomes `NULL` via `ON DELETE SET NULL`).
+  - With query parameter: `DELETE /folders/{id}?delete_photos=true` recursively deletes all photos within the folder and any of its descendant folders using a recursive CTE, then deletes the folders.
+- Tests: `tests/test_folders.py`.
