@@ -123,7 +123,7 @@ async def test_create_nested_folders(authed_client: AsyncClient) -> None:
     tree_resp = await authed_client.get(f"/api/v1/events/{event_id}/folders")
     assert tree_resp.status_code == 200
     tree = tree_resp.json()["folders"]
-    
+
     assert len(tree) == 1
     assert tree[0]["id"] == root["id"]
     assert len(tree[0]["children"]) == 1
@@ -137,7 +137,7 @@ async def test_folder_unique_sibling_names(authed_client: AsyncClient) -> None:
     event_id = event["id"]
 
     await authed_client.post(f"/api/v1/events/{event_id}/folders", json={"name": "Duplicates"})
-    
+
     dup_root = await authed_client.post(
         f"/api/v1/events/{event_id}/folders",
         json={"name": "Duplicates"},
@@ -156,7 +156,7 @@ async def test_folder_max_depth(authed_client: AsyncClient) -> None:
     for i in range(10):
         resp = await authed_client.post(
             f"/api/v1/events/{event_id}/folders",
-            json={"name": f"Level {i+1}", "parent_id": parent_id},
+            json={"name": f"Level {i + 1}", "parent_id": parent_id},
         )
         assert resp.status_code == 201, resp.text
         parent_id = resp.json()["id"]
