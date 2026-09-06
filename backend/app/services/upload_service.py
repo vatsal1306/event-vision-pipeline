@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,7 +37,7 @@ class UploadService:
 
     async def handle_pre_create(self, upload_info: TusUploadInfo) -> None:
         """Validate an upload before tusd accepts the first chunk.
-        
+
         Raises:
             BadRequestError: If metadata UUIDs are invalid or MIME type is not allowed.
             AuthorizationError: If photographer or event is not found, or ownership mismatch.
@@ -65,18 +64,19 @@ class UploadService:
         settings = get_settings()
         if upload_info.size > settings.max_upload_size_bytes:
             raise BadRequestError("File too large")
-            
+
         if event.status in (EventStatus.DRAFT, EventStatus.READY):
             event.status = EventStatus.UPLOADING
             await self.db.commit()
 
     async def handle_post_finish(self, upload_info: TusUploadInfo) -> dict[str, str]:
         """Process a completed upload from tusd.
-        
+
         Returns:
             dict: Status dictionary (e.g. {"status": "accepted", "note": "already processed"}).
         Raises:
-            BadRequestError: If metadata UUIDs are invalid, missing S3 key, or MIME type not allowed.
+            BadRequestError: If metadata UUIDs are invalid, missing S3 key,
+                             or MIME type not allowed.
         """
         metadata = upload_info.metadata
         event_id, photographer_id, folder_id = self._parse_metadata_uuids(metadata)
@@ -101,7 +101,7 @@ class UploadService:
         photographer = await self.db.get(Photographer, photographer_id)
         if not photographer:
             raise AuthorizationError("Photographer not found")
-            
+
         event = await self.db.get(Event, event_id)
         if not event or event.photographer_id != photographer.id:
             raise AuthorizationError("Event not found or unauthorized")
@@ -119,7 +119,7 @@ class UploadService:
 
         photographer.storage_used_bytes += upload_info.size
         event.total_photos += 1
-        
+
         if event.status in (EventStatus.DRAFT, EventStatus.READY, EventStatus.UPLOADING):
             event.status = EventStatus.PROCESSING
 
@@ -130,7 +130,9 @@ class UploadService:
 
         return {"status": "accepted"}
 
-    def _parse_metadata_uuids(self, metadata: dict[str, str]) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID | None]:
+    def _parse_metadata_uuids(
+        self, metadata: dict[str, str]
+    ) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID | None]:
         """Extract and validate UUIDs from metadata."""
         try:
             event_id_str = metadata.get("event_id")
@@ -145,5 +147,5 @@ class UploadService:
 
         if not event_id or not photographer_id:
             raise BadRequestError("Missing required metadata")
-            
+
         return event_id, photographer_id, folder_id

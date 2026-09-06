@@ -24,12 +24,12 @@ async def tusd_hook(
     """Accept tusd hooks for pre-create and post-finish."""
     event_type = payload.type
     upload_info = payload.event.upload
-    
+
     upload_service = UploadService(db)
 
     if event_type == "pre-create":
         await upload_service.handle_pre_create(upload_info)
     elif event_type == "post-finish":
         return await upload_service.handle_post_finish(upload_info)
-        
+
     return {"status": "accepted"}

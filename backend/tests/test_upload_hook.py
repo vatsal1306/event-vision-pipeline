@@ -252,7 +252,7 @@ async def test_tusd_hook_post_finish_unauthorized(
                 "Storage": {"Key": "originals/upload-unauth"},
                 "MetaData": {
                     "event_id": str(event.id),
-                    "photographer_id": str(photographer2.id), # Mismatched owner
+                    "photographer_id": str(photographer2.id),  # Mismatched owner
                     "filename": "test.jpg",
                     "filetype": "image/jpeg",
                 },
@@ -279,7 +279,7 @@ async def test_tusd_hook_post_finish_missing_s3_key(
                 "ID": "upload-nokey",
                 "Size": 500,
                 "Offset": 500,
-                "Storage": {}, # Missing Key
+                "Storage": {},  # Missing Key
                 "MetaData": {
                     "event_id": str(event.id),
                     "photographer_id": str(photographer.id),
