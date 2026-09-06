@@ -147,7 +147,11 @@ class PhotoService:
             .where(Photo.event_id == event_id, Photo.id.in_(photo_ids))
             .values(folder_id=folder_id)
         )
-        result = await self.db.execute(stmt)
+        from typing import Any, cast
+
+        from sqlalchemy import CursorResult
+
+        result = cast(CursorResult[Any], await self.db.execute(stmt))
         if result.rowcount != len(photo_ids):
             from app.core.exceptions import NotFoundError
 
