@@ -69,6 +69,7 @@ async def test_tusd_hook_pre_create_success(
                 "MetaData": {
                     "event_id": str(event.id),
                     "photographer_id": str(photographer.id),
+                    "filetype": "image/jpeg",
                 },
             }
         },
@@ -100,14 +101,47 @@ async def test_tusd_hook_pre_create_quota_exceeded(
                 "MetaData": {
                     "event_id": str(event.id),
                     "photographer_id": str(photographer.id),
+                    "filetype": "image/jpeg",
                 },
             }
         },
     }
 
     response = await db_client.post("/api/v1/upload/hook", json=payload)
-    assert response.status_code == 400
-    assert "Storage limit exceeded" in response.json()["detail"]
+    assert response.status_code == 402
+    assert response.json()["code"] == "STORAGE_LIMIT"
+
+
+@pytest.mark.asyncio
+async def test_tusd_hook_pre_create_invalid_mime(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Pre-create hook should reject invalid MIME types."""
+    photographer = await create_photographer(
+        db_session, email="tusd_mime@example.com", storage_limit=1000
+    )
+    event = await create_event(db_session, photographer.id, "Test Event Mime")
+
+    payload = {
+        "Type": "pre-create",
+        "Event": {
+            "Upload": {
+                "ID": "upload-mime",
+                "Size": 200,
+                "Offset": 0,
+                "Storage": {},
+                "MetaData": {
+                    "event_id": str(event.id),
+                    "photographer_id": str(photographer.id),
+                    "filetype": "application/pdf",
+                },
+            }
+        },
+    }
+
+    response = await db_client.post("/api/v1/upload/hook", json=payload)
+    assert response.status_code == 422
+    assert "not allowed" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -151,6 +185,10 @@ async def test_tusd_hook_post_finish_success(
     assert event.total_photos == 1
     assert event.status == EventStatus.PROCESSING
 
+    # Verify quota updated
+    await db_session.refresh(photographer)
+    assert photographer.storage_used_bytes == 500
+
     # Verify celery task queued
     mock_delay.assert_called_once_with(str(photo.id), "originals/upload-789", str(event.id))
 
@@ -193,3 +231,64 @@ async def test_tusd_hook_post_finish_idempotency(
 
     # Task should not be queued again
     assert mock_delay.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_tusd_hook_post_finish_unauthorized(
+    db_client: AsyncClient, db_session: AsyncSession, mock_delay
+) -> None:
+    """Post-finish hook should reject mismatched event/photographer IDs."""
+    photographer1 = await create_photographer(db_session, email="tusd5@example.com")
+    photographer2 = await create_photographer(db_session, email="tusd6@example.com")
+    event = await create_event(db_session, photographer1.id, "Test Event 5")
+
+    payload = {
+        "Type": "post-finish",
+        "Event": {
+            "Upload": {
+                "ID": "upload-unauth",
+                "Size": 500,
+                "Offset": 500,
+                "Storage": {"Key": "originals/upload-unauth"},
+                "MetaData": {
+                    "event_id": str(event.id),
+                    "photographer_id": str(photographer2.id), # Mismatched owner
+                    "filename": "test.jpg",
+                    "filetype": "image/jpeg",
+                },
+            }
+        },
+    }
+
+    response = await db_client.post("/api/v1/upload/hook", json=payload)
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_tusd_hook_post_finish_missing_s3_key(
+    db_client: AsyncClient, db_session: AsyncSession, mock_delay
+) -> None:
+    """Post-finish hook should reject missing S3 key."""
+    photographer = await create_photographer(db_session, email="tusd7@example.com")
+    event = await create_event(db_session, photographer.id, "Test Event 6")
+
+    payload = {
+        "Type": "post-finish",
+        "Event": {
+            "Upload": {
+                "ID": "upload-nokey",
+                "Size": 500,
+                "Offset": 500,
+                "Storage": {}, # Missing Key
+                "MetaData": {
+                    "event_id": str(event.id),
+                    "photographer_id": str(photographer.id),
+                    "filename": "test.jpg",
+                    "filetype": "image/jpeg",
+                },
+            }
+        },
+    }
+
+    response = await db_client.post("/api/v1/upload/hook", json=payload)
+    assert response.status_code == 422

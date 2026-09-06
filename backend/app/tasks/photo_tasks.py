@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.core.logging import get_logger
 from app.tasks.celery_app import celery_app
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[untyped-decorator]
