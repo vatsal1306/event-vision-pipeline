@@ -16,6 +16,7 @@ from app.models.enums import EventStatus
 from app.models.event import Event
 from app.models.folder import Folder
 from app.models.guest_session import GuestSession
+from app.models.photo import Photo
 from app.schemas.event import (
     CreateEventRequest,
     EventDetail,
@@ -182,6 +183,38 @@ class EventService:
         if event is None or event.photographer_id != photographer_id:
             raise NotFoundError("Event")
         return event
+
+    async def update_event_processing_status(self, event_id: UUID) -> None:
+        """Update event status based on photo processing completion."""
+        event = await self.db.get(Event, event_id)
+        if not event:
+            return
+
+        stats = await self.db.execute(
+            select(
+                func.count(Photo.id).label("total"),
+                func.count(Photo.id)
+                .filter(Photo.processing_status == "completed")
+                .label("completed"),
+            ).where(Photo.event_id == event_id)
+        )
+        total, completed = stats.one()
+
+        event.total_photos = total
+        event.processed_photos = completed
+
+        if total == 0:
+            event.status = EventStatus.DRAFT
+        elif completed < total:
+            event.status = EventStatus.PROCESSING
+        elif completed == total:
+            event.status = EventStatus.READY
+            # Trigger notification to photographer (stub for BE-017)
+            from app.core.logging import get_logger
+
+            get_logger().info("Event %s processing complete, would notify photographer", event_id)
+
+        await self.db.commit()
 
     async def _allocate_slug(self, name: str) -> str:
         """Retry slug generation until the unique constraint is satisfied."""
