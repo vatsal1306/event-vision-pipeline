@@ -32,16 +32,22 @@ class PhotoService:
             func.sum(
                 case((Photo.processing_status == ProcessingStatus.COMPLETED, 1), else_=0)
             ).label("processed_count"),
+            func.coalesce(func.sum(Photo.file_size_bytes), 0).label("total_bytes"),
         ).where(Photo.id.in_(photo_ids), Photo.event_id == event_id)
 
         result = await self.db.execute(stmt)
         row = result.first()
         if not row or row.photo_count == 0:
+            from app.core.exceptions import NotFoundError
+
+            if len(photo_ids) == 1:
+                raise NotFoundError("Photo not found")
             return
 
         photo_count = row.photo_count
         face_count = row.face_count
         processed_count = row.processed_count or 0
+        total_bytes = row.total_bytes
 
         # TODO(BE-008): Delete physical files from S3 here or enqueue a Celery task
 
@@ -59,12 +65,21 @@ class PhotoService:
             )
         )
 
+        # Update photographer storage usage
+        from app.models.photographer import Photographer
+
+        event = await self.db.get(Event, event_id)
+        if event:
+            await self.db.execute(
+                update(Photographer)
+                .where(Photographer.id == event.photographer_id)
+                .values(storage_used_bytes=Photographer.storage_used_bytes - total_bytes)
+            )
+
     async def list_photos(
         self, event_id: UUID, folder_id: UUID | None = None, offset: int = 0, limit: int = 50
     ) -> PhotoListResponse:
         """List photos for an event, optionally filtered by folder."""
-        from app.schemas.photo import PhotoListResponse
-
         # Ensure we cap the limit
         limit = min(limit, 100)
 
@@ -95,7 +110,6 @@ class PhotoService:
                     event_id=photo.event_id,
                     folder_id=photo.folder_id,
                     filename=photo.filename,
-                    original_s3_key=photo.original_s3_key,
                     proxy_url=proxy_url,
                     blurhash=photo.blurhash,
                     width=photo.width,
@@ -133,7 +147,11 @@ class PhotoService:
             .where(Photo.event_id == event_id, Photo.id.in_(photo_ids))
             .values(folder_id=folder_id)
         )
-        await self.db.execute(stmt)
+        result = await self.db.execute(stmt)
+        if result.rowcount != len(photo_ids):
+            from app.core.exceptions import NotFoundError
+
+            raise NotFoundError("One or more photos not found")
 
     async def get_download_url(self, event_id: UUID, photo_id: UUID) -> str:
         """Generate a short-lived presigned URL for downloading the original photo."""

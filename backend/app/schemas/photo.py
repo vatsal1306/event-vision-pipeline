@@ -19,7 +19,6 @@ class PhotoResponse(BaseModel):
     event_id: UUID
     folder_id: UUID | None = None
     filename: str
-    original_s3_key: str
     proxy_url: str | None = None
     blurhash: str | None = None
     width: int | None = None

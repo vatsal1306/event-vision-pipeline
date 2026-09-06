@@ -14,7 +14,9 @@ from app.core.database import get_db
 from app.core.redis_client import create_redis_client
 from app.main import app
 from app.models.enums import ProcessingStatus
+from app.models.event import Event
 from app.models.photo import Photo
+from app.models.photographer import Photographer
 from app.services.sms_service import SMSService
 from app.utils.otp import OTPService
 
@@ -196,6 +198,20 @@ async def test_move_photos(authed_client: AsyncClient, db_session) -> None:
     await db_session.refresh(photo1)
     assert photo1.folder_id is None
 
+    # Move to invalid folder
+    resp = await authed_client.post(
+        f"/api/v1/events/{event_id}/photos/move",
+        json={"photo_ids": [str(photo1.id)], "folder_id": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 404
+
+    # Move invalid photo
+    resp = await authed_client.post(
+        f"/api/v1/events/{event_id}/photos/move",
+        json={"photo_ids": [str(uuid.uuid4())], "folder_id": None},
+    )
+    assert resp.status_code == 404
+
 
 @pytest.mark.asyncio
 async def test_delete_photo(authed_client: AsyncClient, db_session) -> None:
@@ -214,10 +230,28 @@ async def test_delete_photo(authed_client: AsyncClient, db_session) -> None:
     db_session.add(photo)
     await db_session.flush()
 
+    # Set initial counters
+    event_db = await db_session.get(Event, event_id)
+    event_db.total_photos = 1
+    photographer = await db_session.get(Photographer, event_db.photographer_id)
+    photographer.storage_used_bytes = 1000
+    await db_session.flush()
+
+    # Delete the photo
     resp = await authed_client.delete(f"/api/v1/events/{event_id}/photos/{photo.id}")
     assert resp.status_code == 204
 
     assert await db_session.get(Photo, photo.id) is None
+
+    # Verify counters decremented
+    await db_session.refresh(event_db)
+    assert event_db.total_photos == 0
+    await db_session.refresh(photographer)
+    assert photographer.storage_used_bytes == 0
+
+    # Delete non-existent photo
+    resp = await authed_client.delete(f"/api/v1/events/{event_id}/photos/{uuid.uuid4()}")
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
