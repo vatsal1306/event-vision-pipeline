@@ -146,3 +146,18 @@ New exceptions: `PhoneNotVerifiedError` (`PHONE_NOT_VERIFIED`), `ConflictError` 
 
 Dependencies added: `python-jose[cryptography]`, `passlib[bcrypt]`, `email-validator`, `bcrypt>=4.0.1,<4.1` (passlib compatibility pin).
 
+### Dashboard APIs (BE-005 + shell)
+
+Photographers can:
+
+- `GET/POST /api/v1/events`, `GET/PUT/DELETE /api/v1/events/{id}`
+- `PUT /api/v1/events/{id}/settings`, `PUT /api/v1/events/{id}/links/{guest|master}/toggle`
+- Nested folders: `GET/POST /api/v1/events/{id}/folders`, `PUT/DELETE .../folders/{folder_id}`
+- `GET /api/v1/events/{id}/photos` returns empty items until upload ingest
+- Analytics GETs return zeros/empty lists until BE-015
+- `PUT /api/v1/profile` updates `studio_name` / `phone`
+- Logo/watermark POST returns `501 NOT_IMPLEMENTED` until BE-016
+
+Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps snake_case API JSON.
+
+

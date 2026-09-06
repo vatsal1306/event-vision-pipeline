@@ -14,7 +14,11 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Photographer>) => api.updateProfile(data),
+    mutationFn: (data: Partial<Photographer> & { studioName?: string }) =>
+      api.updateProfile({
+        studio_name: data.studio_name ?? data.studioName,
+        phone: data.phone,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success('Profile updated successfully');

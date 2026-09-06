@@ -16,14 +16,22 @@ from app.core.database import get_db
 from app.core.exceptions import AuthenticationError
 from app.core.redis_client import get_redis
 from app.core.security import decode_jwt
+from app.models.event import Event
 from app.models.photographer import Photographer
 from app.services.auth_service import AuthService
+from app.services.event_service import EventService
 from app.services.sms_service import SMSService
 from app.utils.otp import OTPService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-__all__ = ["get_db", "get_redis_dep", "get_current_photographer", "oauth2_scheme"]
+__all__ = [
+    "get_db",
+    "get_redis_dep",
+    "get_current_photographer",
+    "get_photographer_event",
+    "oauth2_scheme",
+]
 
 
 async def get_redis_dep() -> AsyncIterator[redis.Redis]:
@@ -53,6 +61,15 @@ async def get_current_photographer(
     if photographer is None or not photographer.is_active:
         raise AuthenticationError("Account not found or inactive")
     return photographer
+
+
+async def get_photographer_event(
+    event_id: UUID,
+    photographer: Photographer = Depends(get_current_photographer),
+    db: AsyncSession = Depends(get_db),
+) -> Event:
+    """Return an event owned by the caller, or 404 if it does not exist."""
+    return await EventService(db).get_owned_event(photographer.id, event_id)
 
 
 def build_auth_service(db: AsyncSession, redis_client: redis.Redis) -> AuthService:

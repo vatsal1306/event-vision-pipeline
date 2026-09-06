@@ -148,6 +148,13 @@ class PhotographerProfile(BaseModel):
     updated_at: datetime
 
 
+class UpdateProfileRequest(BaseModel):
+    """Partial photographer profile update."""
+
+    studio_name: str | None = Field(None, min_length=2, max_length=255)
+    phone: str | None = Field(None, pattern=INDIAN_PHONE_PATTERN)
+
+
 class TokenResponse(BaseModel):
     """JWT pair plus photographer profile."""
 
