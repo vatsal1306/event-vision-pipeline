@@ -200,3 +200,17 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - Implementations include `S3StorageService` (using async `aioboto3`) for production AWS S3 and `LocalStorageService` (storing to `.data/s3` directory) for offline testing without AWS.
 - Standard storage exceptions wrapped in `StorageError`.
 - Tests mock S3 operations using python `unittest.mock.AsyncMock` because `aioboto3` async streams can be complicated to mock perfectly with `moto` in unit tests.
+
+## Upload Pipeline (BE-009)
+
+- Uses `tusd` sidecar to handle chunked/resumable uploads via the `tus` protocol, storing files directly in `.data/s3/platform-uploads` locally.
+- Webhooks from `tusd` point to `POST /api/v1/upload/hook`.
+  - `pre-create` hook: Validates metadata UUIDs and checks photographer storage quota.
+  - `post-finish` hook: Idempotently creates a `Photo` record and enqueues a Celery task.
+- `celery-worker` is available in `docker-compose.yml`. It runs on the `photo_processing` queue.
+- To test the full pipeline locally:
+  ```bash
+  cd backend
+  docker compose up -d db redis tusd celery-worker
+  uv run uvicorn app.main:app --reload
+  ```

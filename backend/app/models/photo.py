@@ -45,6 +45,7 @@ class Photo(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
         UUID(as_uuid=True),
         ForeignKey("folders.id", ondelete="SET NULL"),
     )
+    tus_upload_id: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     original_s3_key: Mapped[str] = mapped_column(String(500), nullable=False)
     proxy_s3_key: Mapped[str | None] = mapped_column(String(500))
