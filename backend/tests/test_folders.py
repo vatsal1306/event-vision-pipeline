@@ -276,3 +276,96 @@ async def test_delete_folder_photos_true_recursive(authed_client: AsyncClient, d
     # Photos should be deleted!
     assert await db_session.get(Photo, photo_parent_id) is None
     assert await db_session.get(Photo, photo_child_id) is None
+
+
+@pytest.mark.asyncio
+async def test_delete_parent_folder_keeps_child_photos_at_root(
+    authed_client: AsyncClient, db_session
+) -> None:
+    """Deleting a parent folder without delete_photos leaves child photos at event root."""
+    event = await _create_event(authed_client)
+    event_id = uuid.UUID(event["id"])
+
+    p_resp = await authed_client.post(f"/api/v1/events/{event_id}/folders", json={"name": "Parent"})
+    parent_id = uuid.UUID(p_resp.json()["id"])
+
+    c_resp = await authed_client.post(
+        f"/api/v1/events/{event_id}/folders",
+        json={"name": "Child", "parent_id": str(parent_id)},
+    )
+    child_id = uuid.UUID(c_resp.json()["id"])
+
+    photo_child = Photo(
+        event_id=event_id,
+        folder_id=child_id,
+        filename="child.jpg",
+        original_s3_key="c.jpg",
+        file_size_bytes=1000,
+        mime_type="image/jpeg",
+    )
+    db_session.add(photo_child)
+    await db_session.flush()
+
+    delete_resp = await authed_client.delete(f"/api/v1/events/{event_id}/folders/{parent_id}")
+    assert delete_resp.status_code == 204
+
+    # Expire session
+    db_session.expire_all()
+
+    # Folders should be deleted
+    assert await db_session.get(Folder, parent_id) is None
+    assert await db_session.get(Folder, child_id) is None
+
+    # The photo should still exist but have folder_id=None
+    await db_session.refresh(photo_child)
+    assert photo_child.folder_id is None
+
+
+@pytest.mark.asyncio
+async def test_update_folder_sort_order_and_reparent(authed_client: AsyncClient) -> None:
+    """Folder can be renamed, reordered, and reparented successfully."""
+    event = await _create_event(authed_client)
+    event_id = event["id"]
+
+    a = await authed_client.post(f"/api/v1/events/{event_id}/folders", json={"name": "Folder A"})
+    b = await authed_client.post(f"/api/v1/events/{event_id}/folders", json={"name": "Folder B"})
+
+    a_id = a.json()["id"]
+    b_id = b.json()["id"]
+
+    update = await authed_client.put(
+        f"/api/v1/events/{event_id}/folders/{b_id}",
+        json={"name": "Folder B Renamed", "sort_order": 10, "parent_id": a_id},
+    )
+    assert update.status_code == 200
+    b_updated = update.json()
+    assert b_updated["name"] == "Folder B Renamed"
+    assert b_updated["sort_order"] == 10
+    assert b_updated["parent_id"] == a_id
+
+
+@pytest.mark.asyncio
+async def test_get_folder_tree_photo_count(authed_client: AsyncClient, db_session) -> None:
+    """Folder tree nodes should include accurate photo_count."""
+    event = await _create_event(authed_client)
+    event_id = uuid.UUID(event["id"])
+
+    f_resp = await authed_client.post(f"/api/v1/events/{event_id}/folders", json={"name": "Folder"})
+    folder_id = uuid.UUID(f_resp.json()["id"])
+
+    photo = Photo(
+        event_id=event_id,
+        folder_id=folder_id,
+        filename="test.jpg",
+        original_s3_key="orig.jpg",
+        file_size_bytes=1000,
+        mime_type="image/jpeg",
+    )
+    db_session.add(photo)
+    await db_session.flush()
+
+    tree_resp = await authed_client.get(f"/api/v1/events/{event_id}/folders")
+    assert tree_resp.status_code == 200
+    tree = tree_resp.json()["folders"]
+    assert len(tree) == 1
+    assert tree[0]["photo_count"] == 1

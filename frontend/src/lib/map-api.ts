@@ -39,5 +39,6 @@ export function mapFolderNodeFromApi(raw: Record<string, unknown>): FolderNode {
     createdAt: String(raw.created_at ?? new Date().toISOString()),
     updatedAt: String(raw.updated_at ?? raw.created_at ?? new Date().toISOString()),
     children,
+    photoCount: typeof raw.photo_count === 'number' ? raw.photo_count : undefined,
   };
 }

@@ -38,6 +38,7 @@ export interface Folder {
 
 export interface FolderNode extends Folder {
   children: FolderNode[];
+  photoCount?: number;
 }
 
 export interface Photo {

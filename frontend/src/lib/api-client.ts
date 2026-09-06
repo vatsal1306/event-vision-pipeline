@@ -161,8 +161,10 @@ export const api = {
     apiClient.post<Folder>(`/api/v1/events/${eventId}/folders`, data),
   updateFolder: (eventId: string, folderId: string, data: unknown) =>
     apiClient.put<Folder>(`/api/v1/events/${eventId}/folders/${folderId}`, data),
-  deleteFolder: (eventId: string, folderId: string) =>
-    apiClient.delete<void>(`/api/v1/events/${eventId}/folders/${folderId}`),
+  deleteFolder: (eventId: string, folderId: string, options?: { deletePhotos?: boolean }) => {
+    const url = `/api/v1/events/${eventId}/folders/${folderId}${options?.deletePhotos ? '?delete_photos=true' : ''}`;
+    return apiClient.delete<void>(url);
+  },
 
   // Photos
   getEventPhotos: (eventId: string, offset = 0, limit = 50, folderId?: string) => {
