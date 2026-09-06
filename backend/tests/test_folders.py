@@ -266,6 +266,9 @@ async def test_delete_folder_photos_true_recursive(authed_client: AsyncClient, d
     )
     assert delete_resp.status_code == 204
 
+    # Expire session to avoid reading cached objects from identity map
+    db_session.expire_all()
+
     # Folders should be deleted
     assert await db_session.get(Folder, parent_id) is None
     assert await db_session.get(Folder, child_id) is None

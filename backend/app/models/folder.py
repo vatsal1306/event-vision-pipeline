@@ -63,5 +63,7 @@ class Folder(Base, UUIDPrimaryKeyMixin, CreatedAtMixin, UpdatedAtMixin):
         "Folder",
         back_populates="parent",
         lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     photos: Mapped[list[Photo]] = relationship("Photo", back_populates="folder", lazy="selectin")
