@@ -12,6 +12,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 
+@router.post("/create")
+async def create_upload_not_implemented() -> None:
+    """Resumable upload init requires tusd + S3 (BE-008/BE-009)."""
+    from app.core.exceptions import AppException
+
+    raise AppException(
+        "Photo upload is not available yet",
+        "NOT_IMPLEMENTED",
+        501,
+    )
+
+
 @router.post("/hook")
 async def tusd_post_finish_hook(request: Request) -> dict[str, str]:
     """Accept tusd post-finish / post-terminate hooks.

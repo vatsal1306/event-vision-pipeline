@@ -102,6 +102,7 @@ async def test_reuses_incoming_request_id(error_client: AsyncClient) -> None:
 def test_settings_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Environment variables should override defaults (and .env) for Settings."""
     monkeypatch.setenv("FRONTEND_URL", "https://photos.example.com")
+    monkeypatch.setenv("AWS_REGION", "ap-south-1")
     monkeypatch.setenv("JWT_GUEST_TOKEN_EXPIRE_DAYS", "30")
     monkeypatch.setenv("SENTRY_DSN", "")
     get_settings.cache_clear()

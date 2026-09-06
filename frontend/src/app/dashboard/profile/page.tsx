@@ -48,12 +48,12 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       form.reset({
-        studioName: profile.studioName,
+        studioName: profile.studio_name,
         email: profile.email,
         phone: profile.phone,
       });
-      if (profile.logoUrl && !localLogoPreview) setLocalLogoPreview(profile.logoUrl);
-      if (profile.watermarkUrl && !localWatermarkPreview) setLocalWatermarkPreview(profile.watermarkUrl);
+      if (profile.logo_url && !localLogoPreview) setLocalLogoPreview(profile.logo_url);
+      if (profile.watermark_url && !localWatermarkPreview) setLocalWatermarkPreview(profile.watermark_url);
     }
   }, [profile, form, localLogoPreview, localWatermarkPreview]);
 
@@ -133,7 +133,7 @@ export default function ProfilePage() {
       URL.revokeObjectURL(localLogoPreview);
     }
     setLocalLogoPreview(null);
-    updateProfile.mutate({ logoUrl: null });
+    updateProfile.mutate({ logo_url: null });
   };
 
   const removeLocalWatermark = () => {
@@ -141,10 +141,10 @@ export default function ProfilePage() {
       URL.revokeObjectURL(localWatermarkPreview);
     }
     setLocalWatermarkPreview(null);
-    updateProfile.mutate({ watermarkUrl: null });
+    updateProfile.mutate({ watermark_url: null });
   };
 
-  const storagePercentage = Math.min(100, (profile.storageUsedBytes / profile.storageLimitBytes) * 100);
+  const storagePercentage = Math.min(100, (profile.storage_used_bytes / profile.storage_limit_bytes) * 100);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -226,7 +226,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Active Storage</span>
                 <span className="text-sm font-mono text-muted-foreground">
-                  {formatBytes(profile.storageUsedBytes)} / {formatBytes(profile.storageLimitBytes)}
+                  {formatBytes(profile.storage_used_bytes)} / {formatBytes(profile.storage_limit_bytes)}
                 </span>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-secondary">

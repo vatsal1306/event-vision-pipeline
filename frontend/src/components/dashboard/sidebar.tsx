@@ -80,14 +80,14 @@ export function Sidebar() {
           <div className="border-t border-border p-4">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>Storage Used</span>
-              <span className="font-mono">{formatBytes(profile.storageUsedBytes)} / {formatBytes(profile.storageLimitBytes)}</span>
+              <span className="font-mono">{formatBytes(profile.storage_used_bytes)} / {formatBytes(profile.storage_limit_bytes)}</span>
             </div>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
               <div
                 className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${Math.min(100, (profile.storageUsedBytes / profile.storageLimitBytes) * 100)}%` }}
+                style={{ width: `${Math.min(100, (profile.storage_used_bytes / profile.storage_limit_bytes) * 100)}%` }}
                 role="progressbar"
-                aria-valuenow={(profile.storageUsedBytes / profile.storageLimitBytes) * 100}
+                aria-valuenow={(profile.storage_used_bytes / profile.storage_limit_bytes) * 100}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label="Storage usage"

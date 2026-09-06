@@ -155,7 +155,7 @@ export class UploadManager {
           } else {
             // Create folder via API
             try {
-              const res = await api.createFolder(eventId, { name: part, parentId });
+              const res = await api.createFolder(eventId, { name: part, parent_id: parentId });
               folderCache.set(currentPath, res.id);
               parentId = res.id;
             } catch (err) {

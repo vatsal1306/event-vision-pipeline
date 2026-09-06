@@ -26,7 +26,9 @@ Raise `app.core.exceptions` types from services (not ad-hoc `HTTPException` for 
 | Class | HTTP | `code` |
 |---|---|---|
 | `NotFoundError` | 404 | `NOT_FOUND` |
-| `AuthenticationError` | 401 | `AUTH_FAILED` |
+| `BadRequestError` | 422 | `VALIDATION_ERROR` |
+| `ConflictError` | 409 | `CONFLICT` |
+| `PhoneNotVerifiedError` | 401 | `PHONE_NOT_VERIFIED` |
 | `AuthorizationError` | 403 | `FORBIDDEN` |
 | `OTPCooldownError` | 429 | `OTP_COOLDOWN` |
 | `OTPMaxAttemptsError` | 429 | `OTP_MAX_ATTEMPTS` |
@@ -101,4 +103,74 @@ Verify extension and tables:
 docker compose exec db psql -U postgres -d photoshare -c "\\dx"
 docker compose exec db psql -U postgres -d photoshare -c "\\dt"
 ```
+
+## Photographer auth (BE-004)
+
+- Routes: `app/api/v1/auth.py` under `/api/v1/auth/*` (register, login, send-otp, verify-otp, refresh, logout, forgot-password, reset-password).
+- Business logic: `app/services/auth_service.py`. OTP: `app/utils/otp.py` + Redis. JWT/password: `app/core/security.py`.
+- Dependency: `get_current_photographer` in `app/api/deps.py` — requires JWT `type=access`.
+- Redis client: `app/core/redis_client.py` (`get_redis` / `get_redis_dep`). Used for OTP keys and refresh-token denylist (`jwt:denylist:{jti}`).
+- SMS: `app/services/sms_service.py` logs messages locally (`sms_provider=log`). Real MSG91 in BE-017.
+- Schemas: `app/schemas/auth.py`. Password: 8–16 chars with upper, lower, digit, special (`PASSWORD_PATTERN` in constants).
+- Phone numbers are unique on `photographers.phone` (migration `add_unique_photographers_phone`).
+
+### Flows (implemented)
+
+| Flow | Steps |
+|---|---|
+| Register | `register` (auto-sends OTP, no JWT) → `verify-otp` purpose `registration` (returns tokens) |
+| Login | `login` email_or_phone + password (sends OTP) → `verify-otp` purpose `login` (returns tokens). Blocked with `PHONE_NOT_VERIFIED` until registration OTP done. |
+| Reset password | `forgot-password` → OTP to registered phone → `reset-password` with OTP + new password |
+| Refresh / logout | `refresh` rotates tokens; `logout` denylists refresh `jti` |
+
+OTP: 6 digits, 300s expiry, 3 attempts, 60s send cooldown (Redis). Fourth verify attempt → `OTP_MAX_ATTEMPTS`.
+
+When `DEBUG=true`, OTP is logged at INFO as `local_only` on event `otp.dev_delivery` (for local testing only).
+
+### Auth integration tests
+
+`tests/test_auth.py` requires Docker Postgres **and** Redis (`docker compose up -d db redis`). Tests read OTP from Redis via `OTPService.peek_otp`.
+
+```bash
+cd backend
+docker compose up -d db redis
+uv sync --extra dev
+make migrate
+make test
+```
+
+### Frontend wiring
+
+Auth API paths use `/api/v1/auth/*` with snake_case JSON (`access_token`, `studio_name`, etc.). Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` and `NEXT_PUBLIC_MOCK_API=false` to hit the real backend.
+
+New exceptions: `PhoneNotVerifiedError` (`PHONE_NOT_VERIFIED`), `ConflictError` (`CONFLICT`).
+
+Dependencies added: `python-jose[cryptography]`, `passlib[bcrypt]`, `email-validator`, `bcrypt>=4.0.1,<4.1` (passlib compatibility pin).
+
+### Dashboard APIs (BE-005 + shell)
+
+Photographers can:
+
+- `GET/POST /api/v1/events`, `GET/PUT/DELETE /api/v1/events/{id}`
+- List query params: `offset`, `limit`, `status`, `sort_by` (`created_at`|`name`|`date_start`|`status`), `sort_order` (`asc`|`desc`). Default sort: `created_at desc`. No server-side name search in BE-005.
+- `PUT /api/v1/events/{id}/settings`, `PUT /api/v1/events/{id}/links/{guest|master}/toggle`
+- Nested folders: `GET/POST /api/v1/events/{id}/folders`, `PUT/DELETE .../folders/{folder_id}`
+- `GET /api/v1/events/{id}/photos` returns empty items until upload ingest
+- Analytics GETs return zeros/empty lists until BE-015
+- `PUT /api/v1/profile` updates `studio_name` / `phone`
+- Logo/watermark POST returns `501 NOT_IMPLEMENTED` until BE-016
+
+Event rules (BE-005):
+
+- Slug: `slugify(name) + short random suffix`; collision retry up to 5 attempts. Slug is **not** changed on rename.
+- `archive_at` = `created_at + 2 calendar months` (set after insert flush).
+- `date_end` must be on or after `date_start` (create schema + update service validation).
+- Wrong-owner access returns **404** (`get_photographer_event`), not 403.
+- Delete is **hard delete** (DB CASCADE). S3/storage quota cleanup deferred to BE-008/BE-016/BE-018.
+- `Event` child relationships use `cascade="all, delete-orphan"` + `passive_deletes=True` so ORM delete matches Postgres `ON DELETE CASCADE` (avoids nulling non-null FKs).
+
+Tests: `tests/test_events.py` (Postgres + Redis). Existing smoke in `tests/test_dashboard_api.py`.
+
+Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps snake_case API JSON.
+
 

@@ -16,9 +16,27 @@ export interface ApiError {
   errors?: ApiErrorDetail[];
 }
 
+export interface RegisterResponse {
+  id: string;
+  email: string;
+  studio_name: string;
+  phone: string;
+  message: string;
+}
+
+export interface LoginOtpPendingResponse {
+  otp_sent: boolean;
+  phone: string;
+  message: string;
+  expires_in: number;
+}
+
 export interface TokenResponse {
-  accessToken: string;
-  refreshToken: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  photographer: import('@/types/user').Photographer;
 }
 
 export interface AnalyticsEvent {

@@ -26,17 +26,17 @@ export function GalleryHeader({
         
         {/* Photographer Branding */}
         <div className="flex items-center space-x-3">
-          {photographer.logoUrl ? (
+          {photographer.logo_url ? (
             <div className="relative h-8 w-8 rounded-md overflow-hidden">
-              <Image src={photographer.logoUrl} alt={photographer.studioName} fill className="object-contain" />
+              <Image src={photographer.logo_url} alt={photographer.studio_name} fill className="object-contain" />
             </div>
           ) : (
             <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-              {photographer.studioName.charAt(0)}
+              {photographer.studio_name.charAt(0)}
             </div>
           )}
           <span className="font-semibold hidden sm:inline-block">
-            {photographer.studioName}
+            {photographer.studio_name}
           </span>
         </div>
 

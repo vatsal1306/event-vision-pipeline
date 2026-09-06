@@ -1,38 +1,38 @@
 export interface Photographer {
-  id: string; // UUID
+  id: string;
   email: string;
-  studioName: string;
+  studio_name: string;
   phone: string;
-  phoneVerified: boolean;
-  logoUrl: string | null;
-  watermarkUrl: string | null;
-  storageUsedBytes: number;
-  storageLimitBytes: number;
-  isActive: boolean;
-  createdAt: string; // ISO Datetime string
-  updatedAt: string; // ISO Datetime string
+  phone_verified: boolean;
+  logo_url: string | null;
+  watermark_url: string | null;
+  storage_used_bytes: number;
+  storage_limit_bytes: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export type GuestSessionStatus = 'pending' | 'verified' | 'matched';
 
 export interface GuestSession {
-  id: string; // UUID
-  eventId: string; // UUID
+  id: string;
+  eventId: string;
   name: string;
   phone: string;
   phoneVerified: boolean;
-  selfieUrl: string | null; // using selfieUrl to match webProxyUrl preference
-  matchedClusterIds: string[]; // UUID[]
+  selfieUrl: string | null;
+  matchedClusterIds: string[];
   matchedPhotoCount: number;
   status: GuestSessionStatus;
-  createdAt: string; // ISO Datetime string
+  createdAt: string;
 }
 
 export interface CoupleSession {
-  id: string; // UUID
-  eventId: string; // UUID
+  id: string;
+  eventId: string;
   name: string;
   phone: string;
   phoneVerified: boolean;
-  createdAt: string; // ISO Datetime string
+  createdAt: string;
 }

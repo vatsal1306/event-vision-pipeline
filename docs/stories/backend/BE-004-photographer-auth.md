@@ -38,7 +38,16 @@ Photographer register / login / logout / refresh / forgot-reset password / send-
 
 ## Acceptance
 
-- [ ] Integration tests: register → send OTP → verify; login; refresh; bad password 401
-- [ ] OTP reuse after success fails
-- [ ] Fourth verify attempt returns `OTP_MAX_ATTEMPTS`
-- [ ] OpenAPI documents the routes
+- [x] Integration tests: register → send OTP → verify; login; refresh; bad password 401
+- [x] OTP reuse after success fails
+- [x] Fourth verify attempt returns `OTP_MAX_ATTEMPTS`
+- [x] OpenAPI documents the routes
+
+## Implementation notes (agreed deviations from original doc)
+
+- **Register** auto-sends OTP (separate `send-otp` is for resend).
+- **Login** is two-step: `login` (email_or_phone + password) → OTP to registered phone → `verify-otp` purpose `login` returns JWTs.
+- **verify-otp** returns `TokenResponse` (not `{verified: true}`) for registration and login.
+- **Forgot/reset password** uses OTP to registered phone (not email reset link). Email verification deferred to BE-017.
+- **Password**: 8–16 chars with upper, lower, digit, special — enforced in API and frontend.
+- **Phone** unique constraint on `photographers.phone`.

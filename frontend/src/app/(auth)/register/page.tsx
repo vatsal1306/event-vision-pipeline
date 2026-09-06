@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -19,21 +18,21 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { api, ApiError } from '@/lib/api-client';
-import { registerSchema, type RegisterFormValues } from '@/lib/auth-schemas';
+import {
+  registerSchema,
+  otpSchema,
+  type RegisterFormValues,
+  type OtpFormValues,
+} from '@/lib/auth-schemas';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
-
-const otpSchema = z.object({
-  code: z.string().length(6, 'OTP must be exactly 6 digits.'),
-});
-
-type OtpFormValues = z.infer<typeof otpSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
+  const [registeredPhone, setRegisteredPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const setTokens = useAuthStore((state) => state.setTokens);
+  const setSession = useAuthStore((state) => state.setSession);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -49,19 +48,21 @@ export default function RegisterPage() {
   const otpForm = useForm<OtpFormValues>({
     resolver: zodResolver(otpSchema),
     defaultValues: {
-      code: '',
+      otp: '',
     },
   });
 
   async function onRegisterSubmit(data: RegisterFormValues) {
     setIsLoading(true);
     try {
+      const phone = `+91${data.mobile}`;
       await api.register({
-        studioName: data.studioName,
+        studio_name: data.studioName,
         email: data.email,
         password: data.password,
-        mobile: `+91${data.mobile}`,
+        phone,
       });
+      setRegisteredPhone(phone);
       toast.success('OTP sent to your mobile number');
       setStep(2);
     } catch (error: unknown) {
@@ -75,11 +76,12 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       const response = await api.verifyOtp({
-        phone: `+91${form.getValues('mobile')}`,
-        code: data.code,
+        phone: registeredPhone,
+        otp: data.otp,
+        purpose: 'registration',
       });
 
-      setTokens(response.accessToken, response.refreshToken);
+      setSession(response.photographer, response.access_token, response.refresh_token);
       toast.success('Account created successfully');
       router.push('/dashboard/events');
     } catch (error: unknown) {
@@ -98,7 +100,7 @@ export default function RegisterPage() {
         <p className="text-sm text-muted-foreground">
           {step === 1
             ? 'Start delivering photos instantly to your clients.'
-            : `We sent a 6-digit code to +91 ${form.getValues('mobile')}`}
+            : `We sent a 6-digit code to ${registeredPhone}`}
         </p>
       </div>
 
@@ -126,7 +128,13 @@ export default function RegisterPage() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="studio@example.com" type="email" autoComplete="email" disabled={isLoading} {...field} />
+                    <Input
+                      placeholder="studio@example.com"
+                      type="email"
+                      autoComplete="email"
+                      disabled={isLoading}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -141,7 +149,13 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input placeholder="••••••••" type="password" autoComplete="new-password" disabled={isLoading} {...field} />
+                      <Input
+                        placeholder="••••••••"
+                        type="password"
+                        autoComplete="new-password"
+                        disabled={isLoading}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -155,7 +169,13 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Input placeholder="••••••••" type="password" autoComplete="new-password" disabled={isLoading} {...field} />
+                      <Input
+                        placeholder="••••••••"
+                        type="password"
+                        autoComplete="new-password"
+                        disabled={isLoading}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -174,7 +194,13 @@ export default function RegisterPage() {
                       <div className="flex items-center justify-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
                         +91
                       </div>
-                      <Input placeholder="9876543210" type="tel" className="rounded-l-none" disabled={isLoading} {...field} />
+                      <Input
+                        placeholder="9876543210"
+                        type="tel"
+                        className="rounded-l-none"
+                        disabled={isLoading}
+                        {...field}
+                      />
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -193,12 +219,18 @@ export default function RegisterPage() {
           <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
             <FormField
               control={otpForm.control}
-              name="code"
+              name="otp"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>One-Time Password</FormLabel>
                   <FormControl>
-                    <Input placeholder="123456" maxLength={6} className="text-center text-lg tracking-[0.5em]" disabled={isLoading} {...field} />
+                    <Input
+                      placeholder="123456"
+                      maxLength={6}
+                      className="text-center text-lg tracking-[0.5em]"
+                      disabled={isLoading}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
