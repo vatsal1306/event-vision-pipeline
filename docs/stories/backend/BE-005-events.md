@@ -31,7 +31,17 @@ Authenticated photographers create, list, get, update, and delete **their** even
 
 ## Acceptance
 
-- [ ] CRUD works with JWT
-- [ ] Other photographer’s UUID returns 404
-- [ ] Slug unique; URLs in detail payload
-- [ ] Delete removes event and child rows via FK
+- [x] CRUD works with JWT
+- [x] Other photographer’s UUID returns 404
+- [x] Slug unique; URLs in detail payload
+- [x] Delete removes event and child rows via FK
+
+## Implementation notes (agreed deviations)
+
+- **List:** `sort_by` / `sort_order` added (`created_at`, `name`, `date_start`, `status`). No server-side name search in BE-005 (frontend filters client-side).
+- **Delete:** Hard delete with DB CASCADE; no S3 or storage quota adjustment yet (BE-008/BE-018).
+- **`archive_at`:** Set to `created_at + 2 calendar months` after insert (not `now()` at create).
+- **Rename:** Slug is immutable after create so share links stay stable.
+- **Date range:** `date_end` must be on or after `date_start` (Pydantic on create, service on partial update).
+- **Settings + link toggle** included in this story (dashboard needs them before BE-011).
+- Folder/photo/analytics routes on `events.py` are stubs or forward to later stories; core CRUD tests live in `tests/test_events.py`.

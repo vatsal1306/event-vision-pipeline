@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import calendar
-from datetime import datetime, timezone
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.models.enums import EventStatus
 from app.models.event import Event
 from app.models.folder import Folder
@@ -19,6 +19,8 @@ from app.schemas.event import (
     EventDetail,
     EventListResponse,
     EventSettingsRequest,
+    EventSortBy,
+    EventSortOrder,
     EventSummary,
     UpdateEventRequest,
 )
@@ -26,6 +28,15 @@ from app.utils.slug import unique_event_slug
 
 ARCHIVE_MONTHS = 2
 MAX_SLUG_ATTEMPTS = 5
+DEFAULT_SORT_BY: EventSortBy = "created_at"
+DEFAULT_SORT_ORDER: EventSortOrder = "desc"
+
+_SORT_COLUMNS: dict[EventSortBy, object] = {
+    "created_at": Event.created_at,
+    "name": Event.name,
+    "date_start": Event.date_start,
+    "status": Event.status,
+}
 
 
 def _add_months(value: datetime, months: int) -> datetime:
@@ -35,6 +46,12 @@ def _add_months(value: datetime, months: int) -> datetime:
     month = month_index % 12 + 1
     day = min(value.day, calendar.monthrange(year, month)[1])
     return value.replace(year=year, month=month, day=day)
+
+
+def _validate_date_range(date_start: date | None, date_end: date | None) -> None:
+    """Reject event date ranges where the end precedes the start."""
+    if date_start is not None and date_end is not None and date_end < date_start:
+        raise BadRequestError("date_end must be on or after date_start")
 
 
 class EventService:
@@ -51,6 +68,8 @@ class EventService:
         offset: int = 0,
         limit: int = 50,
         status: EventStatus | None = None,
+        sort_by: EventSortBy = DEFAULT_SORT_BY,
+        sort_order: EventSortOrder = DEFAULT_SORT_ORDER,
     ) -> EventListResponse:
         """Return paginated events owned by the photographer."""
         bounded_limit = min(max(limit, 1), 100)
@@ -63,10 +82,13 @@ class EventService:
         total = await self.db.scalar(select(func.count()).select_from(Event).where(*filters))
         total_count = int(total or 0)
 
+        sort_column = _SORT_COLUMNS.get(sort_by, Event.created_at)
+        order_clause = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+
         result = await self.db.execute(
             select(Event)
             .where(*filters)
-            .order_by(Event.created_at.desc())
+            .order_by(order_clause, Event.id.asc())
             .offset(bounded_offset)
             .limit(bounded_limit)
         )
@@ -94,9 +116,10 @@ class EventService:
             event_type=request.event_type,
             description=request.description,
             status=EventStatus.DRAFT,
-            archive_at=_add_months(datetime.now(tz=timezone.utc), ARCHIVE_MONTHS),
         )
         self.db.add(event)
+        await self.db.flush()
+        event.archive_at = _add_months(event.created_at, ARCHIVE_MONTHS)
         await self.db.flush()
         return await self._to_detail(event)
 
@@ -106,6 +129,10 @@ class EventService:
 
     async def update_event(self, event: Event, request: UpdateEventRequest) -> EventDetail:
         """Apply a partial update to an event."""
+        next_start = request.date_start if request.date_start is not None else event.date_start
+        next_end = request.date_end if request.date_end is not None else event.date_end
+        _validate_date_range(next_start, next_end)
+
         if request.name is not None:
             event.name = request.name
         if request.date_start is not None or request.date_end is not None:

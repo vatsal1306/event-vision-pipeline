@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.config import get_settings
 from app.models.enums import EventStatus, EventType
 from app.models.event import Event
+
+EventSortBy = Literal["created_at", "name", "date_start", "status"]
+EventSortOrder = Literal["asc", "desc"]
 
 
 class EventSummary(BaseModel):
@@ -58,6 +62,17 @@ class CreateEventRequest(BaseModel):
     date_end: date | None = None
     event_type: EventType = EventType.WEDDING
     description: str | None = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> CreateEventRequest:
+        """Ensure the event end date is not before the start date."""
+        if (
+            self.date_start is not None
+            and self.date_end is not None
+            and self.date_end < self.date_start
+        ):
+            raise ValueError("date_end must be on or after date_start")
+        return self
 
 
 class UpdateEventRequest(BaseModel):

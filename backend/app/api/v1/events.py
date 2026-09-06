@@ -18,6 +18,8 @@ from app.schemas.event import (
     EventDetail,
     EventListResponse,
     EventSettingsRequest,
+    EventSortBy,
+    EventSortOrder,
     UpdateEventRequest,
 )
 from app.schemas.folder import (
@@ -40,6 +42,8 @@ async def list_events(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     status_filter: EventStatus | None = Query(None, alias="status"),
+    sort_by: EventSortBy = Query("created_at"),
+    sort_order: EventSortOrder = Query("desc"),
 ) -> EventListResponse:
     """List events owned by the authenticated photographer."""
     service = EventService(db)
@@ -48,6 +52,8 @@ async def list_events(
         offset=offset,
         limit=limit,
         status=status_filter,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 

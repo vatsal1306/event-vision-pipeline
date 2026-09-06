@@ -26,6 +26,7 @@ Raise `app.core.exceptions` types from services (not ad-hoc `HTTPException` for 
 | Class | HTTP | `code` |
 |---|---|---|
 | `NotFoundError` | 404 | `NOT_FOUND` |
+| `BadRequestError` | 422 | `VALIDATION_ERROR` |
 | `ConflictError` | 409 | `CONFLICT` |
 | `PhoneNotVerifiedError` | 401 | `PHONE_NOT_VERIFIED` |
 | `AuthorizationError` | 403 | `FORBIDDEN` |
@@ -151,12 +152,24 @@ Dependencies added: `python-jose[cryptography]`, `passlib[bcrypt]`, `email-valid
 Photographers can:
 
 - `GET/POST /api/v1/events`, `GET/PUT/DELETE /api/v1/events/{id}`
+- List query params: `offset`, `limit`, `status`, `sort_by` (`created_at`|`name`|`date_start`|`status`), `sort_order` (`asc`|`desc`). Default sort: `created_at desc`. No server-side name search in BE-005.
 - `PUT /api/v1/events/{id}/settings`, `PUT /api/v1/events/{id}/links/{guest|master}/toggle`
 - Nested folders: `GET/POST /api/v1/events/{id}/folders`, `PUT/DELETE .../folders/{folder_id}`
 - `GET /api/v1/events/{id}/photos` returns empty items until upload ingest
 - Analytics GETs return zeros/empty lists until BE-015
 - `PUT /api/v1/profile` updates `studio_name` / `phone`
 - Logo/watermark POST returns `501 NOT_IMPLEMENTED` until BE-016
+
+Event rules (BE-005):
+
+- Slug: `slugify(name) + short random suffix`; collision retry up to 5 attempts. Slug is **not** changed on rename.
+- `archive_at` = `created_at + 2 calendar months` (set after insert flush).
+- `date_end` must be on or after `date_start` (create schema + update service validation).
+- Wrong-owner access returns **404** (`get_photographer_event`), not 403.
+- Delete is **hard delete** (DB CASCADE). S3/storage quota cleanup deferred to BE-008/BE-016/BE-018.
+- `Event` child relationships use `cascade="all, delete-orphan"` + `passive_deletes=True` so ORM delete matches Postgres `ON DELETE CASCADE` (avoids nulling non-null FKs).
+
+Tests: `tests/test_events.py` (Postgres + Redis). Existing smoke in `tests/test_dashboard_api.py`.
 
 Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps snake_case API JSON.
 

@@ -44,6 +44,13 @@ class PhoneNotVerifiedError(AppException):
         )
 
 
+class BadRequestError(AppException):
+    """Raised when request data fails a business rule (422)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "VALIDATION_ERROR", 422)
+
+
 class ConflictError(AppException):
     """Raised when a unique resource constraint would be violated."""
 

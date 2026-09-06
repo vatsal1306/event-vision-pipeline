@@ -89,30 +89,52 @@ class Event(Base, UUIDPrimaryKeyMixin, CreatedAtMixin, UpdatedAtMixin):
         back_populates="events",
         lazy="selectin",
     )
-    folders: Mapped[list[Folder]] = relationship("Folder", back_populates="event", lazy="selectin")
-    photos: Mapped[list[Photo]] = relationship("Photo", back_populates="event", lazy="selectin")
+    folders: Mapped[list[Folder]] = relationship(
+        "Folder",
+        back_populates="event",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    photos: Mapped[list[Photo]] = relationship(
+        "Photo",
+        back_populates="event",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     face_clusters: Mapped[list[FaceCluster]] = relationship(
         "FaceCluster",
         back_populates="event",
         lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     face_embeddings: Mapped[list[FaceEmbedding]] = relationship(
         "FaceEmbedding",
         back_populates="event",
         lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     guest_sessions: Mapped[list[GuestSession]] = relationship(
         "GuestSession",
         back_populates="event",
         lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     couple_sessions: Mapped[list[CoupleSession]] = relationship(
         "CoupleSession",
         back_populates="event",
         lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     analytics_events: Mapped[list[AnalyticsEvent]] = relationship(
         "AnalyticsEvent",
         back_populates="event",
         lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
