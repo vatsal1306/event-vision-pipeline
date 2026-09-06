@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.enums import ProcessingStatus
 from app.models.event import Event
 from app.models.photo import Photo
+from app.schemas.photo import PhotoListResponse, PhotoResponse
 
 
 class PhotoService:
@@ -57,3 +58,90 @@ class PhotoService:
                 processed_photos=Event.processed_photos - processed_count,
             )
         )
+
+    async def list_photos(
+        self, event_id: UUID, folder_id: UUID | None = None, offset: int = 0, limit: int = 50
+    ) -> PhotoListResponse:
+        """List photos for an event, optionally filtered by folder."""
+        from app.schemas.photo import PhotoListResponse
+
+        # Ensure we cap the limit
+        limit = min(limit, 100)
+
+        # Build query
+        stmt = select(Photo).where(Photo.event_id == event_id)
+        if folder_id:
+            stmt = stmt.where(Photo.folder_id == folder_id)
+
+        # Count total
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = await self.db.scalar(count_stmt) or 0
+
+        # Fetch paginated items
+        stmt = stmt.order_by(Photo.created_at.desc()).offset(offset).limit(limit)
+        result = await self.db.execute(stmt)
+        photos = result.scalars().all()
+
+        items = []
+        for photo in photos:
+            # Mock proxy URL for now
+            proxy_url = None
+            if photo.processing_status == ProcessingStatus.COMPLETED and photo.proxy_s3_key:
+                proxy_url = f"https://mock-s3.local/proxy/{photo.proxy_s3_key}"
+
+            items.append(
+                PhotoResponse(
+                    id=photo.id,
+                    event_id=photo.event_id,
+                    folder_id=photo.folder_id,
+                    filename=photo.filename,
+                    original_s3_key=photo.original_s3_key,
+                    proxy_url=proxy_url,
+                    blurhash=photo.blurhash,
+                    width=photo.width,
+                    height=photo.height,
+                    file_size_bytes=photo.file_size_bytes,
+                    mime_type=photo.mime_type,
+                    face_count=photo.face_count,
+                    processing_status=photo.processing_status,
+                    processing_error=photo.processing_error,
+                    uploaded_at=photo.uploaded_at,
+                    created_at=photo.created_at,
+                )
+            )
+
+        return PhotoListResponse(items=items, total=total, offset=offset, limit=limit)
+
+    async def move_photos(
+        self, event_id: UUID, photo_ids: list[UUID], folder_id: UUID | None
+    ) -> None:
+        """Move multiple photos to a new folder or to the root of the event."""
+        if not photo_ids:
+            return
+
+        if folder_id is not None:
+            from app.core.exceptions import NotFoundError
+            from app.models.folder import Folder
+
+            # Verify folder exists and belongs to the event
+            folder = await self.db.get(Folder, folder_id)
+            if not folder or folder.event_id != event_id:
+                raise NotFoundError("Target folder not found")
+
+        stmt = (
+            update(Photo)
+            .where(Photo.event_id == event_id, Photo.id.in_(photo_ids))
+            .values(folder_id=folder_id)
+        )
+        await self.db.execute(stmt)
+
+    async def get_download_url(self, event_id: UUID, photo_id: UUID) -> str:
+        """Generate a short-lived presigned URL for downloading the original photo."""
+        from app.core.exceptions import NotFoundError
+
+        photo = await self.db.get(Photo, photo_id)
+        if not photo or photo.event_id != event_id:
+            raise NotFoundError("Photo not found")
+
+        # Mock download URL (BE-008 will implement proper S3 presigning)
+        return f"https://mock-s3.local/download/{photo.original_s3_key}?expires=3600"
