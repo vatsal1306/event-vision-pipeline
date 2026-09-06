@@ -13,9 +13,8 @@ from app.api.deps import get_redis_dep
 from app.core.database import get_db
 from app.core.redis_client import create_redis_client
 from app.main import app
-from app.models.folder import Folder
-from app.models.photo import Photo
 from app.models.enums import ProcessingStatus
+from app.models.photo import Photo
 from app.services.sms_service import SMSService
 from app.utils.otp import OTPService
 
@@ -104,7 +103,9 @@ async def test_list_photos(authed_client: AsyncClient, db_session) -> None:
     event_id = uuid.UUID(event["id"])
 
     # Create folder
-    f_resp = await authed_client.post(f"/api/v1/events/{event_id}/folders", json={"name": "Folder 1"})
+    f_resp = await authed_client.post(
+        f"/api/v1/events/{event_id}/folders", json={"name": "Folder 1"}
+    )
     folder_id = uuid.UUID(f_resp.json()["id"])
 
     # Create photos
@@ -159,7 +160,9 @@ async def test_move_photos(authed_client: AsyncClient, db_session) -> None:
     event = await _create_event(authed_client)
     event_id = uuid.UUID(event["id"])
 
-    f_resp = await authed_client.post(f"/api/v1/events/{event_id}/folders", json={"name": "Folder 1"})
+    f_resp = await authed_client.post(
+        f"/api/v1/events/{event_id}/folders", json={"name": "Folder 1"}
+    )
     folder_id = uuid.UUID(f_resp.json()["id"])
 
     photo1 = Photo(

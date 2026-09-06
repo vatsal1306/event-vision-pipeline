@@ -158,8 +158,6 @@ async def delete_folder(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-
-
 @router.get("/{event_id}/analytics/summary", response_model=AnalyticsSummary)
 async def analytics_summary(event: Event = Depends(get_photographer_event)) -> AnalyticsSummary:
     """Return analytics summary (zeros until BE-015)."""
