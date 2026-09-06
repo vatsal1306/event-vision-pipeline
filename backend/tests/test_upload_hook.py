@@ -15,7 +15,9 @@ from app.models.photo import Photo
 from app.models.photographer import Photographer
 
 
-async def create_photographer(db_session: AsyncSession, email: str, storage_limit: int = 1000000000) -> Photographer:
+async def create_photographer(
+    db_session: AsyncSession, email: str, storage_limit: int = 1000000000
+) -> Photographer:
     p = Photographer(
         email=email,
         password_hash="hash",
@@ -51,7 +53,9 @@ async def test_tusd_hook_pre_create_success(
     db_client: AsyncClient, db_session: AsyncSession
 ) -> None:
     """Pre-create hook should accept valid uploads within quota."""
-    photographer = await create_photographer(db_session, email="tusd1@example.com", storage_limit=1000)
+    photographer = await create_photographer(
+        db_session, email="tusd1@example.com", storage_limit=1000
+    )
     event = await create_event(db_session, photographer.id, "Test Event")
 
     payload = {
@@ -80,7 +84,9 @@ async def test_tusd_hook_pre_create_quota_exceeded(
     db_client: AsyncClient, db_session: AsyncSession
 ) -> None:
     """Pre-create hook should reject uploads exceeding quota."""
-    photographer = await create_photographer(db_session, email="tusd2@example.com", storage_limit=100)
+    photographer = await create_photographer(
+        db_session, email="tusd2@example.com", storage_limit=100
+    )
     event = await create_event(db_session, photographer.id, "Test Event 2")
 
     payload = {
@@ -184,6 +190,6 @@ async def test_tusd_hook_post_finish_idempotency(
     response2 = await db_client.post("/api/v1/upload/hook", json=payload)
     assert response2.status_code == 200
     assert response2.json()["note"] == "already processed"
-    
+
     # Task should not be queued again
     assert mock_delay.call_count == 1

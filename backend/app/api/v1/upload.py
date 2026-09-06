@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,7 +40,7 @@ async def tusd_hook(
         event_id_str = metadata.get("event_id")
         photographer_id_str = metadata.get("photographer_id")
         folder_id_str = metadata.get("folder_id")
-        
+
         event_id = uuid.UUID(event_id_str) if event_id_str else None
         photographer_id = uuid.UUID(photographer_id_str) if photographer_id_str else None
         folder_id = uuid.UUID(folder_id_str) if folder_id_str else None
@@ -56,17 +55,17 @@ async def tusd_hook(
         photographer = await db.get(Photographer, photographer_id)
         if not photographer:
             raise HTTPException(status_code=403, detail="Photographer not found")
-            
+
         event = await db.get(Event, event_id)
         if not event or event.photographer_id != photographer.id:
             raise HTTPException(status_code=403, detail="Event not found or unauthorized")
-            
+
         # Check quota
         if photographer.storage_used_bytes + upload_info.size > photographer.storage_limit_bytes:
             # 402 Payment Required for quota exceeded, but HTTP 400 is safer for tusd webhook
             response.status_code = 400
             return {"detail": "Storage limit exceeded"}
-            
+
         settings = get_settings()
         if upload_info.size > settings.max_upload_size_bytes:
             response.status_code = 400
@@ -95,16 +94,16 @@ async def tusd_hook(
             original_s3_key=s3_key,
         )
         db.add(photo)
-        
+
         event = await db.get(Event, event_id)
         if event:
             event.total_photos += 1
             if event.status in (EventStatus.DRAFT, EventStatus.READY):
                 event.status = EventStatus.PROCESSING
-                
+
         await db.commit()
         await db.refresh(photo)
-        
+
         process_uploaded_photo.delay(str(photo.id), s3_key, str(event_id))
-        
+
     return {"status": "accepted"}
