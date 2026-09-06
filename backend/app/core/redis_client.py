@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import cast
 
 import redis.asyncio as redis
 
@@ -21,7 +22,13 @@ def create_redis_client(url: str | None = None) -> redis.Redis:
         Async Redis client instance.
     """
     settings = get_settings()
-    return redis.from_url(url or settings.redis_url, decode_responses=True)
+    return cast(
+        redis.Redis,
+        redis.from_url(  # type: ignore[no-untyped-call]
+            url or settings.redis_url,
+            decode_responses=True,
+        ),
+    )
 
 
 async def get_redis() -> AsyncIterator[redis.Redis]:

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import calendar
 from datetime import date, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.models.enums import EventStatus
@@ -31,7 +33,7 @@ MAX_SLUG_ATTEMPTS = 5
 DEFAULT_SORT_BY: EventSortBy = "created_at"
 DEFAULT_SORT_ORDER: EventSortOrder = "desc"
 
-_SORT_COLUMNS: dict[EventSortBy, object] = {
+_SORT_COLUMNS: dict[EventSortBy, InstrumentedAttribute[Any]] = {
     "created_at": Event.created_at,
     "name": Event.name,
     "date_start": Event.date_start,

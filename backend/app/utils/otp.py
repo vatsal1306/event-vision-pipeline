@@ -113,7 +113,8 @@ class OTPService:
 
     async def peek_otp(self, phone: str, purpose: str) -> str | None:
         """Return the stored OTP without consuming it (tests only)."""
-        return await self.redis.get(f"{OTP_KEY_PREFIX}{phone}:{purpose}")
+        stored = await self.redis.get(f"{OTP_KEY_PREFIX}{phone}:{purpose}")
+        return stored if stored is None else str(stored)
 
     def _generate_otp(self) -> str:
         """Generate a cryptographically secure numeric OTP."""

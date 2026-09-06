@@ -110,7 +110,11 @@ def decode_jwt(token: str, *, settings: Settings | None = None) -> dict[str, Any
         JWTError: When the token is invalid or expired.
     """
     runtime_settings = settings or get_settings()
-    return jwt.decode(token, runtime_settings.secret_key, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(
+        token,
+        runtime_settings.secret_key,
+        algorithms=[JWT_ALGORITHM],
+    )
 
 
 def refresh_token_denylist_key(jti: str) -> str:
