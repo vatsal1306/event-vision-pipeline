@@ -28,7 +28,6 @@ from app.schemas.folder import (
     FolderTreeResponse,
     UpdateFolderRequest,
 )
-from app.schemas.photo import PhotoListResponse
 from app.services.event_service import EventService
 from app.services.folder_service import FolderService
 
@@ -157,16 +156,6 @@ async def delete_folder(
     """Delete a folder; photos move to root or are deleted based on the flag."""
     await FolderService(db).delete_folder(event.id, folder_id, delete_photos=delete_photos)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.get("/{event_id}/photos", response_model=PhotoListResponse)
-async def list_photos(
-    event: Event = Depends(get_photographer_event),
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-) -> PhotoListResponse:
-    """Return photos for an event. Empty until upload ingest exists."""
-    return PhotoListResponse(items=[], total=0, offset=offset, limit=limit)
 
 
 @router.get("/{event_id}/analytics/summary", response_model=AnalyticsSummary)

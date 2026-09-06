@@ -183,3 +183,13 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
   - Without query parameter: `DELETE /folders/{id}` removes the folder and its descendant folders, cascading cleanly. Photos inside deleted folders are moved to the event root (their `folder_id` becomes `NULL` via `ON DELETE SET NULL`).
   - With query parameter: `DELETE /folders/{id}?delete_photos=true` recursively deletes all photos within the folder and any of its descendant folders using a recursive CTE, then deletes the folders.
 - Tests: `tests/test_folders.py`.
+
+## Photos (BE-007)
+
+- Routes: `app/api/v1/photos.py` under `/api/v1/events/{event_id}/photos` (list, move, delete, download).
+- `list_photos`: Paginated offset-based listing. Optionally filtered by `folder_id`.
+  - Mocks `proxy_url` generation for S3 (until BE-008). 
+- `move_photos`: Bulk updates `folder_id` for given `photo_ids`. Handles folder existence and event ownership validation correctly.
+- `delete_photo`: Reuses the `delete_photos` utility from BE-006 inside `app/services/photo_service.py` to keep counters consistent.
+- `get_download_url`: Mocks `original_s3_key` presigned URL generation (until BE-008).
+- Tests: `tests/test_photos.py`. Cartesian product issue with `select_from(subquery)` using `func.count(Photo.id)` was resolved by correctly using `func.count()`.
