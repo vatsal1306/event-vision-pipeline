@@ -57,11 +57,13 @@ async def test_get_public_info_success(
     assert response.status_code == 200
 
     data = response.json()
-    assert data["name"] == event.name
-    assert data["studio_name"] == photographer.studio_name
-    assert data["studio_logo_url"] is None
-    assert data["guest_link_active"] is True
-    assert data["master_link_active"] is False
+    assert data["event"]["name"] == event.name
+    assert data["event"]["slug"] == event.slug
+    assert data["event"]["download_enabled"] is True
+    assert data["photographer"]["studio_name"] == photographer.studio_name
+    assert data["photographer"]["logo_url"] is None
+    assert data["event"]["guest_link_active"] is True
+    assert data["event"]["master_link_active"] is False
 
 
 @pytest.mark.asyncio
@@ -76,11 +78,11 @@ async def test_get_public_info_with_logo(
     assert response.status_code == 200
 
     data = response.json()
-    assert data["name"] == event.name
-    assert data["studio_name"] == photographer.studio_name
-    assert data["studio_logo_url"] is not None
-    assert "logos/test_logo.png" in data["studio_logo_url"]
-    assert "expires_in=" in data["studio_logo_url"]
+    assert data["event"]["name"] == event.name
+    assert data["photographer"]["studio_name"] == photographer.studio_name
+    assert data["photographer"]["logo_url"] is not None
+    assert "logos/test_logo.png" in data["photographer"]["logo_url"]
+    assert "expires_in=" in data["photographer"]["logo_url"]
 
 
 @pytest.mark.asyncio

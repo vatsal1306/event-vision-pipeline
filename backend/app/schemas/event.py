@@ -159,13 +159,25 @@ class EventDetail(BaseModel):
         )
 
 
+class EventPublicInfoEvent(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    download_enabled: bool
+    date_start: date | None
+    date_end: date | None
+    guest_link_active: bool
+    master_link_active: bool
+    cover_image_url: str | None = None
+
+
+class EventPublicInfoPhotographer(BaseModel):
+    studio_name: str
+    logo_url: str | None = None
+
+
 class EventPublicInfo(BaseModel):
     """Public details of an event for unauthenticated landing pages."""
 
-    name: str
-    date_start: date | None
-    date_end: date | None
-    studio_name: str
-    studio_logo_url: str | None
-    guest_link_active: bool
-    master_link_active: bool
+    event: EventPublicInfoEvent
+    photographer: EventPublicInfoPhotographer

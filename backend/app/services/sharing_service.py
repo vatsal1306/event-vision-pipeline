@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from app.core.exceptions import NotFoundError
 from app.models.event import Event
-from app.schemas.event import EventPublicInfo
+from app.schemas.event import EventPublicInfo, EventPublicInfoEvent, EventPublicInfoPhotographer
 from app.services.storage_service import get_storage_service
 
 
@@ -36,15 +36,22 @@ class SharingService:
             logo_presigned = await storage.generate_presigned_url(
                 settings.s3_bucket_assets,
                 event.photographer.logo_url,
-                expires_in=3600,
+                expires_in=settings.s3_presigned_url_expiry,
             )
 
         return EventPublicInfo(
-            name=event.name,
-            date_start=event.date_start,
-            date_end=event.date_end,
-            studio_name=event.photographer.studio_name,
-            studio_logo_url=logo_presigned,
-            guest_link_active=event.guest_link_active,
-            master_link_active=event.master_link_active,
+            event=EventPublicInfoEvent(
+                id=event.id,
+                name=event.name,
+                slug=event.slug,
+                download_enabled=event.download_enabled,
+                date_start=event.date_start,
+                date_end=event.date_end,
+                guest_link_active=event.guest_link_active,
+                master_link_active=event.master_link_active,
+            ),
+            photographer=EventPublicInfoPhotographer(
+                studio_name=event.photographer.studio_name,
+                logo_url=logo_presigned,
+            ),
         )
