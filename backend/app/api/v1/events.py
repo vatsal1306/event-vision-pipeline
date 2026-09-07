@@ -12,7 +12,6 @@ from app.core.database import get_db
 from app.models.enums import EventStatus
 from app.models.event import Event
 from app.models.photographer import Photographer
-from app.schemas.analytics import AnalyticsSummary, AnalyticsTopPhotosResponse, GuestListResponse
 from app.schemas.event import (
     CreateEventRequest,
     EventDetail,
@@ -156,23 +155,3 @@ async def delete_folder(
     """Delete a folder; photos move to root or are deleted based on the flag."""
     await FolderService(db).delete_folder(event.id, folder_id, delete_photos=delete_photos)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.get("/{event_id}/analytics/summary", response_model=AnalyticsSummary)
-async def analytics_summary(event: Event = Depends(get_photographer_event)) -> AnalyticsSummary:
-    """Return analytics summary (zeros until BE-015)."""
-    return AnalyticsSummary()
-
-
-@router.get("/{event_id}/analytics/top-photos", response_model=AnalyticsTopPhotosResponse)
-async def analytics_top_photos(
-    event: Event = Depends(get_photographer_event),
-) -> AnalyticsTopPhotosResponse:
-    """Return top photos placeholder."""
-    return AnalyticsTopPhotosResponse()
-
-
-@router.get("/{event_id}/analytics/guests", response_model=GuestListResponse)
-async def analytics_guests(event: Event = Depends(get_photographer_event)) -> GuestListResponse:
-    """Return guest analytics placeholder."""
-    return GuestListResponse()
