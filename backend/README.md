@@ -256,3 +256,9 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - **POST `/api/v1/profile/logo`**: Handles multipart upload of JPEG, PNG, or WEBP studio logo validating magic bytes and saving to S3.
 - **POST `/api/v1/profile/watermark`**: Handles multipart upload of PNG watermark validating magic bytes and saving to S3.
 - **GET `/api/v1/profile/storage`**: Calculates and returns the precise active vs archived storage usage of all photos for a photographer, keeping the `storage_used_bytes` cached value up-to-date and returning the limit and percentage used.
+
+## Notifications (BE-017)
+- Email delivery via `EmailService` which logs emails locally using `LogEmailAdapter` (Phase 1 no-op without credentials requirement).
+- OTP verification in `OTPService` bypasses Redis if `DEBUG=true` and `otp="123456"` to support development testing without incurring external API or mock usage costs.
+- Celery background tasks `notify_processing_complete_task` and `notify_archival_warning_task` handle formatting and dispatching emails to photographers when events become `READY` or approach their `archive_at` dates.
+- These notifications use simple text bodies for Phase 1 as no HTML templates were provided.

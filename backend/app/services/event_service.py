@@ -203,16 +203,19 @@ class EventService:
         event.total_photos = total
         event.processed_photos = completed
 
+        previous_status = event.status
+
         if total == 0:
             event.status = EventStatus.DRAFT
         elif completed < total:
             event.status = EventStatus.PROCESSING
         elif completed == total:
             event.status = EventStatus.READY
-            # Trigger notification to photographer (stub for BE-017)
-            from app.core.logging import get_logger
 
-            get_logger().info("Event %s processing complete, would notify photographer", event_id)
+            if previous_status != EventStatus.READY:
+                from app.tasks.notification_tasks import notify_processing_complete_task
+
+                notify_processing_complete_task.delay(str(event_id))
 
         await self.db.commit()
 
