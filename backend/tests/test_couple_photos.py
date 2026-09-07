@@ -178,3 +178,68 @@ async def test_record_photo_view(
     analytics = result.scalar_one_or_none()
     assert analytics is not None
     assert analytics.photo_id == photo.id
+
+@pytest.mark.asyncio
+async def test_couple_token_wrong_slug(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    couple_token: tuple[str, Any, Any, Any],
+) -> None:
+    token, _, _, _ = couple_token
+    from tests.test_guest_auth import create_test_event
+
+    other_event = await create_test_event(db_session)
+
+    # Try to access other event with the couple token for the first event
+    response = await db_client.get(
+        f"/api/v1/event/{other_event.slug}/master/photos",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_list_master_folders(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    couple_token: tuple[str, Any, Any, Any],
+) -> None:
+    token, event, couple, photo = couple_token
+    from app.models.folder import Folder
+
+    folder = Folder(event_id=event.id, name="Root Folder")
+    db_session.add(folder)
+    await db_session.commit()
+
+    response = await db_client.get(
+        f"/api/v1/event/{event.slug}/master/folders",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["folders"]) == 1
+    assert data["folders"][0]["name"] == "Root Folder"
+
+
+@pytest.mark.asyncio
+async def test_download_master_photo_disabled(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    couple_token: tuple[str, Any, Any, Any],
+) -> None:
+    token, event, couple, photo = couple_token
+
+    # Disable download
+    event.download_enabled = False
+    await db_session.commit()
+
+    response = await db_client.get(
+        f"/api/v1/event/{event.slug}/master/photos/{photo.id}/download",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "FORBIDDEN"

@@ -133,31 +133,9 @@ class CoupleService:
         result = await self.db.execute(stmt)
         photos = result.scalars().all()
 
-        items = []
-        for photo in photos:
-            proxy_url = None
-            if photo.proxy_s3_key:
-                proxy_url = f"https://mock-s3.local/proxy/{photo.proxy_s3_key}"
-
-            items.append(
-                PhotoResponse(
-                    id=photo.id,
-                    event_id=photo.event_id,
-                    folder_id=photo.folder_id,
-                    filename=photo.filename,
-                    proxy_url=proxy_url,
-                    blurhash=photo.blurhash,
-                    width=photo.width,
-                    height=photo.height,
-                    file_size_bytes=photo.file_size_bytes,
-                    mime_type=photo.mime_type,
-                    face_count=photo.face_count,
-                    processing_status=photo.processing_status,
-                    processing_error=photo.processing_error,
-                    uploaded_at=photo.uploaded_at,
-                    created_at=photo.created_at,
-                )
-            )
+        from app.services.photo_service import PhotoService
+        photo_service = PhotoService(self.db)
+        items = photo_service.build_photo_responses(list(photos))
 
         return PhotoListResponse(items=items, total=total, offset=offset, limit=limit)
 
@@ -173,11 +151,17 @@ class CoupleService:
         from app.models.favorite import Favorite
         from app.models.photo import Photo
 
-        # Check if photo exists and belongs to the event
-        stmt = select(Photo).where(Photo.id == photo_id, Photo.event_id == session.event_id)
+        from app.models.enums import ProcessingStatus
+
+        # Check if photo exists, belongs to the event, and is completed
+        stmt = select(Photo).where(
+            Photo.id == photo_id, 
+            Photo.event_id == session.event_id,
+            Photo.processing_status == ProcessingStatus.COMPLETED
+        )
         result = await self.db.execute(stmt)
         if not result.scalar_one_or_none():
-            raise NotFoundError("Photo not found in this event")
+            raise NotFoundError("Completed photo not found in this event")
 
         # Check existing favorite
         fav_stmt = select(Favorite).where(
@@ -219,31 +203,9 @@ class CoupleService:
         result = await self.db.execute(stmt)
         photos = result.scalars().all()
 
-        items = []
-        for photo in photos:
-            proxy_url = None
-            if photo.proxy_s3_key:
-                proxy_url = f"https://mock-s3.local/proxy/{photo.proxy_s3_key}"
-
-            items.append(
-                PhotoResponse(
-                    id=photo.id,
-                    event_id=photo.event_id,
-                    folder_id=photo.folder_id,
-                    filename=photo.filename,
-                    proxy_url=proxy_url,
-                    blurhash=photo.blurhash,
-                    width=photo.width,
-                    height=photo.height,
-                    file_size_bytes=photo.file_size_bytes,
-                    mime_type=photo.mime_type,
-                    face_count=photo.face_count,
-                    processing_status=photo.processing_status,
-                    processing_error=photo.processing_error,
-                    uploaded_at=photo.uploaded_at,
-                    created_at=photo.created_at,
-                )
-            )
+        from app.services.photo_service import PhotoService
+        photo_service = PhotoService(self.db)
+        items = photo_service.build_photo_responses(list(photos))
 
         return PhotoListResponse(items=items, total=total, offset=offset, limit=limit)
 
@@ -279,5 +241,7 @@ class CoupleService:
         self.db.add(analytics)
         await self.db.commit()
 
-        # Mock download URL
-        return f"https://mock-s3.local/download/{photo.original_s3_key}?expires=3600"
+        # Generate download URL via PhotoService
+        from app.services.photo_service import PhotoService
+        photo_service = PhotoService(self.db)
+        return await photo_service.get_download_url(session.event_id, photo_id)

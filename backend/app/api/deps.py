@@ -31,7 +31,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 __all__ = [
     "get_db",
     "get_redis_dep",
-    "get_redis_dep",
     "get_current_photographer",
     "get_photographer_event",
     "get_current_guest_session",

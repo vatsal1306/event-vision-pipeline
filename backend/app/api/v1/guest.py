@@ -121,40 +121,9 @@ async def list_guest_photos(
         folder_id=folder_id,
     )
 
-    # We need to format the photos according to PhotoResponse and inject proxy URLs
-    # However, PhotoListResponse expects proxy_url. Let's use a simpler mapping for now
-    # Or rely on from_attributes=True and assume proxy_url is handled elsewhere,
-    # but wait, proxy_url needs presigned URLs generated.
-    # To keep it simple, since we don't have StorageService doing presigning for list,
-    # let's assume proxy_url generation logic is handled similar to PhotoService.list_photos.
-    # Actually, wait, let's look at how PhotoService handles it.
-    from app.schemas.photo import PhotoResponse
-
-    photo_responses = []
-    for p in photos:
-        proxy_url = None
-        if p.proxy_s3_key:
-            proxy_url = f"https://mock-s3.local/proxy/{p.proxy_s3_key}"
-
-        photo_responses.append(
-            PhotoResponse(
-                id=p.id,
-                event_id=p.event_id,
-                folder_id=p.folder_id,
-                filename=p.filename,
-                proxy_url=proxy_url,
-                blurhash=p.blurhash,
-                width=p.width,
-                height=p.height,
-                file_size_bytes=p.file_size_bytes,
-                mime_type=p.mime_type,
-                face_count=p.face_count,
-                processing_status=p.processing_status,
-                processing_error=p.processing_error,
-                uploaded_at=p.uploaded_at,
-                created_at=p.created_at,
-            )
-        )
+    from app.services.photo_service import PhotoService
+    photo_service = PhotoService(guest_service.db)
+    photo_responses = photo_service.build_photo_responses(photos)
 
     return PhotoListResponse(
         items=photo_responses,
@@ -187,17 +156,7 @@ async def record_photo_view(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Record a photo view for analytics. Accepts Guest or Couple session."""
-    from app.models.analytics_event import AnalyticsEvent
-    from app.models.couple_session import CoupleSession
-    from app.models.enums import AnalyticsAction
-    from app.models.guest_session import GuestSession
-
-    analytics = AnalyticsEvent(
-        event_id=session.event_id,
-        guest_session_id=session.id if isinstance(session, GuestSession) else None,
-        couple_session_id=session.id if isinstance(session, CoupleSession) else None,
-        photo_id=photo_id,
-        action=AnalyticsAction.VIEW,
-    )
-    db.add(analytics)
-    await db.commit()
+    from app.services.photo_service import PhotoService
+    
+    photo_service = PhotoService(db)
+    await photo_service.record_photo_view(session=session, photo_id=photo_id)
