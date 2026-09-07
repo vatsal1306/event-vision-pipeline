@@ -12,11 +12,11 @@ from app.models.event import Event
 from app.schemas.analytics import (
     AnalyticsSummaryResponse,
     GuestLeadListResponse,
-    TopPhotoResponse,
+    TopPhotosListResponse,
 )
 from app.services.analytics_service import AnalyticsService
 
-router = APIRouter(prefix="/event/{slug}/analytics", tags=["Analytics"])
+router = APIRouter(prefix="/events/{event_id}/analytics", tags=["Analytics"])
 
 
 def get_analytics_service(db: AsyncSession = Depends(get_db)) -> AnalyticsService:
@@ -26,7 +26,6 @@ def get_analytics_service(db: AsyncSession = Depends(get_db)) -> AnalyticsServic
 
 @router.get("/summary", response_model=AnalyticsSummaryResponse)
 async def get_summary(
-    slug: str,
     event: Event = Depends(get_photographer_event),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> AnalyticsSummaryResponse:
@@ -34,33 +33,41 @@ async def get_summary(
     return await analytics_service.get_summary(event.id)
 
 
-@router.get("/photos/top", response_model=list[TopPhotoResponse])
+@router.get("/top-photos", response_model=TopPhotosListResponse)
 async def get_top_photos(
-    slug: str,
     sort_by: Literal["views", "downloads"] = Query("views"),
     limit: int = Query(10, ge=1, le=50),
     event: Event = Depends(get_photographer_event),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
-) -> list[TopPhotoResponse]:
+) -> TopPhotosListResponse:
     """Get top photos by views or downloads."""
-    return await analytics_service.get_top_photos(event.id, sort_by=sort_by, limit=limit)
+    photos = await analytics_service.get_top_photos(event.id, sort_by=sort_by, limit=limit)
+    return TopPhotosListResponse(photos=photos)
 
 
 @router.get("/guests", response_model=GuestLeadListResponse)
 async def get_guest_leads(
-    slug: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    sort_by: Literal[
+        "guest_name", "first_visit", "photos_matched_count", "download_count"
+    ] = Query("guest_name"),
+    sort_order: Literal["asc", "desc"] = Query("asc"),
     event: Event = Depends(get_photographer_event),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> GuestLeadListResponse:
     """Get paginated guest leads."""
-    return await analytics_service.get_guest_leads(event.id, offset=offset, limit=limit)
+    return await analytics_service.get_guest_leads(
+        event.id,
+        page=page,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
 
 
 @router.get("/guests/export", response_class=Response)
 async def export_guest_leads(
-    slug: str,
     event: Event = Depends(get_photographer_event),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> Response:

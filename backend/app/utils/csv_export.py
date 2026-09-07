@@ -14,11 +14,11 @@ def generate_guest_leads_csv(guests: list[GuestLeadResponse]) -> str:
     for guest in guests:
         writer.writerow(
             [
-                guest.name,
-                guest.phone,
-                guest.first_visited.isoformat() if guest.first_visited else "",
-                guest.photos_matched,
-                guest.photos_downloaded,
+                guest.guest_name,
+                guest.guest_phone,
+                guest.first_visit.isoformat() if guest.first_visit else "",
+                guest.photos_matched_count,
+                guest.download_count,
             ]
         )
     return output.getvalue()

@@ -107,7 +107,9 @@ class AnalyticsService:
             TopPhotoResponse(
                 id=p.id,
                 filename=p.filename,
-                proxy_s3_key=p.proxy_s3_key,
+                proxy_url=(
+                    f"https://mock-s3.local/proxy/{p.proxy_s3_key}" if p.proxy_s3_key else None
+                ),
                 views=p.views,
                 downloads=p.downloads,
             )
@@ -115,9 +117,15 @@ class AnalyticsService:
         ]
 
     async def get_guest_leads(
-        self, event_id: UUID, offset: int = 0, limit: int = 50
+        self,
+        event_id: UUID,
+        page: int = 1,
+        limit: int = 10,
+        sort_by: str = "guest_name",
+        sort_order: str = "asc",
     ) -> GuestLeadListResponse:
         """Return paginated guest leads (verified sessions only)."""
+        offset = (page - 1) * limit
         total_stmt = select(func.count(GuestSession.id)).where(
             GuestSession.event_id == event_id,
             GuestSession.phone_verified.is_(True),
@@ -134,6 +142,28 @@ class AnalyticsService:
             .correlate(GuestSession)
         )
 
+        from typing import Any
+        order_col: Any = GuestSession.name.asc()
+        if sort_by == "guest_name":
+            order_col = (
+                GuestSession.name.desc() if sort_order == "desc" else GuestSession.name.asc()
+            )
+        elif sort_by == "first_visit":
+            order_col = (
+                GuestSession.created_at.desc()
+                if sort_order == "desc"
+                else GuestSession.created_at.asc()
+            )
+        elif sort_by == "photos_matched_count":
+            order_col = (
+                GuestSession.matched_photo_count.desc()
+                if sort_order == "desc"
+                else GuestSession.matched_photo_count.asc()
+            )
+        elif sort_by == "download_count":
+            downloads_col = func.coalesce(downloads_subq, 0)
+            order_col = downloads_col.desc() if sort_order == "desc" else downloads_col.asc()
+
         stmt = (
             select(
                 GuestSession.id,
@@ -147,7 +177,7 @@ class AnalyticsService:
                 GuestSession.event_id == event_id,
                 GuestSession.phone_verified.is_(True),
             )
-            .order_by(GuestSession.created_at.desc())
+            .order_by(order_col)
             .offset(offset)
             .limit(limit)
         )
@@ -156,17 +186,17 @@ class AnalyticsService:
 
         items = [
             GuestLeadResponse(
-                id=g.id,
-                name=g.name,
-                phone=g.phone,
-                first_visited=g.created_at,
-                photos_matched=g.matched_photo_count,
-                photos_downloaded=g.downloads,
+                guest_id=g.id,
+                guest_name=g.name,
+                guest_phone=g.phone,
+                first_visit=g.created_at,
+                photos_matched_count=g.matched_photo_count,
+                download_count=g.downloads,
             )
             for g in guests
         ]
 
-        return GuestLeadListResponse(items=items, total=total)
+        return GuestLeadListResponse(guests=items, total=total, page=page, limit=limit)
 
     async def export_guest_leads_csv(self, event_id: UUID) -> str:
         """Return CSV data string for all verified guest leads."""
@@ -200,12 +230,12 @@ class AnalyticsService:
 
         items = [
             GuestLeadResponse(
-                id=g.id,
-                name=g.name,
-                phone=g.phone,
-                first_visited=g.created_at,
-                photos_matched=g.matched_photo_count,
-                photos_downloaded=g.downloads,
+                guest_id=g.id,
+                guest_name=g.name,
+                guest_phone=g.phone,
+                first_visit=g.created_at,
+                photos_matched_count=g.matched_photo_count,
+                download_count=g.downloads,
             )
             for g in guests
         ]

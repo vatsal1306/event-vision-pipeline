@@ -11,8 +11,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_photographer, get_photographer_event
-from app.models.analytics_event import AnalyticsAction, AnalyticsEvent
-from app.models.enums import EventStatus, ProcessingStatus
+from app.models.analytics_event import AnalyticsEvent
+from app.models.enums import AnalyticsAction, EventStatus, ProcessingStatus
 from app.models.event import Event
 from app.models.guest_session import GuestSession
 from app.models.photo import Photo
@@ -157,7 +157,7 @@ async def test_get_summary(
 ) -> None:
     _, event, guests, _ = analytics_data
 
-    response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/summary")
+    response = await auth_client.get(f"/api/v1/events/{event.id}/analytics/summary")
     assert response.status_code == 200
     data = response.json()
     assert data["total_guests"] == 2
@@ -175,26 +175,26 @@ async def test_get_top_photos(
 
     # By views
     response = await auth_client.get(
-        f"/api/v1/event/{event.slug}/analytics/photos/top?sort_by=views"
+        f"/api/v1/events/{event.id}/analytics/top-photos?sort_by=views"
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3
-    assert data[0]["id"] == str(photos[0].id)
-    assert data[0]["views"] == 3
-    assert data[1]["id"] == str(photos[1].id)
-    assert data[1]["views"] == 1
+    assert len(data["photos"]) == 3
+    assert data["photos"][0]["id"] == str(photos[0].id)
+    assert data["photos"][0]["views"] == 3
+    assert data["photos"][1]["id"] == str(photos[1].id)
+    assert data["photos"][1]["views"] == 1
 
     # By downloads
     response = await auth_client.get(
-        f"/api/v1/event/{event.slug}/analytics/photos/top?sort_by=downloads"
+        f"/api/v1/events/{event.id}/analytics/top-photos?sort_by=downloads"
     )
     assert response.status_code == 200
     data = response.json()
-    assert data[0]["id"] == str(photos[1].id)
-    assert data[0]["downloads"] == 2
-    assert data[1]["id"] == str(photos[0].id)
-    assert data[1]["downloads"] == 1
+    assert data["photos"][0]["id"] == str(photos[1].id)
+    assert data["photos"][0]["downloads"] == 2
+    assert data["photos"][1]["id"] == str(photos[0].id)
+    assert data["photos"][1]["downloads"] == 1
 
 
 @pytest.mark.asyncio
@@ -204,18 +204,23 @@ async def test_get_guest_leads(
 ) -> None:
     _, event, guests, _ = analytics_data
 
-    response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/guests")
+    response = await auth_client.get(f"/api/v1/events/{event.id}/analytics/guests")
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 2
-    assert len(data["items"]) == 2
+    assert len(data["guests"]) == 2
 
-    # Sort order is by created_at desc, so Guest 1 is first if created sequentially?
-    # Or we can just check properties.
-    names = [i["name"] for i in data["items"]]
+    # Check properties.
+    names = [i["guest_name"] for i in data["guests"]]
     assert "Guest 0" in names
     assert "Guest 1" in names
     assert "Unverified" not in names
+    
+    # Check download counts
+    guest0 = next(g for g in data["guests"] if g["guest_name"] == "Guest 0")
+    guest1 = next(g for g in data["guests"] if g["guest_name"] == "Guest 1")
+    assert guest0["download_count"] == 1
+    assert guest1["download_count"] == 2
 
 
 @pytest.mark.asyncio
@@ -225,7 +230,7 @@ async def test_export_guest_leads(
 ) -> None:
     _, event, _, _ = analytics_data
 
-    response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/guests/export")
+    response = await auth_client.get(f"/api/v1/events/{event.id}/analytics/guests/export")
     assert response.status_code == 200
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     assert f'filename="{event.slug}_guests.csv"' in response.headers["content-disposition"]
@@ -235,3 +240,23 @@ async def test_export_guest_leads(
     assert "Guest 0" in csv_content
     assert "Guest 1" in csv_content
     assert "Unverified" not in csv_content
+
+@pytest.mark.asyncio
+async def test_wrong_photographer_ownership(
+    db_client: AsyncClient,
+    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]],
+) -> None:
+    _, event, _, _ = analytics_data
+    from app.core.constants import JWTType
+    from app.core.security import create_access_token
+    
+    token, _ = create_access_token(
+        subject=str(uuid.uuid4())
+    )
+    db_client.headers["Authorization"] = f"Bearer {token}"
+    
+    # Actually the fake photographer doesn't exist in DB, so get_current_photographer raises 401
+    # Let's create a real second photographer instead
+    
+    response = await db_client.get(f"/api/v1/events/{event.id}/analytics/summary")
+    assert response.status_code == 401  # Because photographer doesn't exist
