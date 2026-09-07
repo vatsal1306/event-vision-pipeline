@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.models.enums import EventStatus, ProcessingStatus
 from app.models.event import Event
 from app.models.photo import Photo
@@ -22,8 +21,9 @@ async def test_otp_debug_bypass() -> None:
     redis_mock = AsyncMock()
     # It shouldn't even call redis if debug=True and otp="123456"
 
-    settings = get_settings()
-    settings.debug = True
+    from app.config import Settings
+
+    settings = Settings(debug=True, sms_provider="log", email_provider="log")
 
     sms_mock = AsyncMock()
     otp_service = OTPService(redis_client=redis_mock, sms_service=sms_mock, settings=settings)
@@ -56,7 +56,7 @@ async def test_notification_service_processing_complete(db_session: AsyncSession
         status=EventStatus.READY,
     )
     db_session.add(event)
-    await db_session.commit()
+    await db_session.flush()
     await db_session.refresh(event)
 
     email_mock = AsyncMock()
@@ -74,11 +74,14 @@ async def test_notification_service_processing_complete(db_session: AsyncSession
 @pytest.mark.asyncio
 async def test_event_service_triggers_notification_task(db_session: AsyncSession) -> None:
     """Test that EventService dispatches the notification task when status reaches READY."""
+    import uuid
+
+    unique = uuid.uuid4().hex[:6]
     photographer = Photographer(
-        email="trigger@test.com",
+        email=f"trigger_{unique}@test.com",
         password_hash="hash",
         studio_name="Trigger Studio",
-        phone="+919999999997",
+        phone=f"+919988{unique[:4]}",
         phone_verified=True,
     )
     db_session.add(photographer)
@@ -86,8 +89,8 @@ async def test_event_service_triggers_notification_task(db_session: AsyncSession
 
     event = Event(
         photographer_id=photographer.id,
-        name="Trigger Event",
-        slug="trigger-event",
+        name=f"Trigger Event {unique}",
+        slug=f"trigger-event-{unique}",
         total_photos=1,
         processed_photos=0,
         status=EventStatus.PROCESSING,
@@ -97,20 +100,22 @@ async def test_event_service_triggers_notification_task(db_session: AsyncSession
 
     photo = Photo(
         event_id=event.id,
-        original_s3_key="orig.jpg",
-        proxy_s3_key="proxy.jpg",
+        original_s3_key=f"orig_{unique}.jpg",
+        proxy_s3_key=f"proxy_{unique}.jpg",
         filename="test.jpg",
+        mime_type="image/jpeg",
         file_size_bytes=100,
         processing_status=ProcessingStatus.COMPLETED,
+        tus_upload_id=f"test_upload_{unique}",
     )
     db_session.add(photo)
-    await db_session.commit()
+    await db_session.flush()
     await db_session.refresh(event)
 
     event_service = EventService(db_session)
 
-    with patch("app.services.event_service.notify_processing_complete_task.delay") as mock_delay:
-        await event_service._recalculate_status(event.id)
+    with patch("app.tasks.notification_tasks.notify_processing_complete_task.delay") as mock_delay:
+        await event_service.update_event_processing_status(event.id)
 
         await db_session.refresh(event)
         assert event.status == EventStatus.READY

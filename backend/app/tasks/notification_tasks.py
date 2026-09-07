@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.database import async_session_factory
+from app.core.exceptions import NotFoundError
 from app.services.notification_service import get_notification_service
 from app.tasks.celery_app import celery_app
 
@@ -22,6 +23,9 @@ def notify_processing_complete_task(self: Any, event_id: str) -> None:
 
     try:
         asyncio.run(_run())
+    except NotFoundError:
+        # Do not retry if the event is not found
+        raise
     except Exception as exc:
         raise self.retry(exc=exc)
 
@@ -38,5 +42,8 @@ def notify_archival_warning_task(self: Any, event_id: str) -> None:
 
     try:
         asyncio.run(_run())
+    except NotFoundError:
+        # Do not retry if the event is not found
+        raise
     except Exception as exc:
         raise self.retry(exc=exc)

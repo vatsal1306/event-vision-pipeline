@@ -203,6 +203,8 @@ class EventService:
         event.total_photos = total
         event.processed_photos = completed
 
+        previous_status = event.status
+
         if total == 0:
             event.status = EventStatus.DRAFT
         elif completed < total:
@@ -210,9 +212,10 @@ class EventService:
         elif completed == total:
             event.status = EventStatus.READY
 
-            from app.tasks.notification_tasks import notify_processing_complete_task
+            if previous_status != EventStatus.READY:
+                from app.tasks.notification_tasks import notify_processing_complete_task
 
-            notify_processing_complete_task.delay(str(event_id))
+                notify_processing_complete_task.delay(str(event_id))
 
         await self.db.commit()
 
