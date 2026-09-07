@@ -11,6 +11,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_photographer, get_photographer_event
+from app.main import app
 from app.models.analytics_event import AnalyticsEvent
 from app.models.enums import AnalyticsAction, EventStatus, ProcessingStatus
 from app.models.event import Event
@@ -142,12 +143,11 @@ async def auth_client(
     async def override_get_current_photographer() -> Photographer:
         return photographer
 
-    from app.main import app
-
     app.dependency_overrides[get_photographer_event] = override_get_photographer_event
     app.dependency_overrides[get_current_photographer] = override_get_current_photographer
     yield db_client
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_photographer_event, None)
+    app.dependency_overrides.pop(get_current_photographer, None)
 
 
 @pytest.mark.asyncio
