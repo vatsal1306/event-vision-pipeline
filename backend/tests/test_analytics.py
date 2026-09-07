@@ -20,7 +20,9 @@ from app.models.photographer import Photographer
 
 
 @pytest_asyncio.fixture
-async def analytics_data(db_session: AsyncSession) -> tuple[Photographer, Event, list[GuestSession], list[Photo]]:
+async def analytics_data(
+    db_session: AsyncSession,
+) -> tuple[Photographer, Event, list[GuestSession], list[Photo]]:
     # Create photographer
     photographer = Photographer(
         email=f"analytics_{uuid.uuid4().hex[:6]}@test.com",
@@ -88,14 +90,41 @@ async def analytics_data(db_session: AsyncSession) -> tuple[Photographer, Event,
     
     # Photo 0 views
     for _ in range(3):
-        db_session.add(AnalyticsEvent(event_id=event.id, photo_id=photos[0].id, guest_session_id=guests[0].id, action=AnalyticsAction.VIEW))
-    db_session.add(AnalyticsEvent(event_id=event.id, photo_id=photos[0].id, guest_session_id=guests[0].id, action=AnalyticsAction.DOWNLOAD))
+        db_session.add(
+            AnalyticsEvent(
+                event_id=event.id,
+                photo_id=photos[0].id,
+                guest_session_id=guests[0].id,
+                action=AnalyticsAction.VIEW,
+            )
+        )
+    db_session.add(
+        AnalyticsEvent(
+            event_id=event.id,
+            photo_id=photos[0].id,
+            guest_session_id=guests[0].id,
+            action=AnalyticsAction.DOWNLOAD,
+        )
+    )
 
     # Photo 1 views/downloads
-    db_session.add(AnalyticsEvent(event_id=event.id, photo_id=photos[1].id, guest_session_id=guests[1].id, action=AnalyticsAction.VIEW))
+    db_session.add(
+        AnalyticsEvent(
+            event_id=event.id,
+            photo_id=photos[1].id,
+            guest_session_id=guests[1].id,
+            action=AnalyticsAction.VIEW,
+        )
+    )
     for _ in range(2):
-        db_session.add(AnalyticsEvent(event_id=event.id, photo_id=photos[1].id, guest_session_id=guests[1].id, action=AnalyticsAction.DOWNLOAD))
-
+        db_session.add(
+            AnalyticsEvent(
+                event_id=event.id,
+                photo_id=photos[1].id,
+                guest_session_id=guests[1].id,
+                action=AnalyticsAction.DOWNLOAD,
+            )
+        )
     await db_session.commit()
     return photographer, event, guests, photos
 
@@ -144,7 +173,9 @@ async def test_get_top_photos(
     _, event, _, photos = analytics_data
     
     # By views
-    response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/photos/top?sort_by=views")
+    response = await auth_client.get(
+        f"/api/v1/event/{event.slug}/analytics/photos/top?sort_by=views"
+    )
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 3
@@ -154,7 +185,9 @@ async def test_get_top_photos(
     assert data[1]["views"] == 1
 
     # By downloads
-    response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/photos/top?sort_by=downloads")
+    response = await auth_client.get(
+        f"/api/v1/event/{event.slug}/analytics/photos/top?sort_by=downloads"
+    )
     assert response.status_code == 200
     data = response.json()
     assert data[0]["id"] == str(photos[1].id)
