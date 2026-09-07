@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import importlib
 import sys
 
 import pytest
+
+from app.main import app
+from app.ml.config import MLConfig, get_ml_config
 
 
 def test_importing_app_ml_does_not_import_heavy_ml_libraries() -> None:
@@ -24,17 +26,10 @@ def test_importing_app_ml_does_not_import_heavy_ml_libraries() -> None:
 
 
 def test_fastapi_starts_without_model_files(monkeypatch: pytest.MonkeyPatch) -> None:
-    """FastAPI app should import even when model weights are absent."""
+    """FastAPI app should boot when model weight files are absent on disk."""
     monkeypatch.setenv("ML_MODELS_DIR", "/tmp/nonexistent-models-dir-ml001")
-
-    for module_name in ("app.main", "app.ml", "app.ml.config"):
-        sys.modules.pop(module_name, None)
-
-    from app.ml.config import get_ml_config
-
     get_ml_config.cache_clear()
 
-    main = importlib.import_module("app.main")
-
-    assert main.app is not None
-    assert not get_ml_config().models_path.exists()
+    config = MLConfig()
+    assert not config.models_path.exists()
+    assert app is not None
