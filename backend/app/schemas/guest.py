@@ -28,3 +28,11 @@ class GuestTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     needs_selfie: bool
+
+
+class SelfieMatchResponse(BaseModel):
+    """Response from guest selfie match."""
+
+    status: str
+    matched_photo_ids: list[str]
+    matched_photo_count: int
