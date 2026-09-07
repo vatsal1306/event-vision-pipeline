@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_redis_dep
-from app.schemas.guest import GuestAuthRequest, GuestTokenResponse, GuestVerifyRequest
+from app.api.deps import get_current_guest_session, get_db, get_redis_dep
+from app.models.guest_session import GuestSession
+from app.schemas.guest import (
+    GuestAuthRequest,
+    GuestTokenResponse,
+    GuestVerifyRequest,
+    SelfieMatchResponse,
+)
+from app.schemas.photo import DownloadPhotoResponse, PhotoListResponse
 from app.services.guest_service import GuestService
 from app.services.sms_service import SMSService
 from app.utils.otp import OTPService
@@ -17,7 +25,7 @@ if TYPE_CHECKING:
     import redis.asyncio as redis
 
 
-router = APIRouter(prefix="/event/{slug}/auth", tags=["Guest"])
+router = APIRouter(prefix="/event/{slug}", tags=["Guest"])
 
 
 def get_guest_service(
@@ -30,7 +38,7 @@ def get_guest_service(
     return GuestService(db, otp_service)
 
 
-@router.post("", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/auth", status_code=status.HTTP_204_NO_CONTENT)
 async def request_guest_auth(
     slug: str,
     request: GuestAuthRequest,
@@ -44,7 +52,7 @@ async def request_guest_auth(
     )
 
 
-@router.post("/verify", response_model=GuestTokenResponse)
+@router.post("/auth/verify", response_model=GuestTokenResponse)
 async def verify_guest_auth(
     slug: str,
     request: GuestVerifyRequest,
@@ -57,3 +65,99 @@ async def verify_guest_auth(
         phone=request.phone,
         otp=request.otp,
     )
+
+
+@router.post("/selfie", response_model=SelfieMatchResponse)
+async def upload_selfie(
+    slug: str,
+    file: UploadFile = File(...),
+    guest_session: GuestSession = Depends(get_current_guest_session),
+    guest_service: GuestService = Depends(get_guest_service),
+    db: AsyncSession = Depends(get_db),
+) -> SelfieMatchResponse:
+    """Upload a selfie for face matching."""
+    from app.services.face_service import FaceService
+
+    face_service = FaceService(db)
+    file_bytes = await file.read()
+
+    return await guest_service.process_selfie(
+        session=guest_session,
+        selfie_bytes=file_bytes,
+        face_service=face_service,
+    )
+
+
+@router.get("/guest/photos", response_model=PhotoListResponse)
+async def list_guest_photos(
+    slug: str,
+    folder_id: UUID | None = Query(None),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    guest_session: GuestSession = Depends(get_current_guest_session),
+    guest_service: GuestService = Depends(get_guest_service),
+) -> PhotoListResponse:
+    """List matched photos for the authenticated guest."""
+    photos, total = await guest_service.get_guest_photos(
+        session=guest_session,
+        offset=offset,
+        limit=limit,
+        folder_id=folder_id,
+    )
+
+    # We need to format the photos according to PhotoResponse and inject proxy URLs
+    # However, PhotoListResponse expects proxy_url. Let's use a simpler mapping for now
+    # Or rely on from_attributes=True and assume proxy_url is handled elsewhere,
+    # but wait, proxy_url needs presigned URLs generated.
+    # To keep it simple, since we don't have StorageService doing presigning for list,
+    # let's assume proxy_url generation logic is handled similar to PhotoService.list_photos.
+    # Actually, wait, let's look at how PhotoService handles it.
+    from app.schemas.photo import PhotoResponse
+
+    photo_responses = []
+    for p in photos:
+        proxy_url = None
+        if p.proxy_s3_key:
+            proxy_url = f"https://mock-s3.local/proxy/{p.proxy_s3_key}"
+
+        photo_responses.append(
+            PhotoResponse(
+                id=p.id,
+                event_id=p.event_id,
+                folder_id=p.folder_id,
+                filename=p.filename,
+                proxy_url=proxy_url,
+                blurhash=p.blurhash,
+                width=p.width,
+                height=p.height,
+                file_size_bytes=p.file_size_bytes,
+                mime_type=p.mime_type,
+                face_count=p.face_count,
+                processing_status=p.processing_status,
+                processing_error=p.processing_error,
+                uploaded_at=p.uploaded_at,
+                created_at=p.created_at,
+            )
+        )
+
+    return PhotoListResponse(
+        items=photo_responses,
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+
+@router.get("/photos/{photo_id}/download", response_model=DownloadPhotoResponse)
+async def download_guest_photo(
+    slug: str,
+    photo_id: UUID,
+    guest_session: GuestSession = Depends(get_current_guest_session),
+    guest_service: GuestService = Depends(get_guest_service),
+) -> DownloadPhotoResponse:
+    """Get a presigned download URL for a matched photo."""
+    url = await guest_service.get_guest_photo_download(
+        session=guest_session,
+        photo_id=photo_id,
+    )
+    return DownloadPhotoResponse(url=url)

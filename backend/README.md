@@ -230,3 +230,8 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - **Couple API:** `POST /api/v1/event/{slug}/master/auth` (sends OTP) and `POST /api/v1/event/{slug}/master/verify` (verifies OTP, issues couple session JWT).
 - JWTs for these sessions use types `guest` and `couple`.
 - Guest verification checks if the guest has a `selfie_s3_key` or `matched_cluster_ids` to return `needs_selfie=True` or `False`.
+
+## Guest Selfie Matching (BE-013)
+- **POST `/api/v1/event/{slug}/selfie`**: Guests upload a selfie. A stub `FaceService` simulates matching by currently returning `no_match` (or fake matches later), saving `matched_cluster_ids` into the `GuestSession`.
+- **GET `/api/v1/event/{slug}/guest/photos`**: Retrieves paginated event photos belonging to the `GuestSession`'s matched clusters and formatted as `PhotoResponse`.
+- **GET `/api/v1/event/{slug}/photos/{photo_id}/download`**: Generates a mock presigned URL to download the original photo, and logs the download action as an `AnalyticsEvent` (`action=DOWNLOAD`).
