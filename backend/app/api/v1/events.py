@@ -155,6 +155,3 @@ async def delete_folder(
     """Delete a folder; photos move to root or are deleted based on the flag."""
     await FolderService(db).delete_folder(event.id, folder_id, delete_photos=delete_photos)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-

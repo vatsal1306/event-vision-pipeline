@@ -66,7 +66,5 @@ async def export_guest_leads(
 ) -> Response:
     """Export all guest leads as CSV."""
     csv_data = await analytics_service.export_guest_leads_csv(event.id)
-    headers = {
-        "Content-Disposition": f'attachment; filename="{event.slug}_guests.csv"'
-    }
+    headers = {"Content-Disposition": f'attachment; filename="{event.slug}_guests.csv"'}
     return Response(content=csv_data, media_type="text/csv", headers=headers)

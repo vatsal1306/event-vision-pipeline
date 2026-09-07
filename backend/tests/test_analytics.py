@@ -73,7 +73,7 @@ async def analytics_data(
         )
         db_session.add(g)
         guests.append(g)
-    
+
     # Create unverified guest (should not appear in leads)
     unverified = GuestSession(
         event_id=event.id,
@@ -87,7 +87,7 @@ async def analytics_data(
     # Add analytics events
     # Photo 0: 3 views, 1 download (Guest 0)
     # Photo 1: 1 view, 2 downloads (Guest 1)
-    
+
     # Photo 0 views
     for _ in range(3):
         db_session.add(
@@ -143,6 +143,7 @@ async def auth_client(
         return photographer
 
     from app.main import app
+
     app.dependency_overrides[get_photographer_event] = override_get_photographer_event
     app.dependency_overrides[get_current_photographer] = override_get_current_photographer
     yield db_client
@@ -152,10 +153,10 @@ async def auth_client(
 @pytest.mark.asyncio
 async def test_get_summary(
     auth_client: AsyncClient,
-    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]]
+    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]],
 ) -> None:
     _, event, guests, _ = analytics_data
-    
+
     response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/summary")
     assert response.status_code == 200
     data = response.json()
@@ -168,10 +169,10 @@ async def test_get_summary(
 @pytest.mark.asyncio
 async def test_get_top_photos(
     auth_client: AsyncClient,
-    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]]
+    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]],
 ) -> None:
     _, event, _, photos = analytics_data
-    
+
     # By views
     response = await auth_client.get(
         f"/api/v1/event/{event.slug}/analytics/photos/top?sort_by=views"
@@ -199,16 +200,16 @@ async def test_get_top_photos(
 @pytest.mark.asyncio
 async def test_get_guest_leads(
     auth_client: AsyncClient,
-    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]]
+    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]],
 ) -> None:
     _, event, guests, _ = analytics_data
-    
+
     response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/guests")
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 2
     assert len(data["items"]) == 2
-    
+
     # Sort order is by created_at desc, so Guest 1 is first if created sequentially?
     # Or we can just check properties.
     names = [i["name"] for i in data["items"]]
@@ -220,15 +221,15 @@ async def test_get_guest_leads(
 @pytest.mark.asyncio
 async def test_export_guest_leads(
     auth_client: AsyncClient,
-    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]]
+    analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]],
 ) -> None:
     _, event, _, _ = analytics_data
-    
+
     response = await auth_client.get(f"/api/v1/event/{event.slug}/analytics/guests/export")
     assert response.status_code == 200
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     assert f'filename="{event.slug}_guests.csv"' in response.headers["content-disposition"]
-    
+
     csv_content = response.text
     assert "Name,Phone,First Visited,Photos Matched,Photos Downloaded" in csv_content
     assert "Guest 0" in csv_content

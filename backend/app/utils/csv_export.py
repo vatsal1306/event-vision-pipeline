@@ -10,9 +10,7 @@ def generate_guest_leads_csv(guests: list[GuestLeadResponse]) -> str:
     """Generate a CSV string from a list of guest leads."""
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(
-        ["Name", "Phone", "First Visited", "Photos Matched", "Photos Downloaded"]
-    )
+    writer.writerow(["Name", "Phone", "First Visited", "Photos Matched", "Photos Downloaded"])
     for guest in guests:
         writer.writerow(
             [
