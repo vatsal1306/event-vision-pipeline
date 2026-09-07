@@ -223,3 +223,10 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - Added `GET /api/v1/event/{slug}/info` which returns public `EventPublicInfo` for rendering unauthenticated guest and master landing pages.
 - Dynamic presigned URL generation for the photographer's studio logo using `StorageService` with configurable expiration (`settings.s3_presigned_url_expiry`).
 - Share link toggles and other settings modifications live in `PUT /api/v1/events/{id}/settings` and `PUT /api/v1/events/{id}/links/{type}/toggle` from BE-005.
+
+## Guest/Couple Auth (BE-012)
+- Added stateless OTP authentication for guests and couples.
+- **Guest API:** `POST /api/v1/event/{slug}/auth` (sends OTP) and `POST /api/v1/event/{slug}/auth/verify` (verifies OTP, issues guest session JWT).
+- **Couple API:** `POST /api/v1/event/{slug}/master/auth` (sends OTP) and `POST /api/v1/event/{slug}/master/verify` (verifies OTP, issues couple session JWT).
+- JWTs for these sessions use types `guest` and `couple`.
+- Guest verification checks if the guest has a `selfie_s3_key` or `matched_cluster_ids` to return `needs_selfie=True` or `False`.

@@ -10,8 +10,8 @@ export function useGuestAuth() {
 
 export function useGuestVerify() {
   return useMutation({
-    mutationFn: ({ slug, otp }: { slug: string; otp: string }) =>
-      api.verifyGuestOtp(slug, { otp }),
+    mutationFn: ({ slug, phone, otp }: { slug: string; phone: string; otp: string }) =>
+      api.verifyGuestOtp(slug, { phone, otp }),
   });
 }
 

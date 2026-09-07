@@ -17,8 +17,8 @@ export function useMasterAuth() {
 
 export function useMasterVerify() {
   return useMutation({
-    mutationFn: ({ slug, otp }: { slug: string; otp: string }) =>
-      api.verifyMasterAuth(slug, { otp }),
+    mutationFn: ({ slug, phone, otp }: { slug: string; phone: string; otp: string }) =>
+      api.verifyMasterAuth(slug, { phone, otp }),
   });
 }
 
