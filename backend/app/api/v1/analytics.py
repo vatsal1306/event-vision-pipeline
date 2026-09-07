@@ -49,9 +49,9 @@ async def get_top_photos(
 async def get_guest_leads(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    sort_by: Literal[
-        "guest_name", "first_visit", "photos_matched_count", "download_count"
-    ] = Query("guest_name"),
+    sort_by: Literal["guest_name", "first_visit", "photos_matched_count", "download_count"] = Query(
+        "guest_name"
+    ),
     sort_order: Literal["asc", "desc"] = Query("asc"),
     event: Event = Depends(get_photographer_event),
     analytics_service: AnalyticsService = Depends(get_analytics_service),

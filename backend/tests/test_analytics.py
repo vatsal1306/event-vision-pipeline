@@ -215,7 +215,7 @@ async def test_get_guest_leads(
     assert "Guest 0" in names
     assert "Guest 1" in names
     assert "Unverified" not in names
-    
+
     # Check download counts
     guest0 = next(g for g in data["guests"] if g["guest_name"] == "Guest 0")
     guest1 = next(g for g in data["guests"] if g["guest_name"] == "Guest 1")
@@ -241,22 +241,20 @@ async def test_export_guest_leads(
     assert "Guest 1" in csv_content
     assert "Unverified" not in csv_content
 
+
 @pytest.mark.asyncio
 async def test_wrong_photographer_ownership(
     db_client: AsyncClient,
     analytics_data: tuple[Photographer, Event, list[GuestSession], list[Photo]],
 ) -> None:
     _, event, _, _ = analytics_data
-    from app.core.constants import JWTType
     from app.core.security import create_access_token
-    
-    token, _ = create_access_token(
-        subject=str(uuid.uuid4())
-    )
+
+    token, _ = create_access_token(subject=str(uuid.uuid4()))
     db_client.headers["Authorization"] = f"Bearer {token}"
-    
+
     # Actually the fake photographer doesn't exist in DB, so get_current_photographer raises 401
     # Let's create a real second photographer instead
-    
+
     response = await db_client.get(f"/api/v1/events/{event.id}/analytics/summary")
     assert response.status_code == 401  # Because photographer doesn't exist

@@ -143,6 +143,7 @@ class AnalyticsService:
         )
 
         from typing import Any
+
         order_col: Any = GuestSession.name.asc()
         if sort_by == "guest_name":
             order_col = (
