@@ -218,3 +218,8 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 ## Upload Pipeline (BE-010)
 - Processing migrated to use OpenCV for proxies, watermarking, and HEIC ingestion.
 - Background jobs handled reliably by Celery with proper failure isolation.
+
+## Sharing (BE-011)
+- Added `GET /api/v1/event/{slug}/info` which returns public `EventPublicInfo` for rendering unauthenticated guest and master landing pages.
+- Dynamic presigned URL generation for the photographer's studio logo using `StorageService` with configurable expiration (`settings.s3_presigned_url_expiry`).
+- Share link toggles and other settings modifications live in `PUT /api/v1/events/{id}/settings` and `PUT /api/v1/events/{id}/links/{type}/toggle` from BE-005.
