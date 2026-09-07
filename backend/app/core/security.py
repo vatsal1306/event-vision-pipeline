@@ -67,6 +67,43 @@ def create_access_token(
     return token, int(expires_delta.total_seconds())
 
 
+def create_session_token(
+    subject: str,
+    event_id: str,
+    token_type: JWTType,
+    *,
+    settings: Settings | None = None,
+) -> tuple[str, int]:
+    """Create a guest or couple session JWT.
+
+    Args:
+        subject: Session UUID string placed in the ``sub`` claim.
+        event_id: Event UUID string placed in the ``event_id`` claim.
+        token_type: Either ``JWTType.GUEST`` or ``JWTType.COUPLE``.
+        settings: Optional settings override (tests).
+
+    Returns:
+        Tuple of encoded token and expiry in seconds.
+    """
+    runtime_settings = settings or get_settings()
+
+    if token_type == JWTType.COUPLE:
+        expires_delta = timedelta(days=runtime_settings.jwt_couple_token_expire_days)
+    else:
+        expires_delta = timedelta(days=runtime_settings.jwt_guest_token_expire_days)
+
+    expires_at = _utcnow() + expires_delta
+    payload = {
+        "sub": subject,
+        "event_id": event_id,
+        "type": token_type.value,
+        "exp": expires_at,
+        "iat": _utcnow(),
+    }
+    token = jwt.encode(payload, runtime_settings.secret_key, algorithm=JWT_ALGORITHM)
+    return token, int(expires_delta.total_seconds())
+
+
 def create_refresh_token(
     subject: str,
     *,

@@ -1,27 +1,57 @@
-"""Analytics list/summary schemas for dashboard placeholders."""
+"""Analytics response schemas (BE-015)."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
 
 
-class AnalyticsSummary(BaseModel):
-    """Zeroed analytics until BE-015 records real visits."""
+class AnalyticsSummaryResponse(BaseModel):
+    """Aggregate analytics for an event."""
 
-    total_views: int = 0
-    total_downloads: int = 0
-    total_guests: int = 0
-    engagement_rate: float = 0.0
-
-
-class AnalyticsTopPhotosResponse(BaseModel):
-    """Top photos placeholder."""
-
-    photos: list[dict[str, object]] = Field(default_factory=list)
+    total_views: int
+    total_downloads: int
+    total_guests: int
+    engagement_rate: float
 
 
-class GuestListResponse(BaseModel):
-    """Guest analytics placeholder."""
+class TopPhotoResponse(BaseModel):
+    """A photo with its analytics counts."""
 
-    guests: list[dict[str, object]] = Field(default_factory=list)
-    total: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    filename: str
+    proxy_url: str | None
+    views: int = 0
+    downloads: int = 0
+
+
+class TopPhotosListResponse(BaseModel):
+    """Wrapper for top photos."""
+
+    photos: list[TopPhotoResponse]
+
+
+class GuestLeadResponse(BaseModel):
+    """A single guest lead."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    guest_id: UUID
+    guest_name: str
+    guest_phone: str
+    first_visit: datetime | None
+    photos_matched_count: int
+    download_count: int
+
+
+class GuestLeadListResponse(BaseModel):
+    """Paginated guest leads."""
+
+    guests: list[GuestLeadResponse]
+    total: int
+    page: int
+    limit: int

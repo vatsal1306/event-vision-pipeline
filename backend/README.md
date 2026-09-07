@@ -183,3 +183,82 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
   - Without query parameter: `DELETE /folders/{id}` removes the folder and its descendant folders, cascading cleanly. Photos inside deleted folders are moved to the event root (their `folder_id` becomes `NULL` via `ON DELETE SET NULL`).
   - With query parameter: `DELETE /folders/{id}?delete_photos=true` recursively deletes all photos within the folder and any of its descendant folders using a recursive CTE, then deletes the folders.
 - Tests: `tests/test_folders.py`.
+
+## Photos (BE-007)
+
+- Routes: `app/api/v1/photos.py` under `/api/v1/events/{event_id}/photos` (list, move, delete, download).
+- `list_photos`: Paginated offset-based listing. Optionally filtered by `folder_id`.
+  - Mocks `proxy_url` generation for S3 (until BE-008). 
+- `move_photos`: Bulk updates `folder_id` for given `photo_ids`. Handles folder existence and event ownership validation correctly.
+- `delete_photo`: Reuses the `delete_photos` utility from BE-006 inside `app/services/photo_service.py` to keep counters consistent.
+- `get_download_url`: Mocks `original_s3_key` presigned URL generation (until BE-008).
+- Tests: `tests/test_photos.py`. Cartesian product issue with `select_from(subquery)` using `func.count(Photo.id)` was resolved by correctly using `func.count()`.
+
+## Storage (BE-008)
+
+- Unified `StorageService` interface handling object creation, deletion, getting, presigned URLs, and storage class management.
+- Implementations include `S3StorageService` (using async `aioboto3`) for production AWS S3 and `LocalStorageService` (storing to `.data/s3` directory) for offline testing without AWS.
+- Standard storage exceptions wrapped in `StorageError`.
+- Tests mock S3 operations using python `unittest.mock.AsyncMock` because `aioboto3` async streams can be complicated to mock perfectly with `moto` in unit tests.
+
+## Upload Pipeline (BE-009)
+
+- Uses `tusd` sidecar to handle chunked/resumable uploads via the `tus` protocol, storing files directly in `.data/s3/platform-uploads` locally.
+- Webhooks from `tusd` point to `POST /api/v1/upload/hook`.
+  - `pre-create` hook: Validates metadata UUIDs and checks photographer storage quota.
+  - `post-finish` hook: Idempotently creates a `Photo` record and enqueues a Celery task.
+- `celery-worker` is available in `docker-compose.yml`. It runs on the `photo_processing` queue.
+- To test the full pipeline locally:
+  ```bash
+  cd backend
+  docker compose up -d db redis tusd celery-worker
+  uv run uvicorn app.main:app --reload
+  ```
+
+## Upload Pipeline (BE-010)
+- Processing migrated to use OpenCV for proxies, watermarking, and HEIC ingestion.
+- Background jobs handled reliably by Celery with proper failure isolation.
+
+## Sharing (BE-011)
+- Added `GET /api/v1/event/{slug}/info` which returns public `EventPublicInfo` for rendering unauthenticated guest and master landing pages.
+- Dynamic presigned URL generation for the photographer's studio logo using `StorageService` with configurable expiration (`settings.s3_presigned_url_expiry`).
+- Share link toggles and other settings modifications live in `PUT /api/v1/events/{id}/settings` and `PUT /api/v1/events/{id}/links/{type}/toggle` from BE-005.
+
+## Guest/Couple Auth (BE-012)
+- Added OTP + DB session row + long-lived JWT authentication for guests and couples.
+- **Guest API:** `POST /api/v1/event/{slug}/auth` (sends OTP) and `POST /api/v1/event/{slug}/auth/verify` (verifies OTP, issues guest session JWT).
+- **Couple API:** `POST /api/v1/event/{slug}/master/auth` (sends OTP) and `POST /api/v1/event/{slug}/master/verify` (verifies OTP, issues couple session JWT).
+- JWTs for these sessions use types `guest` and `couple`.
+- Guest verification checks if the guest has a `selfie_s3_key` or `matched_cluster_ids` to return `needs_selfie=True` or `False`.
+
+## Guest Selfie Matching (BE-013)
+- **POST `/api/v1/event/{slug}/selfie`**: Guests upload a selfie. A stub `FaceService` simulates matching by currently returning `no_match` (or fake matches later), saving `matched_cluster_ids` into the `GuestSession`.
+- **GET `/api/v1/event/{slug}/guest/photos`**: Retrieves paginated event photos belonging to the `GuestSession`'s matched clusters and formatted as `PhotoResponse`.
+- **GET `/api/v1/event/{slug}/photos/{photo_id}/download`**: Generates a mock presigned URL to download the original photo, and logs the download action as an `AnalyticsEvent` (`action=DOWNLOAD`).
+
+## Master Gallery & Favorites (BE-014)
+- **Couple API**: `/api/v1/event/{slug}/master/*` exposes full event photo access for couples with a valid `CoupleSession` token.
+- **Photos**: `GET /master/photos` lists all `COMPLETED` photos with pagination and folder filtering.
+- **Folders**: `GET /master/folders` returns the folder tree (using `FolderService.list_tree`).
+- **Favorites**: `POST /master/favorite` toggles the favorite status of a `COMPLETED` photo for the current couple session. `GET /master/favorites` lists all favorited photos.
+- **Download**: `GET /master/photos/{photo_id}/download` returns a mock presigned URL for the original photo, provided the event's `download_enabled` is `True`. Records an `AnalyticsEvent` for download.
+- **Analytics View**: `POST /photos/{photo_id}/view` records a photo view for both Guest and Couple sessions. It delegates validation to `PhotoService.record_photo_view`.
+
+## Analytics Dashboard (BE-015)
+- **GET `/api/v1/event/{slug}/analytics/summary`**: Returns total verified guests, total photo views, total downloads, and a basic engagement rate.
+- **GET `/api/v1/event/{slug}/analytics/photos/top`**: Returns top 10 to 50 photos ranked by either `views` or `downloads`.
+- **GET `/api/v1/event/{slug}/analytics/guests`**: Returns a paginated list of guest leads (name, phone, first visit time, match count, and download count) for verified guests only.
+- **GET `/api/v1/event/{slug}/analytics/guests/export`**: Returns the guest leads as a downloadable CSV file attachment (`text/csv`).
+
+## Profile Storage (BE-016)
+- **GET `/api/v1/profile`**: Returns the authenticated photographer's profile (email, studio name, generated S3 URLs for logo and watermark).
+- **PUT `/api/v1/profile`**: Updates `studio_name` and `phone` (with verified flip) of the photographer.
+- **POST `/api/v1/profile/logo`**: Handles multipart upload of JPEG, PNG, or WEBP studio logo validating magic bytes and saving to S3.
+- **POST `/api/v1/profile/watermark`**: Handles multipart upload of PNG watermark validating magic bytes and saving to S3.
+- **GET `/api/v1/profile/storage`**: Calculates and returns the precise active vs archived storage usage of all photos for a photographer, keeping the `storage_used_bytes` cached value up-to-date and returning the limit and percentage used.
+
+## Notifications (BE-017)
+- Email delivery via `EmailService` which logs emails locally using `LogEmailAdapter` (Phase 1 no-op without credentials requirement).
+- OTP verification in `OTPService` bypasses Redis if `DEBUG=true` and `otp="123456"` to support development testing without incurring external API or mock usage costs.
+- Celery background tasks `notify_processing_complete_task` and `notify_archival_warning_task` handle formatting and dispatching emails to photographers when events become `READY` or approach their `archive_at` dates.
+- These notifications use simple text bodies for Phase 1 as no HTML templates were provided.

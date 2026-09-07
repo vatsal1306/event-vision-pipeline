@@ -176,7 +176,7 @@ backend/models/**/*.tflite
 backend/models/adaface_insightface/
 backend/**/*.safetensors
 
-# Backend secrets
+# Backend secrets and local storage
 backend/.env
 backend/.data
 

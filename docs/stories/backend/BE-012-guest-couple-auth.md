@@ -6,7 +6,13 @@
 
 ## Goal
 
-`POST /api/v1/event/{slug}/auth` and `/auth/verify` with `link_type` guest|master. Create/get session by `(event_id, phone)`. Return session JWT type `guest` or `couple`, 30-day expiry. `needs_selfie` true for guests without existing match.
+- **Master/Couple Authentication:**
+  - `POST /api/v1/event/{slug}/master/auth`: Validates event and master link status, generates a 6-digit OTP, stores it in Redis with a 5-minute expiry, and creates a pending `CoupleSession` row.
+  - `POST /api/v1/event/{slug}/master/verify`: Verifies the OTP, updates the `CoupleSession` to verified, and returns a couple JWT.
+
+- **Guest Authentication:**
+  - `POST /api/v1/event/{slug}/auth`: Validates event and guest link status, generates OTP, stores in Redis, and creates a pending `GuestSession` row.
+  - `POST /api/v1/event/{slug}/auth/verify`: Verifies the OTP, updates the `GuestSession` to verified, and returns a guest JWT.
 
 ## References
 

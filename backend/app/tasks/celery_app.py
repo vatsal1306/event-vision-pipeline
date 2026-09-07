@@ -12,6 +12,7 @@ celery_app = Celery(
     "spotme",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
+    include=["app.tasks.notification_tasks"],
 )
 
 celery_app.conf.update(
@@ -22,6 +23,8 @@ celery_app.conf.update(
     enable_utc=True,
     task_default_queue="photo_processing",
     task_routes={
-        "app.tasks.*": {"queue": "photo_processing"},
+        "app.tasks.photo_tasks.*": {"queue": "photo_processing"},
+        "app.tasks.face_tasks.*": {"queue": "photo_processing"},
+        "app.tasks.notification_tasks.*": {"queue": "photo_processing"},
     },
 )

@@ -41,5 +41,38 @@ services:
       redis:
         condition: service_healthy
 
+  tusd:
+    image: tusnetwork/tusd:latest
+    ports:
+      - "1080:1080"
+    command: >
+      -s3-bucket ${AWS_STORAGE_BUCKET_NAME}
+      -s3-object-prefix originals/
+      -hooks-http http://backend:8000/api/v1/upload/hook
+      -hooks-enabled-events pre-create,post-finish
+      -max-size 52428800
+      -behind-proxy
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+    depends_on:
+      - backend
+
+  celery-worker:
+    build: .
+    env_file: .env
+    command: ["uv", "run", "celery", "-A", "app.tasks.celery_app", "worker", "-Q", "photo_processing", "--loglevel=info"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/photoshare
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:

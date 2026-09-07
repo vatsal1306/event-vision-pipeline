@@ -61,8 +61,8 @@ class ConflictError(AppException):
 class AuthorizationError(AppException):
     """Raised when the caller is authenticated but not allowed."""
 
-    def __init__(self, message: str = "Not authorized") -> None:
-        super().__init__(message, "FORBIDDEN", 403)
+    def __init__(self, message: str = "Not authorized", code: str = "FORBIDDEN") -> None:
+        super().__init__(message, code, 403)
 
 
 class OTPCooldownError(AppException):
@@ -91,3 +91,10 @@ class ProcessingError(AppException):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, "PROCESSING_ERROR", 500)
+
+
+class StorageError(AppException):
+    """Raised when an operation on the underlying storage backend fails."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "STORAGE_ERROR", 500)

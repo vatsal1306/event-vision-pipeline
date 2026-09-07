@@ -114,7 +114,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   const onOtpSubmit = async (values: z.infer<typeof otpSchema>) => {
     if (!authData || !eventId) return;
     try {
-      const { token } = await verifyMutation.mutateAsync({ slug, otp: values.otp });
+      const { token } = await verifyMutation.mutateAsync({ slug, name: authData.name, phone: authData.phone, otp: values.otp });
       login(eventId, { token, name: authData.name, phone: authData.phone });
       toast.success('Successfully logged in');
     } catch (err) {
