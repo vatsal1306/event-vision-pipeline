@@ -39,6 +39,12 @@ export interface TokenResponse {
   photographer: import('@/types/user').Photographer;
 }
 
+export interface GuestTokenResponse {
+  access_token: string;
+  token_type: string;
+  needs_selfie: boolean;
+}
+
 export interface AnalyticsEvent {
   id: string;
   eventId: string;

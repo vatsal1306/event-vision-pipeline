@@ -16,7 +16,9 @@ from app.core.database import get_db
 from app.core.exceptions import AuthenticationError
 from app.core.redis_client import get_redis
 from app.core.security import decode_jwt
+from app.models.couple_session import CoupleSession
 from app.models.event import Event
+from app.models.guest_session import GuestSession
 from app.models.photographer import Photographer
 from app.services.auth_service import AuthService
 from app.services.event_service import EventService
@@ -28,8 +30,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 __all__ = [
     "get_db",
     "get_redis_dep",
+    "get_redis_dep",
     "get_current_photographer",
     "get_photographer_event",
+    "get_current_guest_session",
+    "get_current_couple_session",
     "oauth2_scheme",
 ]
 
@@ -70,6 +75,52 @@ async def get_photographer_event(
 ) -> Event:
     """Return an event owned by the caller, or 404 if it does not exist."""
     return await EventService(db).get_owned_event(photographer.id, event_id)
+
+
+async def get_current_guest_session(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> GuestSession:
+    """Extract and validate the guest session from a guest JWT."""
+    try:
+        payload = decode_jwt(token)
+    except JWTError as exc:
+        raise AuthenticationError("Invalid access token") from exc
+
+    if payload.get("type") != JWTType.GUEST.value:
+        raise AuthenticationError("Invalid token type. Expected guest token.")
+
+    subject = payload.get("sub")
+    if not subject:
+        raise AuthenticationError("Invalid access token")
+
+    session = await db.get(GuestSession, UUID(str(subject)))
+    if session is None or not session.phone_verified:
+        raise AuthenticationError("Session not found or invalid")
+    return session
+
+
+async def get_current_couple_session(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> CoupleSession:
+    """Extract and validate the couple session from a couple JWT."""
+    try:
+        payload = decode_jwt(token)
+    except JWTError as exc:
+        raise AuthenticationError("Invalid access token") from exc
+
+    if payload.get("type") != JWTType.COUPLE.value:
+        raise AuthenticationError("Invalid token type. Expected couple token.")
+
+    subject = payload.get("sub")
+    if not subject:
+        raise AuthenticationError("Invalid access token")
+
+    session = await db.get(CoupleSession, UUID(str(subject)))
+    if session is None or not session.phone_verified:
+        raise AuthenticationError("Session not found or invalid")
+    return session
 
 
 def build_auth_service(db: AsyncSession, redis_client: redis.Redis) -> AuthService:
