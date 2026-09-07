@@ -8,8 +8,8 @@ from pydantic import BaseModel
 class StorageInfo(BaseModel):
     """Storage usage breakdown for a photographer."""
 
-    used_bytes: int
-    limit_bytes: int
+    used: int
+    limit: int
     active_bytes: int
     archived_bytes: int
     used_percentage: float

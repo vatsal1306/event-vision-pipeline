@@ -84,13 +84,13 @@ async def upload_logo(
     if not file.content_type or file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise BadRequestError("Invalid file type. Must be JPEG, PNG, or WEBP")
 
-    header = await file.read(8)
+    header = await file.read(12)
     await file.seek(0)
-
+    
     if not (
-        header.startswith(b"\xff\xd8")
-        or header.startswith(b"\x89PNG\r\n\x1a\n")
-        or (header.startswith(b"RIFF") and header[8:12] == b"WEBP")
+        header.startswith(b"\xff\xd8") or
+        header.startswith(b"\x89PNG\r\n\x1a\n") or
+        (header[:4] == b"RIFF" and header[8:12] == b"WEBP")
     ):
         raise BadRequestError("Invalid image signature")
 
@@ -99,20 +99,26 @@ async def upload_logo(
 
     ext = file.filename.split(".")[-1] if file.filename and "." in file.filename else "img"
     key = f"profiles/{photographer.id}/logo_{uuid.uuid4().hex[:8]}.{ext}"
-
+    
     data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise BadRequestError("File too large. Maximum size is 10MB.")
+
+    old_key = photographer.logo_url
     await storage.put_object(
         bucket=settings.s3_bucket_assets,
         key=key,
         data=data,
         content_type=file.content_type,
     )
-
+    if old_key:
+        await storage.delete_object(settings.s3_bucket_assets, old_key)
+    
     photographer.logo_url = key
     await db.commit()
-
+    
     url = await storage.generate_presigned_url(settings.s3_bucket_assets, key)
-    return {"logo_url": url}
+    return {"url": url}
 
 
 @router.post("/watermark")
@@ -134,17 +140,23 @@ async def upload_watermark(
     storage = get_storage_service()
 
     key = f"profiles/{photographer.id}/watermark_{uuid.uuid4().hex[:8]}.png"
-
+    
     data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise BadRequestError("File too large. Maximum size is 10MB.")
+
+    old_key = photographer.watermark_url
     await storage.put_object(
         bucket=settings.s3_bucket_assets,
         key=key,
         data=data,
-        content_type="image/png",
+        content_type=file.content_type,
     )
-
+    if old_key:
+        await storage.delete_object(settings.s3_bucket_assets, old_key)
+    
     photographer.watermark_url = key
     await db.commit()
-
+    
     url = await storage.generate_presigned_url(settings.s3_bucket_assets, key)
-    return {"watermark_url": url}
+    return {"url": url}

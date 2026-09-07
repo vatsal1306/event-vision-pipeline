@@ -45,7 +45,9 @@ async def auth_client(
 
 
 @pytest.mark.asyncio
-async def test_get_profile(auth_client: AsyncClient, db_session: AsyncSession, profile_photographer: Photographer) -> None:
+async def test_get_profile(
+    auth_client: AsyncClient, db_session: AsyncSession, profile_photographer: Photographer
+) -> None:
     """Test fetching photographer profile."""
     # Ensure there are keys to presign
     profile_photographer.logo_url = "profiles/test/logo.jpg"
@@ -64,7 +66,9 @@ async def test_get_profile(auth_client: AsyncClient, db_session: AsyncSession, p
 
 
 @pytest.mark.asyncio
-async def test_update_profile(auth_client: AsyncClient, db_session: AsyncSession, profile_photographer: Photographer) -> None:
+async def test_update_profile(
+    auth_client: AsyncClient, db_session: AsyncSession, profile_photographer: Photographer
+) -> None:
     """Test updating studio name and ensuring presigned URLs are returned."""
     # Ensure there are keys to presign
     profile_photographer.logo_url = "profiles/test/logo.jpg"

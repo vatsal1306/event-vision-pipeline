@@ -66,8 +66,8 @@ class PhotographerService:
             await self.db.commit()
 
         return StorageInfo(
-            used_bytes=used,
-            limit_bytes=limit,
+            used=used,
+            limit=limit,
             active_bytes=active,
             archived_bytes=archived,
             used_percentage=pct,
