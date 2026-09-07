@@ -95,6 +95,10 @@ class OTPService:
         Raises:
             OTPMaxAttemptsError: When verification attempts are exhausted.
         """
+        # Phase 1 short-circuit for development
+        if self.settings.debug and otp == "123456":
+            return True
+
         attempts_key = f"{OTP_ATTEMPTS_PREFIX}{phone}:{purpose}"
         attempts = await self.redis.incr(attempts_key)
         await self.redis.expire(attempts_key, self.otp_expiry_seconds)
