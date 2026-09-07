@@ -56,6 +56,12 @@ async def create_test_event_with_photos(db_session: AsyncSession) -> tuple[Any, 
         photo_id=photo.id,
         cluster_id=cluster.id,
         embedding=[0.1] * 512,
+        bbox_x=0.0,
+        bbox_y=0.0,
+        bbox_w=0.0,
+        bbox_h=0.0,
+        detection_score=0.99,
+        blur_score=0.0,
     )
     db_session.add(embedding)
     await db_session.commit()
@@ -65,7 +71,7 @@ async def create_test_event_with_photos(db_session: AsyncSession) -> tuple[Any, 
 
 @pytest.fixture
 async def guest_token(
-    api_client: AsyncClient, db_session: AsyncSession
+    db_client: AsyncClient, db_session: AsyncSession
 ) -> tuple[str, Any, Any, Any, Any]:
     event, guest, photo, cluster = await create_test_event_with_photos(db_session)
 
@@ -79,15 +85,16 @@ async def guest_token(
 
 @pytest.mark.asyncio
 async def test_upload_selfie(
-    api_client: AsyncClient,
+    db_client: AsyncClient,
     guest_token: tuple[str, Any, Any, Any, Any],
 ) -> None:
     token, event, guest, photo, cluster = guest_token
 
+    # Mock file upload
     file_content = b"fake_image_data"
     files = {"file": ("selfie.jpg", file_content, "image/jpeg")}
 
-    response = await api_client.post(
+    response = await db_client.post(
         f"/api/v1/event/{event.slug}/selfie",
         headers={"Authorization": f"Bearer {token}"},
         files=files,
@@ -101,7 +108,7 @@ async def test_upload_selfie(
 
 @pytest.mark.asyncio
 async def test_list_guest_photos(
-    api_client: AsyncClient,
+    db_client: AsyncClient,
     db_session: AsyncSession,
     guest_token: tuple[str, Any, Any, Any, Any],
 ) -> None:
@@ -111,7 +118,7 @@ async def test_list_guest_photos(
     guest.matched_cluster_ids = [cluster.id]
     await db_session.commit()
 
-    response = await api_client.get(
+    response = await db_client.get(
         f"/api/v1/event/{event.slug}/guest/photos",
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -125,7 +132,7 @@ async def test_list_guest_photos(
 
 @pytest.mark.asyncio
 async def test_download_guest_photo(
-    api_client: AsyncClient,
+    db_client: AsyncClient,
     db_session: AsyncSession,
     guest_token: tuple[str, Any, Any, Any, Any],
 ) -> None:
@@ -135,7 +142,7 @@ async def test_download_guest_photo(
     guest.matched_cluster_ids = [cluster.id]
     await db_session.commit()
 
-    response = await api_client.get(
+    response = await db_client.get(
         f"/api/v1/event/{event.slug}/photos/{photo.id}/download",
         headers={"Authorization": f"Bearer {token}"},
     )
