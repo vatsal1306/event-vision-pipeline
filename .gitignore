@@ -177,6 +177,7 @@ backend/models/adaface_insightface/
 
 # Backend secrets
 backend/.env
+backend/.data
 
 # uv lockfile is committed; virtual env is not
 .venv/
