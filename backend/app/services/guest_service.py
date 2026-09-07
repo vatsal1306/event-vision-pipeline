@@ -34,7 +34,7 @@ class GuestService:
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
         if not event.guest_link_active:
-            raise AuthorizationError("Guest link is inactive")
+            raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
 
         # Get or create session
         session_stmt = select(GuestSession).where(
@@ -47,19 +47,16 @@ class GuestService:
         if not session:
             session = GuestSession(
                 event_id=event.id,
-                name=name,
+                name="",
                 phone=phone,
                 phone_verified=False,
             )
             self.db.add(session)
-        else:
-            # Update name if requested by the same phone
-            session.name = name
 
         await self.db.commit()
         await self.otp_service.send_otp(phone, purpose="guest_auth")
 
-    async def verify_auth(self, slug: str, phone: str, otp: str) -> GuestTokenResponse:
+    async def verify_auth(self, slug: str, name: str, phone: str, otp: str) -> GuestTokenResponse:
         """Verify OTP, retrieve GuestSession, and issue a JWT."""
         stmt = select(Event).where(Event.slug == slug)
         result = await self.db.execute(stmt)
@@ -68,10 +65,14 @@ class GuestService:
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
         if not event.guest_link_active:
-            raise AuthorizationError("Guest link is inactive")
+            raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
 
         # Verify OTP (raises appropriate exceptions if invalid)
-        await self.otp_service.verify_otp(phone, purpose="guest_auth", otp=otp)
+        verified = await self.otp_service.verify_otp(phone, purpose="guest_auth", otp=otp)
+        from app.core.exceptions import AuthenticationError
+
+        if not verified:
+            raise AuthenticationError("Invalid OTP")
 
         # Get session
         session_stmt = select(GuestSession).where(
@@ -85,6 +86,7 @@ class GuestService:
             raise AuthorizationError("Session not found. Please request a new OTP.")
 
         session.phone_verified = True
+        session.name = name
         await self.db.commit()
 
         # Check if guest needs selfie (has no selfie URL and no matched clusters)

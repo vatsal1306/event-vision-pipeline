@@ -225,7 +225,7 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - Share link toggles and other settings modifications live in `PUT /api/v1/events/{id}/settings` and `PUT /api/v1/events/{id}/links/{type}/toggle` from BE-005.
 
 ## Guest/Couple Auth (BE-012)
-- Added stateless OTP authentication for guests and couples.
+- Added OTP + DB session row + long-lived JWT authentication for guests and couples.
 - **Guest API:** `POST /api/v1/event/{slug}/auth` (sends OTP) and `POST /api/v1/event/{slug}/auth/verify` (verifies OTP, issues guest session JWT).
 - **Couple API:** `POST /api/v1/event/{slug}/master/auth` (sends OTP) and `POST /api/v1/event/{slug}/master/verify` (verifies OTP, issues couple session JWT).
 - JWTs for these sessions use types `guest` and `couple`.

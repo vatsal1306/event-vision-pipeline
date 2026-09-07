@@ -34,7 +34,7 @@ class CoupleService:
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
         if not event.master_link_active:
-            raise AuthorizationError("Master link is inactive")
+            raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")
 
         # Get or create session
         session_stmt = select(CoupleSession).where(
@@ -47,18 +47,16 @@ class CoupleService:
         if not session:
             session = CoupleSession(
                 event_id=event.id,
-                name=name,
+                name="",
                 phone=phone,
                 phone_verified=False,
             )
             self.db.add(session)
-        else:
-            session.name = name
 
         await self.db.commit()
         await self.otp_service.send_otp(phone, purpose="couple_auth")
 
-    async def verify_auth(self, slug: str, phone: str, otp: str) -> CoupleTokenResponse:
+    async def verify_auth(self, slug: str, name: str, phone: str, otp: str) -> CoupleTokenResponse:
         """Verify OTP, retrieve CoupleSession, and issue a JWT."""
         stmt = select(Event).where(Event.slug == slug)
         result = await self.db.execute(stmt)
@@ -67,10 +65,14 @@ class CoupleService:
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
         if not event.master_link_active:
-            raise AuthorizationError("Master link is inactive")
+            raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")
 
         # Verify OTP (raises appropriate exceptions if invalid)
-        await self.otp_service.verify_otp(phone, purpose="couple_auth", otp=otp)
+        verified = await self.otp_service.verify_otp(phone, purpose="couple_auth", otp=otp)
+        from app.core.exceptions import AuthenticationError
+
+        if not verified:
+            raise AuthenticationError("Invalid OTP")
 
         # Get session
         session_stmt = select(CoupleSession).where(
@@ -84,6 +86,7 @@ class CoupleService:
             raise AuthorizationError("Session not found. Please request a new OTP.")
 
         session.phone_verified = True
+        session.name = name
         await self.db.commit()
 
         token, _ = create_session_token(

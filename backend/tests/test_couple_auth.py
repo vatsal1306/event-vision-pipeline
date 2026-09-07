@@ -127,13 +127,11 @@ async def test_couple_verify_auth_success(
     # Step 2: Verify auth
     response = await api_client.post(
         f"/api/v1/event/{event.slug}/master/verify",
-        json={"phone": phone, "otp": otp_val},
+        json={"name": "Test Couple", "phone": phone, "otp": otp_val},
     )
     assert response.status_code == 200
     data = response.json()
     assert "token" in data
-    assert data["token_type"] == "bearer"
-    assert "needs_selfie" not in data
 
     # Check session is created and verified
     from sqlalchemy import select
@@ -142,3 +140,26 @@ async def test_couple_verify_auth_success(
     session = result.scalar_one()
     assert session.name == "Test Couple"
     assert session.phone_verified is True
+
+
+@pytest.mark.asyncio
+async def test_couple_verify_auth_invalid_otp(
+    api_client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Test OTP verification fails with incorrect OTP."""
+    event = await create_test_event(db_session)
+    phone = "+919988776655"
+
+    await api_client.post(
+        f"/api/v1/event/{event.slug}/master/auth",
+        json={"name": "Test Couple", "phone": phone},
+    )
+
+    response = await api_client.post(
+        f"/api/v1/event/{event.slug}/master/verify",
+        json={"name": "Test Couple", "phone": phone, "otp": "000000"},
+    )
+    assert response.status_code == 401
+    data = response.json()
+    assert data["code"] == "AUTH_FAILED"

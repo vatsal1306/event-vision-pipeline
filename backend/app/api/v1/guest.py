@@ -53,6 +53,7 @@ async def verify_guest_auth(
     """Verify the guest's OTP and issue a session token."""
     return await guest_service.verify_auth(
         slug=slug,
+        name=request.name,
         phone=request.phone,
         otp=request.otp,
     )

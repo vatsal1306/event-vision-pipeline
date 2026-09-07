@@ -53,6 +53,7 @@ async def verify_couple_auth(
     """Verify the couple's OTP and issue a session token."""
     return await couple_service.verify_auth(
         slug=slug,
+        name=request.name,
         phone=request.phone,
         otp=request.otp,
     )

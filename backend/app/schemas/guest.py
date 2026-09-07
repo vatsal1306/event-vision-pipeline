@@ -17,6 +17,7 @@ class GuestAuthRequest(BaseModel):
 class GuestVerifyRequest(BaseModel):
     """OTP verification request for guest authentication."""
 
+    name: str = Field(..., min_length=2, max_length=255)
     phone: str = Field(..., pattern=INDIAN_PHONE_PATTERN)
     otp: str = Field(..., min_length=6, max_length=6)
 

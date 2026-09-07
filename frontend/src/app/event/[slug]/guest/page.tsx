@@ -72,7 +72,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   const handleVerifyOtp = async (otp: string) => {
     if (!authData || !infoData?.event) return;
     try {
-      const { access_token, needs_selfie } = await verifyMutation.mutateAsync({ slug, phone: authData.phone, otp });
+      const { access_token, needs_selfie } = await verifyMutation.mutateAsync({ slug, name: authData.name, phone: authData.phone, otp });
       // Use the returned needs_selfie status
       setGuestSession(
         { 

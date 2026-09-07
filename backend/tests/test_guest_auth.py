@@ -127,7 +127,7 @@ async def test_guest_verify_auth_success(
     # Step 2: Verify auth
     response = await api_client.post(
         f"/api/v1/event/{event.slug}/auth/verify",
-        json={"phone": phone, "otp": otp_val},
+        json={"name": "Test Guest", "phone": phone, "otp": otp_val},
     )
     assert response.status_code == 200
     data = response.json()
@@ -142,3 +142,26 @@ async def test_guest_verify_auth_success(
     session = result.scalar_one()
     assert session.name == "Test Guest"
     assert session.phone_verified is True
+
+
+@pytest.mark.asyncio
+async def test_guest_verify_auth_invalid_otp(
+    api_client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Test OTP verification fails with incorrect OTP."""
+    event = await create_test_event(db_session)
+    phone = "+919988776655"
+
+    await api_client.post(
+        f"/api/v1/event/{event.slug}/auth",
+        json={"name": "Test Guest", "phone": phone},
+    )
+
+    response = await api_client.post(
+        f"/api/v1/event/{event.slug}/auth/verify",
+        json={"name": "Test Guest", "phone": phone, "otp": "000000"},
+    )
+    assert response.status_code == 401
+    data = response.json()
+    assert data["code"] == "AUTH_FAILED"

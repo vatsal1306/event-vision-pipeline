@@ -198,10 +198,10 @@ export const api = {
     apiClient.get<{ event: Event; photographer: Photographer }>(`/api/v1/event/${slug}/info`),
   masterAuth: (slug: string, data: { name: string; phone: string }) =>
     apiClient.post<{ success: boolean }>(`/api/v1/event/${slug}/master/auth`, data),
-  verifyMasterAuth: (slug: string, data: { phone: string; otp: string }) =>
+  verifyMasterAuth: (slug: string, data: { name: string; phone: string; otp: string }) =>
     apiClient.post<{ token: string }>(`/api/v1/event/${slug}/master/verify`, data),
   sendGuestOtp: (slug: string, data: unknown) => apiClient.post<void>(`/api/v1/event/${slug}/auth`, data),
-  verifyGuestOtp: (slug: string, data: { phone: string; otp: string }) =>
+  verifyGuestOtp: (slug: string, data: { name: string; phone: string; otp: string }) =>
     apiClient.post<GuestTokenResponse>(`/api/v1/event/${slug}/auth/verify`, data),
   submitSelfie: (slug: string, data: unknown, token?: string) =>
     apiClient.post<{ matchedPhotoIds: string[]; matchCount: number }>(
