@@ -53,6 +53,7 @@ async def test_get_profile(
     profile_photographer.logo_url = "profiles/test/logo.jpg"
     profile_photographer.watermark_url = "profiles/test/watermark.png"
     await db_session.commit()
+    await db_session.refresh(profile_photographer)
 
     response = await auth_client.get("/api/v1/profile")
     assert response.status_code == 200
@@ -73,6 +74,7 @@ async def test_update_profile(
     # Ensure there are keys to presign
     profile_photographer.logo_url = "profiles/test/logo.jpg"
     await db_session.commit()
+    await db_session.refresh(profile_photographer)
     
     response = await auth_client.put(
         "/api/v1/profile",
