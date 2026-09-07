@@ -45,7 +45,6 @@ async def auth_client(
     app.dependency_overrides.pop(get_current_photographer, None)
 
 
-
 @pytest.mark.asyncio
 async def test_get_profile(
     auth_client: AsyncClient, db_session: AsyncSession, profile_photographer: Photographer
