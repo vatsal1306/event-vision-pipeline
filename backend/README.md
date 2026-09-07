@@ -214,3 +214,7 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
   docker compose up -d db redis tusd celery-worker
   uv run uvicorn app.main:app --reload
   ```
+
+## Upload Pipeline (BE-010)
+- Processing migrated to use OpenCV for proxies, watermarking, and HEIC ingestion.
+- Background jobs handled reliably by Celery with proper failure isolation.

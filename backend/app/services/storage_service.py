@@ -205,3 +205,11 @@ class LocalStorageService(StorageService):
         if not path.exists():
             raise StorageError(f"Object {key} not found in {bucket}")
         pass
+
+
+def get_storage_service() -> StorageService:
+    """Return appropriate storage service."""
+    settings = get_settings()
+    if settings.aws_access_key_id:
+        return S3StorageService()
+    return LocalStorageService()
