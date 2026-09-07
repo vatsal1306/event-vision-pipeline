@@ -170,10 +170,11 @@ cython_debug/
 # ── Project-specific ──────────────────────────────────────────────
 
 # ML model weight files (downloaded separately, see backend/models/README.md)
-backend/models/*.onnx
-backend/models/*.pt
-backend/models/*.tflite
+backend/models/**/*.onnx
+backend/models/**/*.pt
+backend/models/**/*.tflite
 backend/models/adaface_insightface/
+backend/**/*.safetensors
 
 # Backend secrets
 backend/.env
