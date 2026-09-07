@@ -175,8 +175,9 @@ backend/models/*.pt
 backend/models/*.tflite
 backend/models/adaface_insightface/
 
-# Backend secrets
+# Backend secrets and local storage
 backend/.env
+backend/.data/
 
 # uv lockfile is committed; virtual env is not
 .venv/
