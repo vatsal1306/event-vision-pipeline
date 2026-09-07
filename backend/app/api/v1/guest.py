@@ -9,11 +9,10 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
-    get_current_guest_session,
-    get_guest_session_for_slug,
     get_db,
-    get_redis_dep,
     get_face_service,
+    get_guest_session_for_slug,
+    get_redis_dep,
 )
 from app.models.guest_session import GuestSession
 from app.schemas.guest import (
@@ -91,7 +90,7 @@ async def upload_selfie(
 
     # Validate file size (max 30MB)
     MAX_SIZE = 30 * 1024 * 1024
-    
+
     file_bytes = await file.read()
     if len(file_bytes) > MAX_SIZE:
         raise BadRequestError("File too large. Maximum size is 30MB.")

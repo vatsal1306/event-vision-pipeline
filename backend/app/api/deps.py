@@ -107,9 +107,10 @@ async def get_guest_session_for_slug(
     db: AsyncSession = Depends(get_db),
 ) -> GuestSession:
     """Validate that the guest session belongs to the event specified by the slug."""
-    from app.models.event import Event
     from sqlalchemy import select
+
     from app.core.exceptions import NotFoundError
+    from app.models.event import Event
 
     stmt = select(Event).where(Event.slug == slug)
     result = await db.execute(stmt)
@@ -117,10 +118,10 @@ async def get_guest_session_for_slug(
 
     if not event:
         raise NotFoundError(f"Event with slug '{slug}' not found")
-    
+
     if guest_session.event_id != event.id:
         raise AuthorizationError("Session does not belong to this event", code="FORBIDDEN")
-    
+
     if not event.guest_link_active:
         raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
 

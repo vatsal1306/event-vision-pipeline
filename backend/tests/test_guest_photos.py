@@ -92,11 +92,12 @@ async def test_upload_selfie_matched(
     token, event, guest, photo, cluster = guest_token
 
     from app.services.face_service import MatchResult
+
     mock_result = MatchResult(status="matched", clusters=[cluster.id], photo_ids=[photo.id])
-    
+
     async def mock_match_selfie(*args: Any, **kwargs: Any) -> MatchResult:
         return mock_result
-        
+
     monkeypatch.setattr("app.services.face_service.FaceService.match_selfie", mock_match_selfie)
 
     # Mock file upload
