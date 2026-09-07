@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.v1.analytics import router as analytics_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.couple import router as couple_router
 from app.api.v1.events import router as events_router
@@ -22,3 +23,4 @@ router.include_router(sharing_router)
 router.include_router(guest_router)
 router.include_router(couple_router)
 router.include_router(upload_router)
+router.include_router(analytics_router)

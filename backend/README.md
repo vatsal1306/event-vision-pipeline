@@ -243,3 +243,9 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - **Favorites**: `POST /master/favorite` toggles the favorite status of a `COMPLETED` photo for the current couple session. `GET /master/favorites` lists all favorited photos.
 - **Download**: `GET /master/photos/{photo_id}/download` returns a mock presigned URL for the original photo, provided the event's `download_enabled` is `True`. Records an `AnalyticsEvent` for download.
 - **Analytics View**: `POST /photos/{photo_id}/view` records a photo view for both Guest and Couple sessions. It delegates validation to `PhotoService.record_photo_view`.
+
+## Analytics Dashboard (BE-015)
+- **GET `/api/v1/event/{slug}/analytics/summary`**: Returns total verified guests, total photo views, total downloads, and a basic engagement rate.
+- **GET `/api/v1/event/{slug}/analytics/photos/top`**: Returns top 10 to 50 photos ranked by either `views` or `downloads`.
+- **GET `/api/v1/event/{slug}/analytics/guests`**: Returns a paginated list of guest leads (name, phone, first visit time, match count, and download count) for verified guests only.
+- **GET `/api/v1/event/{slug}/analytics/guests/export`**: Returns the guest leads as a downloadable CSV file attachment (`text/csv`).
