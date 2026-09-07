@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_photographer
@@ -44,14 +45,20 @@ async def auth_client(
     app.dependency_overrides.pop(get_current_photographer, None)
 
 
+
 @pytest.mark.asyncio
 async def test_get_profile(
     auth_client: AsyncClient, db_session: AsyncSession, profile_photographer: Photographer
 ) -> None:
     """Test fetching photographer profile."""
     # Ensure there are keys to presign
-    profile_photographer.logo_url = "profiles/test/logo.jpg"
-    profile_photographer.watermark_url = "profiles/test/watermark.png"
+    await db_session.execute(
+        update(Photographer)
+        .where(Photographer.id == profile_photographer.id)
+        .values(logo_url="profiles/test/logo.jpg", watermark_url="profiles/test/watermark.png")
+    )
+    await db_session.commit()
+    await db_session.refresh(profile_photographer)
 
     response = await auth_client.get("/api/v1/profile")
     assert response.status_code == 200
@@ -70,12 +77,15 @@ async def test_update_profile(
 ) -> None:
     """Test updating studio name and ensuring presigned URLs are returned."""
     # Ensure there are keys to presign
-    profile_photographer.logo_url = "profiles/test/logo.jpg"
-    
-    response = await auth_client.put(
-        "/api/v1/profile",
-        json={"studio_name": "New Studio Name"}
+    await db_session.execute(
+        update(Photographer)
+        .where(Photographer.id == profile_photographer.id)
+        .values(logo_url="profiles/test/logo.jpg")
     )
+    await db_session.commit()
+    await db_session.refresh(profile_photographer)
+
+    response = await auth_client.put("/api/v1/profile", json={"studio_name": "New Studio Name"})
     assert response.status_code == 200
     data = response.json()
     assert data["studio_name"] == "New Studio Name"
@@ -90,10 +100,7 @@ async def test_upload_logo_success(auth_client: AsyncClient) -> None:
 
     files = {"file": ("logo.jpg", file_content, "image/jpeg")}
 
-    response = await auth_client.post(
-        "/api/v1/profile/logo",
-        files=files
-    )
+    response = await auth_client.post("/api/v1/profile/logo", files=files)
     assert response.status_code == 200
     assert "url" in response.json()
 
@@ -103,15 +110,10 @@ async def test_upload_logo_webp_success(auth_client: AsyncClient) -> None:
     """Test successful WEBP logo upload."""
     # Create fake WEBP bytes: RIFF + size (4 bytes) + WEBP
     file_content = b"RIFF\x00\x00\x00\x00WEBPVP8 "
-    
-    files = {
-        "file": ("logo.webp", file_content, "image/webp")
-    }
-    
-    response = await auth_client.post(
-        "/api/v1/profile/logo",
-        files=files
-    )
+
+    files = {"file": ("logo.webp", file_content, "image/webp")}
+
+    response = await auth_client.post("/api/v1/profile/logo", files=files)
     assert response.status_code == 200
     assert "url" in response.json()
 
@@ -121,15 +123,10 @@ async def test_upload_logo_too_large(auth_client: AsyncClient) -> None:
     """Test logo upload fails if file exceeds 10MB."""
     # 10MB + 1 byte
     file_content = b"\xff\xd8\xff\xe0" + b"\x00" * (10 * 1024 * 1024)
-    
-    files = {
-        "file": ("logo.jpg", file_content, "image/jpeg")
-    }
-    
-    response = await auth_client.post(
-        "/api/v1/profile/logo",
-        files=files
-    )
+
+    files = {"file": ("logo.jpg", file_content, "image/jpeg")}
+
+    response = await auth_client.post("/api/v1/profile/logo", files=files)
     assert response.status_code == 422
     assert "File too large" in response.json()["detail"]
 
@@ -152,10 +149,7 @@ async def test_upload_watermark_success(auth_client: AsyncClient) -> None:
 
     files = {"file": ("watermark.png", file_content, "image/png")}
 
-    response = await auth_client.post(
-        "/api/v1/profile/watermark",
-        files=files
-    )
+    response = await auth_client.post("/api/v1/profile/watermark", files=files)
     assert response.status_code == 200
     assert "url" in response.json()
 
@@ -164,15 +158,10 @@ async def test_upload_watermark_success(auth_client: AsyncClient) -> None:
 async def test_upload_watermark_wrong_magic_bytes(auth_client: AsyncClient) -> None:
     """Test watermark upload fails if content type is PNG but bytes are JPEG."""
     file_content = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
-    
-    files = {
-        "file": ("watermark.png", file_content, "image/png")
-    }
-    
-    response = await auth_client.post(
-        "/api/v1/profile/watermark",
-        files=files
-    )
+
+    files = {"file": ("watermark.png", file_content, "image/png")}
+
+    response = await auth_client.post("/api/v1/profile/watermark", files=files)
     assert response.status_code == 422
     assert "Invalid image signature" in response.json()["detail"]
 
@@ -241,17 +230,16 @@ async def test_get_storage_info(
     assert data["limit"] == profile_photographer.storage_limit_bytes
     assert "used_percentage" in data
 
+
 @pytest.mark.asyncio
 async def test_get_storage_info_zero_photos(
-    auth_client: AsyncClient, 
-    db_session: AsyncSession,
-    profile_photographer: Photographer
+    auth_client: AsyncClient, db_session: AsyncSession, profile_photographer: Photographer
 ) -> None:
     """Test fetching storage info when no photos exist."""
     response = await auth_client.get("/api/v1/profile/storage")
     assert response.status_code == 200
     data = response.json()
-    
+
     assert data["active_bytes"] == 0
     assert data["archived_bytes"] == 0
     assert data["used"] == 0

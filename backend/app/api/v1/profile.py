@@ -86,11 +86,11 @@ async def upload_logo(
 
     header = await file.read(12)
     await file.seek(0)
-    
+
     if not (
-        header.startswith(b"\xff\xd8") or
-        header.startswith(b"\x89PNG\r\n\x1a\n") or
-        (header[:4] == b"RIFF" and header[8:12] == b"WEBP")
+        header.startswith(b"\xff\xd8")
+        or header.startswith(b"\x89PNG\r\n\x1a\n")
+        or (header[:4] == b"RIFF" and header[8:12] == b"WEBP")
     ):
         raise BadRequestError("Invalid image signature")
 
@@ -99,7 +99,7 @@ async def upload_logo(
 
     ext = file.filename.split(".")[-1] if file.filename and "." in file.filename else "img"
     key = f"profiles/{photographer.id}/logo_{uuid.uuid4().hex[:8]}.{ext}"
-    
+
     data = await file.read()
     if len(data) > 10 * 1024 * 1024:
         raise BadRequestError("File too large. Maximum size is 10MB.")
@@ -113,10 +113,10 @@ async def upload_logo(
     )
     if old_key:
         await storage.delete_object(settings.s3_bucket_assets, old_key)
-    
+
     photographer.logo_url = key
     await db.commit()
-    
+
     url = await storage.generate_presigned_url(settings.s3_bucket_assets, key)
     return {"url": url}
 
@@ -140,7 +140,7 @@ async def upload_watermark(
     storage = get_storage_service()
 
     key = f"profiles/{photographer.id}/watermark_{uuid.uuid4().hex[:8]}.png"
-    
+
     data = await file.read()
     if len(data) > 10 * 1024 * 1024:
         raise BadRequestError("File too large. Maximum size is 10MB.")
@@ -154,9 +154,9 @@ async def upload_watermark(
     )
     if old_key:
         await storage.delete_object(settings.s3_bucket_assets, old_key)
-    
+
     photographer.watermark_url = key
     await db.commit()
-    
+
     url = await storage.generate_presigned_url(settings.s3_bucket_assets, key)
     return {"url": url}
