@@ -11,7 +11,6 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
 from app.models import Base  # noqa: F401 — register model metadata
 
 config = context.config
