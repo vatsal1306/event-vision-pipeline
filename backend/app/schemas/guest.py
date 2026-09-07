@@ -33,5 +33,6 @@ class GuestTokenResponse(BaseModel):
 class SelfieMatchResponse(BaseModel):
     """Response from guest selfie match."""
 
+    status: str
     matched_photo_ids: list[str]
-    match_count: int
+    matched_photo_count: int

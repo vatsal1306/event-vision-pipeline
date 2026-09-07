@@ -84,11 +84,20 @@ async def guest_token(
 
 
 @pytest.mark.asyncio
-async def test_upload_selfie(
+async def test_upload_selfie_matched(
     db_client: AsyncClient,
     guest_token: tuple[str, Any, Any, Any, Any],
+    monkeypatch: Any,
 ) -> None:
     token, event, guest, photo, cluster = guest_token
+
+    from app.services.face_service import MatchResult
+    mock_result = MatchResult(status="matched", clusters=[cluster.id], photo_ids=[photo.id])
+    
+    async def mock_match_selfie(*args: Any, **kwargs: Any) -> MatchResult:
+        return mock_result
+        
+    monkeypatch.setattr("app.services.face_service.FaceService.match_selfie", mock_match_selfie)
 
     # Mock file upload
     file_content = b"fake_image_data"
@@ -102,8 +111,33 @@ async def test_upload_selfie(
 
     assert response.status_code == 200
     data = response.json()
-    assert "matched_photo_ids" in data
-    assert "match_count" in data
+    assert data["status"] == "matched"
+    assert data["matched_photo_ids"] == [str(photo.id)]
+    assert data["matched_photo_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_upload_selfie_no_match(
+    db_client: AsyncClient,
+    guest_token: tuple[str, Any, Any, Any, Any],
+) -> None:
+    token, event, guest, photo, cluster = guest_token
+
+    # Not mocking FaceService here, so it returns the stub 'no_match'
+    file_content = b"fake_image_data"
+    files = {"file": ("selfie.jpg", file_content, "image/jpeg")}
+
+    response = await db_client.post(
+        f"/api/v1/event/{event.slug}/selfie",
+        headers={"Authorization": f"Bearer {token}"},
+        files=files,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "no_match"
+    assert data["matched_photo_ids"] == []
+    assert data["matched_photo_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -131,6 +165,25 @@ async def test_list_guest_photos(
 
 
 @pytest.mark.asyncio
+async def test_list_guest_photos_empty(
+    db_client: AsyncClient,
+    guest_token: tuple[str, Any, Any, Any, Any],
+) -> None:
+    token, event, guest, photo, cluster = guest_token
+
+    # No matched clusters
+    response = await db_client.get(
+        f"/api/v1/event/{event.slug}/guest/photos",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 0
+    assert data["items"] == []
+
+
+@pytest.mark.asyncio
 async def test_download_guest_photo(
     db_client: AsyncClient,
     db_session: AsyncSession,
@@ -151,3 +204,25 @@ async def test_download_guest_photo(
     data = response.json()
     assert "url" in data
     assert "original.jpg" in data["url"]
+
+
+@pytest.mark.asyncio
+async def test_download_guest_photo_disabled(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    guest_token: tuple[str, Any, Any, Any, Any],
+) -> None:
+    token, event, guest, photo, cluster = guest_token
+
+    # Manually disable downloads
+    event.download_enabled = False
+    guest.matched_cluster_ids = [cluster.id]
+    await db_session.commit()
+
+    response = await db_client.get(
+        f"/api/v1/event/{event.slug}/photos/{photo.id}/download",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert "Downloads are disabled" in response.json()["detail"]

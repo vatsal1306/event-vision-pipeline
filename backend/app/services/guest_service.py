@@ -38,13 +38,18 @@ class GuestService:
 
         match_result = await face_service.match_selfie(selfie_bytes, session.event_id)
 
+        # TODO(BE-013): Upload selfie to S3 and store the key in session.selfie_s3_key
+        # TODO(BE-013): Extract face embedding from selfie and store in session.selfie_embedding
+        # TODO(BE-013): Clean up temporary selfie file if persisted to S3/DB
+
         session.matched_cluster_ids = match_result.clusters
         session.matched_photo_count = len(match_result.photo_ids)
         await self.db.commit()
 
         return SelfieMatchResponse(
+            status=match_result.status,
             matched_photo_ids=[str(p) for p in match_result.photo_ids],
-            match_count=len(match_result.photo_ids),
+            matched_photo_count=len(match_result.photo_ids),
         )
 
     async def get_guest_photos(

@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_guest_session, get_db, get_redis_dep
+from app.api.deps import (
+    get_current_guest_session,
+    get_guest_session_for_slug,
+    get_db,
+    get_redis_dep,
+    get_face_service,
+)
 from app.models.guest_session import GuestSession
 from app.schemas.guest import (
     GuestAuthRequest,
@@ -71,15 +77,24 @@ async def verify_guest_auth(
 async def upload_selfie(
     slug: str,
     file: UploadFile = File(...),
-    guest_session: GuestSession = Depends(get_current_guest_session),
+    guest_session: GuestSession = Depends(get_guest_session_for_slug),
     guest_service: GuestService = Depends(get_guest_service),
-    db: AsyncSession = Depends(get_db),
+    face_service: Any = Depends(get_face_service),
 ) -> SelfieMatchResponse:
     """Upload a selfie for face matching."""
-    from app.services.face_service import FaceService
+    from app.core.exceptions import BadRequestError
 
-    face_service = FaceService(db)
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise BadRequestError(f"Unsupported file type. Allowed: {', '.join(allowed_types)}")
+
+    # Validate file size (max 30MB)
+    MAX_SIZE = 30 * 1024 * 1024
+    
     file_bytes = await file.read()
+    if len(file_bytes) > MAX_SIZE:
+        raise BadRequestError("File too large. Maximum size is 30MB.")
 
     return await guest_service.process_selfie(
         session=guest_session,
@@ -94,7 +109,7 @@ async def list_guest_photos(
     folder_id: UUID | None = Query(None),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    guest_session: GuestSession = Depends(get_current_guest_session),
+    guest_session: GuestSession = Depends(get_guest_session_for_slug),
     guest_service: GuestService = Depends(get_guest_service),
 ) -> PhotoListResponse:
     """List matched photos for the authenticated guest."""
@@ -152,7 +167,7 @@ async def list_guest_photos(
 async def download_guest_photo(
     slug: str,
     photo_id: UUID,
-    guest_session: GuestSession = Depends(get_current_guest_session),
+    guest_session: GuestSession = Depends(get_guest_session_for_slug),
     guest_service: GuestService = Depends(get_guest_service),
 ) -> DownloadPhotoResponse:
     """Get a presigned download URL for a matched photo."""

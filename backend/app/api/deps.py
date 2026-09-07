@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Any
 from uuid import UUID
 
 import redis.asyncio as redis
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import JWTType
 from app.core.database import get_db
-from app.core.exceptions import AuthenticationError
+from app.core.exceptions import AuthenticationError, AuthorizationError
 from app.core.redis_client import get_redis
 from app.core.security import decode_jwt
 from app.models.couple_session import CoupleSession
@@ -100,6 +101,32 @@ async def get_current_guest_session(
     return session
 
 
+async def get_guest_session_for_slug(
+    slug: str,
+    guest_session: GuestSession = Depends(get_current_guest_session),
+    db: AsyncSession = Depends(get_db),
+) -> GuestSession:
+    """Validate that the guest session belongs to the event specified by the slug."""
+    from app.models.event import Event
+    from sqlalchemy import select
+    from app.core.exceptions import NotFoundError
+
+    stmt = select(Event).where(Event.slug == slug)
+    result = await db.execute(stmt)
+    event = result.scalar_one_or_none()
+
+    if not event:
+        raise NotFoundError(f"Event with slug '{slug}' not found")
+    
+    if guest_session.event_id != event.id:
+        raise AuthorizationError("Session does not belong to this event", code="FORBIDDEN")
+    
+    if not event.guest_link_active:
+        raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
+
+    return guest_session
+
+
 async def get_current_couple_session(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
@@ -128,3 +155,10 @@ def build_auth_service(db: AsyncSession, redis_client: redis.Redis) -> AuthServi
     sms_service = SMSService()
     otp_service = OTPService(redis_client, sms_service)
     return AuthService(db, otp_service, redis_client)
+
+
+def get_face_service(db: AsyncSession = Depends(get_db)) -> Any:
+    """Dependency injection for FaceService."""
+    from app.services.face_service import FaceService
+
+    return FaceService(db)
