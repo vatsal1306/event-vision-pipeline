@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
-from app.models.enums import EventStatus
+from app.models.enums import EventStatus, ProcessingStatus
 from app.models.event import Event
 from app.models.folder import Folder
 from app.models.guest_session import GuestSession
@@ -194,7 +194,7 @@ class EventService:
             select(
                 func.count(Photo.id).label("total"),
                 func.count(Photo.id)
-                .filter(Photo.processing_status == "completed")
+                .filter(Photo.processing_status == ProcessingStatus.COMPLETED)
                 .label("completed"),
             ).where(Photo.event_id == event_id)
         )

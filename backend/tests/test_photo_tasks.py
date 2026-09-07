@@ -218,18 +218,41 @@ async def test_process_uploaded_photo_failure(
     s3_key = f"originals/{event.id}/test_fail.jpg"
     photo = await create_photo(db_session, event.id, s3_key)
 
-    # Note: we are NOT putting the image in storage, so get_object will raise StorageError
-    with pytest.raises(Exception):
-        with patch("app.tasks.photo_tasks.async_session_factory") as mock_db:
-            from contextlib import asynccontextmanager
+    # Put invalid image data to cause cv2.imdecode to fail (which raises ValueError -> FAILED)
+    await storage.put_object("platform-originals", s3_key, b"not an image", "image/jpeg")
 
-            @asynccontextmanager
-            async def mock_session():
-                yield db_session
+    with patch("app.tasks.photo_tasks.async_session_factory") as mock_db:
+        from contextlib import asynccontextmanager
 
-            mock_db.side_effect = mock_session
-            await _process_uploaded_photo_async(str(photo.id), s3_key, str(event.id))
+        @asynccontextmanager
+        async def mock_session():
+            yield db_session
+
+        mock_db.side_effect = mock_session
+        await _process_uploaded_photo_async(str(photo.id), s3_key, str(event.id))
 
     await db_session.refresh(photo)
     assert photo.processing_status == ProcessingStatus.FAILED
-    assert "not found" in str(photo.processing_error).lower()
+    assert "failed to decode" in str(photo.processing_error).lower()
+
+
+@pytest.mark.asyncio
+async def test_image_processing_heic(storage: LocalStorageService) -> None:
+    """Test HEIC proxy generation via mocked pillow_heif."""
+    service = ImageProcessingService(storage)
+    event_id = str(uuid.uuid4())
+    s3_key = f"originals/{event_id}/test.heic"
+
+    await storage.put_object(
+        service.settings.s3_bucket_originals, s3_key, b"fake heic", "image/heic"
+    )
+
+    with patch("app.services.image_processing_service.read_heif") as mock_read_heif:
+        with patch("app.services.image_processing_service.np.asarray") as mock_asarray:
+            import numpy as np
+
+            mock_asarray.return_value = np.zeros((10, 10, 3), dtype=np.uint8)
+            proxy_key = await service.generate_web_proxy(s3_key, event_id)
+
+    assert proxy_key.endswith(".webp")
+    assert mock_read_heif.called
