@@ -144,10 +144,42 @@ class MLConfig(BaseSettings):
 ## ModelRegistry Requirements
 
 - Thread-safe double-checked locking singleton (no `import torch` at module import time)
-- `get_model(name: str)` → lazy-loads on first access
+- `get_model(name: str)` → lazy-loads on first access via `register_model_loader()`
 - Only callable from Celery workers or test code — FastAPI startup must NOT trigger model loading
-- `resolved_device` property: `cuda` if available, else `cpu`
+- `resolved_device` property: `cuda` if available, else `mps` on Apple Silicon, else `cpu`
 - `unload_all()` for graceful shutdown / test teardown
+
+## Implementation Notes (ML-001 — completed)
+
+**Scope delivered (foundation only):**
+
+- `MLConfig`, `get_ml_config()`, `ModelRegistry`, `get_model_registry()`, `register_model_loader()`
+- `resolve_device()` supporting `auto` / `cuda` / `mps` / `cpu`
+- Empty subpackage tree (`detection/`, `quality/`, `embedding/`, `clustering/`, `matching/`, `vendor/`)
+- `backend/models/README.md` with manual copy instructions for PicSee weight files
+- `backend/README_ML.md` agent reference document
+- Tests in `backend/tests/ml/` (config, registry, import safety, FastAPI boot)
+
+**Deferred to later stories:**
+
+| Item | Story |
+|------|-------|
+| `detection/scrfd.py`, `face_cropper.py`, `face_preprocess.py` | ML-002 |
+| `register_model_loader("scrfd", ...)` and SCRFD inference | ML-002 |
+| `vendor/` PicSee code copies | ML-002 through ML-004 |
+| Quality modules | ML-003 |
+| Embedding modules | ML-004 |
+| Clustering modules | ML-005, ML-006, ML-007 |
+| Matching / liveness | ML-008 |
+| `pipeline.py` FaceService | ML-009 |
+
+**Design decisions (differs from original draft):**
+
+- Model loaders use `register_model_loader(name, fn)` instead of hardcoded `get_detector()` methods — later stories register their own loaders
+- `get_model("scrfd")` raises `ModelNotRegisteredError` until ML-002 registers the loader
+- Non-worker model loading: **warns** by default (local dev + pytest friendly); set `ML_STRICT_WORKER_ONLY=true` on production ML host to block
+- Torch pinned to **2.6.0** (pix-workers, Python 3.10) not 2.7.1 (clustering_pipeline requires Python 3.12)
+- Model weights are **not copied by the story** — developer copies manually per `backend/models/README.md`
 
 ## Create / Edit
 
@@ -156,14 +188,14 @@ class MLConfig(BaseSettings):
 | `backend/app/ml/__init__.py` | Create — export `MLConfig`, `get_model_registry` |
 | `backend/app/ml/config.py` | Create — `MLConfig` pydantic-settings class |
 | `backend/app/ml/model_registry.py` | Create — `ModelRegistry` singleton |
-| `backend/app/ml/vendor/` | Create — copy vendor model code from PicSee/pix-workers |
-| `backend/models/` | Populate — copy model weight files |
+| `backend/app/ml/vendor/` | Create — placeholder; code copied in ML-002+ |
+| `backend/models/README.md` | Create — manual copy instructions for weight files |
 
 ## Acceptance
 
-- [ ] `MLConfig` reads all values from env vars with `ML_` prefix; defaults match values above
-- [ ] `ModelRegistry` returns the same instance across threads
-- [ ] FastAPI starts successfully **without any model files present** on disk
-- [ ] `get_model("scrfd")` returns SCRFD instance; second call returns same object
-- [ ] `resolved_device` returns `"cuda"` on GPU box, `"cpu"` otherwise
-- [ ] Importing `backend.app.ml` does NOT import `torch`, `onnxruntime`, or `tensorflow`
+- [x] `MLConfig` reads all values from env vars with `ML_` prefix; defaults match values above
+- [x] `ModelRegistry` returns the same instance across threads
+- [x] FastAPI starts successfully **without any model files present** on disk
+- [x] `get_model(name)` lazy-loads via registered loaders; second call returns same object (tested with registered test loader; `scrfd` loader deferred to ML-002)
+- [x] `resolved_device` returns `"cuda"` on GPU box, `"mps"` on Apple Silicon, `"cpu"` otherwise
+- [x] Importing `backend.app.ml` does NOT import `torch`, `onnxruntime`, or `tensorflow`

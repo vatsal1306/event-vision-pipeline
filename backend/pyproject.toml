@@ -32,6 +32,21 @@ dev = [
     "types-passlib>=1.7,<2",
     "types-python-jose>=3.3,<4",
 ]
+ml = [
+    # Pin torch to pix-workers production versions (Python 3.10 compatible).
+    "torch==2.6.0",
+    "torchvision==0.21.0",
+    "onnxruntime>=1.20.1,<2",
+    "numpy>=1.26,<3",
+    "opencv-python-headless>=4.10,<5",
+    "scikit-learn>=1.3,<2",
+    "scikit-image>=0.24,<1",
+    "pillow>=11,<12",
+    "tensorflow>=2.16,<3",
+    "omegaconf>=2.3,<3",
+    "transformers>=4.51,<5",
+    # glasses-detector requires Python 3.12+ — added in ML-003 when sunglasses module ships
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -53,7 +68,25 @@ strict = true
 packages = ["app"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "celery.*", "sentry_sdk.*", "pgvector.*"]
+module = [
+    "celery",
+    "celery.*",
+    "sentry_sdk.*",
+    "pgvector.*",
+    "torch",
+    "torch.*",
+    "torchvision",
+    "torchvision.*",
+    "onnxruntime",
+    "onnxruntime.*",
+    "tensorflow",
+    "tensorflow.*",
+    "cv2",
+    "sklearn",
+    "sklearn.*",
+    "skimage",
+    "skimage.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

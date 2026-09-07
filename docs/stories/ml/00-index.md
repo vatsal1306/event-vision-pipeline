@@ -66,7 +66,7 @@ ML-001 (Foundation)
 
 | ID | Title | Status | Priority | Effort |
 |----|-------|--------|----------|--------|
-| **ML-001** | ML Package, MLConfig, ModelRegistry | Pending | P0 | S |
+| **ML-001** | ML Package, MLConfig, ModelRegistry | Done | P0 | S |
 | **ML-002** | SCRFD Detection + ArcFace 112×112 Crop | Pending | P0 | M |
 | **ML-003** | Quality Filters (Blur, 3DDFA_V2 YPR, Age, Sunglasses) | Pending | P0 | L |
 | **ML-004** | Dual-Model Embeddings (R100 + AdaFace VIT-KPRPE) | Pending | P0 | L |
