@@ -147,8 +147,11 @@ class GuestService:
         self.db.add(analytics)
         await self.db.commit()
 
-        # Generate presigned URL
-        return f"https://mock-s3.local/download/{photo.original_s3_key}?expires=3600"
+        # Generate presigned URL via PhotoService
+        from app.services.photo_service import PhotoService
+
+        photo_service = PhotoService(self.db)
+        return await photo_service.get_download_url(session.event_id, photo_id)
 
     async def request_auth(self, slug: str, name: str, phone: str) -> None:
         """Verify the event and guest link, then send an OTP. Creates a pending session."""

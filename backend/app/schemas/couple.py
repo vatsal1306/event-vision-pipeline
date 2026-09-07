@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 from app.core.constants import INDIAN_PHONE_PATTERN
@@ -27,3 +29,15 @@ class CoupleTokenResponse(BaseModel):
 
     token: str
     token_type: str = "bearer"
+
+
+class ToggleFavoriteRequest(BaseModel):
+    """Request to toggle favorite status for a photo."""
+
+    photo_id: UUID
+
+
+class ToggleFavoriteResponse(BaseModel):
+    """Response returned upon toggling favorite status."""
+
+    is_favorite: bool

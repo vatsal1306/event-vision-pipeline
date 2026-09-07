@@ -31,7 +31,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 __all__ = [
     "get_db",
     "get_redis_dep",
-    "get_redis_dep",
     "get_current_photographer",
     "get_photographer_event",
     "get_current_guest_session",
@@ -149,6 +148,55 @@ async def get_current_couple_session(
     if session is None or not session.phone_verified:
         raise AuthenticationError("Session not found or invalid")
     return session
+
+
+async def get_couple_session_for_slug(
+    slug: str,
+    couple_session: CoupleSession = Depends(get_current_couple_session),
+    db: AsyncSession = Depends(get_db),
+) -> CoupleSession:
+    """Validate that the couple session belongs to the event specified by the slug."""
+    from sqlalchemy import select
+
+    from app.core.exceptions import NotFoundError
+    from app.models.event import Event
+
+    stmt = select(Event).where(Event.slug == slug)
+    result = await db.execute(stmt)
+    event = result.scalar_one_or_none()
+
+    if not event:
+        raise NotFoundError(f"Event with slug '{slug}' not found")
+
+    if couple_session.event_id != event.id:
+        raise AuthorizationError("Session does not belong to this event", code="FORBIDDEN")
+
+    if not event.master_link_active:
+        raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")
+
+    return couple_session
+
+
+async def get_any_session_for_slug(
+    slug: str,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> GuestSession | CoupleSession:
+    """Extract and validate either a guest or couple session for the given event."""
+    try:
+        payload = decode_jwt(token)
+    except JWTError as exc:
+        raise AuthenticationError("Invalid access token") from exc
+
+    token_type = payload.get("type")
+    if token_type == JWTType.GUEST.value:
+        guest_session = await get_current_guest_session(token, db)
+        return await get_guest_session_for_slug(slug, guest_session, db)
+    elif token_type == JWTType.COUPLE.value:
+        couple_session = await get_current_couple_session(token, db)
+        return await get_couple_session_for_slug(slug, couple_session, db)
+    else:
+        raise AuthenticationError("Invalid token type. Expected guest or couple token.")
 
 
 def build_auth_service(db: AsyncSession, redis_client: redis.Redis) -> AuthService:

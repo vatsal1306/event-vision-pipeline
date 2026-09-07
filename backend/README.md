@@ -235,3 +235,11 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - **POST `/api/v1/event/{slug}/selfie`**: Guests upload a selfie. A stub `FaceService` simulates matching by currently returning `no_match` (or fake matches later), saving `matched_cluster_ids` into the `GuestSession`.
 - **GET `/api/v1/event/{slug}/guest/photos`**: Retrieves paginated event photos belonging to the `GuestSession`'s matched clusters and formatted as `PhotoResponse`.
 - **GET `/api/v1/event/{slug}/photos/{photo_id}/download`**: Generates a mock presigned URL to download the original photo, and logs the download action as an `AnalyticsEvent` (`action=DOWNLOAD`).
+
+## Master Gallery & Favorites (BE-014)
+- **Couple API**: `/api/v1/event/{slug}/master/*` exposes full event photo access for couples with a valid `CoupleSession` token.
+- **Photos**: `GET /master/photos` lists all `COMPLETED` photos with pagination and folder filtering.
+- **Folders**: `GET /master/folders` returns the folder tree (using `FolderService.list_tree`).
+- **Favorites**: `POST /master/favorite` toggles the favorite status of a `COMPLETED` photo for the current couple session. `GET /master/favorites` lists all favorited photos.
+- **Download**: `GET /master/photos/{photo_id}/download` returns a mock presigned URL for the original photo, provided the event's `download_enabled` is `True`. Records an `AnalyticsEvent` for download.
+- **Analytics View**: `POST /photos/{photo_id}/view` records a photo view for both Guest and Couple sessions. It delegates validation to `PhotoService.record_photo_view`.

@@ -8,8 +8,13 @@ from uuid import UUID
 from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import ProcessingStatus
+from app.core.exceptions import AuthorizationError, NotFoundError
+from app.models.analytics_event import AnalyticsEvent
+from app.models.couple_session import CoupleSession
+from app.models.enums import AnalyticsAction, ProcessingStatus
 from app.models.event import Event
+from app.models.face_embedding import FaceEmbedding
+from app.models.guest_session import GuestSession
 from app.models.photo import Photo
 from app.schemas.photo import PhotoListResponse, PhotoResponse
 
@@ -95,34 +100,9 @@ class PhotoService:
         # Fetch paginated items
         stmt = stmt.order_by(Photo.created_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
-        photos = result.scalars().all()
+        photos = list(result.scalars().all())
 
-        items = []
-        for photo in photos:
-            # Mock proxy URL for now
-            proxy_url = None
-            if photo.processing_status == ProcessingStatus.COMPLETED and photo.proxy_s3_key:
-                proxy_url = f"https://mock-s3.local/proxy/{photo.proxy_s3_key}"
-
-            items.append(
-                PhotoResponse(
-                    id=photo.id,
-                    event_id=photo.event_id,
-                    folder_id=photo.folder_id,
-                    filename=photo.filename,
-                    proxy_url=proxy_url,
-                    blurhash=photo.blurhash,
-                    width=photo.width,
-                    height=photo.height,
-                    file_size_bytes=photo.file_size_bytes,
-                    mime_type=photo.mime_type,
-                    face_count=photo.face_count,
-                    processing_status=photo.processing_status,
-                    processing_error=photo.processing_error,
-                    uploaded_at=photo.uploaded_at,
-                    created_at=photo.created_at,
-                )
-            )
+        items = self.build_photo_responses(photos)
 
         return PhotoListResponse(items=items, total=total, offset=offset, limit=limit)
 
@@ -167,3 +147,72 @@ class PhotoService:
 
         # Mock download URL (BE-008 will implement proper S3 presigning)
         return f"https://mock-s3.local/download/{photo.original_s3_key}?expires=3600"
+
+    def build_photo_responses(self, photos: list[Photo]) -> list[PhotoResponse]:
+        """Convert Photo models to PhotoResponse, injecting mock proxy_url."""
+        items = []
+        for photo in photos:
+            proxy_url = None
+            if photo.processing_status == ProcessingStatus.COMPLETED and photo.proxy_s3_key:
+                proxy_url = f"https://mock-s3.local/proxy/{photo.proxy_s3_key}"
+
+            items.append(
+                PhotoResponse(
+                    id=photo.id,
+                    event_id=photo.event_id,
+                    folder_id=photo.folder_id,
+                    filename=photo.filename,
+                    proxy_url=proxy_url,
+                    blurhash=photo.blurhash,
+                    width=photo.width,
+                    height=photo.height,
+                    file_size_bytes=photo.file_size_bytes,
+                    mime_type=photo.mime_type,
+                    face_count=photo.face_count,
+                    processing_status=photo.processing_status,
+                    processing_error=photo.processing_error,
+                    uploaded_at=photo.uploaded_at,
+                    created_at=photo.created_at,
+                )
+            )
+        return items
+
+    async def record_photo_view(
+        self, session: GuestSession | CoupleSession, photo_id: UUID
+    ) -> None:
+        """Record a photo view, verifying access rules."""
+        if isinstance(session, GuestSession):
+            if not session.matched_cluster_ids:
+                raise AuthorizationError("Guest has no matched photos", code="FORBIDDEN")
+
+            # Check if photo exists and belongs to event and matches guest's clusters
+            stmt = (
+                select(Photo)
+                .join(Photo.face_embeddings)
+                .where(
+                    Photo.id == photo_id,
+                    Photo.event_id == session.event_id,
+                    FaceEmbedding.cluster_id.in_(session.matched_cluster_ids),
+                )
+            )
+            result = await self.db.execute(stmt)
+            photo = result.scalar_one_or_none()
+            if not photo:
+                raise NotFoundError(f"Photo with id '{photo_id}'")
+        else:
+            # CoupleSession
+            stmt = select(Photo).where(Photo.id == photo_id, Photo.event_id == session.event_id)
+            result = await self.db.execute(stmt)
+            photo = result.scalar_one_or_none()
+            if not photo:
+                raise NotFoundError(f"Photo with id '{photo_id}'")
+
+        analytics = AnalyticsEvent(
+            event_id=session.event_id,
+            guest_session_id=session.id if isinstance(session, GuestSession) else None,
+            couple_session_id=session.id if isinstance(session, CoupleSession) else None,
+            photo_id=photo.id,
+            action=AnalyticsAction.VIEW,
+        )
+        self.db.add(analytics)
+        await self.db.commit()
