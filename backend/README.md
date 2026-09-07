@@ -249,3 +249,10 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - **GET `/api/v1/event/{slug}/analytics/photos/top`**: Returns top 10 to 50 photos ranked by either `views` or `downloads`.
 - **GET `/api/v1/event/{slug}/analytics/guests`**: Returns a paginated list of guest leads (name, phone, first visit time, match count, and download count) for verified guests only.
 - **GET `/api/v1/event/{slug}/analytics/guests/export`**: Returns the guest leads as a downloadable CSV file attachment (`text/csv`).
+
+## Profile Storage (BE-016)
+- **GET `/api/v1/profile`**: Returns the authenticated photographer's profile (email, studio name, generated S3 URLs for logo and watermark).
+- **PUT `/api/v1/profile`**: Updates `studio_name` and `phone` (with verified flip) of the photographer.
+- **POST `/api/v1/profile/logo`**: Handles multipart upload of JPEG, PNG, or WEBP studio logo validating magic bytes and saving to S3.
+- **POST `/api/v1/profile/watermark`**: Handles multipart upload of PNG watermark validating magic bytes and saving to S3.
+- **GET `/api/v1/profile/storage`**: Calculates and returns the precise active vs archived storage usage of all photos for a photographer, keeping the `storage_used_bytes` cached value up-to-date and returning the limit and percentage used.
