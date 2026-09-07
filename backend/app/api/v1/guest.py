@@ -9,11 +9,13 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
+    get_any_session_for_slug,
     get_db,
     get_face_service,
     get_guest_session_for_slug,
     get_redis_dep,
 )
+from app.models.couple_session import CoupleSession
 from app.models.guest_session import GuestSession
 from app.schemas.guest import (
     GuestAuthRequest,
@@ -175,3 +177,27 @@ async def download_guest_photo(
         photo_id=photo_id,
     )
     return DownloadPhotoResponse(url=url)
+
+
+@router.post("/photos/{photo_id}/view", status_code=status.HTTP_204_NO_CONTENT, tags=["Analytics"])
+async def record_photo_view(
+    slug: str,
+    photo_id: UUID,
+    session: GuestSession | CoupleSession = Depends(get_any_session_for_slug),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Record a photo view for analytics. Accepts Guest or Couple session."""
+    from app.models.analytics_event import AnalyticsEvent
+    from app.models.couple_session import CoupleSession
+    from app.models.enums import AnalyticsAction
+    from app.models.guest_session import GuestSession
+
+    analytics = AnalyticsEvent(
+        event_id=session.event_id,
+        guest_session_id=session.id if isinstance(session, GuestSession) else None,
+        couple_session_id=session.id if isinstance(session, CoupleSession) else None,
+        photo_id=photo_id,
+        action=AnalyticsAction.VIEW,
+    )
+    db.add(analytics)
+    await db.commit()
