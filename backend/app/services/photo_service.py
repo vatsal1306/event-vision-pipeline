@@ -8,15 +8,15 @@ from uuid import UUID
 from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import ProcessingStatus, AnalyticsAction
+from app.core.exceptions import AuthorizationError, NotFoundError
+from app.models.analytics_event import AnalyticsEvent
+from app.models.couple_session import CoupleSession
+from app.models.enums import AnalyticsAction, ProcessingStatus
 from app.models.event import Event
+from app.models.face_embedding import FaceEmbedding
+from app.models.guest_session import GuestSession
 from app.models.photo import Photo
 from app.schemas.photo import PhotoListResponse, PhotoResponse
-from app.models.guest_session import GuestSession
-from app.models.couple_session import CoupleSession
-from app.core.exceptions import NotFoundError, AuthorizationError
-from app.models.analytics_event import AnalyticsEvent
-from app.models.face_embedding import FaceEmbedding
 
 
 class PhotoService:
@@ -177,7 +177,9 @@ class PhotoService:
             )
         return items
 
-    async def record_photo_view(self, session: GuestSession | CoupleSession, photo_id: UUID) -> None:
+    async def record_photo_view(
+        self, session: GuestSession | CoupleSession, photo_id: UUID
+    ) -> None:
         """Record a photo view, verifying access rules."""
         if isinstance(session, GuestSession):
             if not session.matched_cluster_ids:

@@ -179,6 +179,7 @@ async def test_record_photo_view(
     assert analytics is not None
     assert analytics.photo_id == photo.id
 
+
 @pytest.mark.asyncio
 async def test_couple_token_wrong_slug(
     db_client: AsyncClient,

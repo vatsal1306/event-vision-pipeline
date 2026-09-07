@@ -149,6 +149,7 @@ class GuestService:
 
         # Generate presigned URL via PhotoService
         from app.services.photo_service import PhotoService
+
         photo_service = PhotoService(self.db)
         return await photo_service.get_download_url(session.event_id, photo_id)
 

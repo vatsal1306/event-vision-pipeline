@@ -122,6 +122,7 @@ async def list_guest_photos(
     )
 
     from app.services.photo_service import PhotoService
+
     photo_service = PhotoService(guest_service.db)
     photo_responses = photo_service.build_photo_responses(photos)
 
@@ -157,6 +158,6 @@ async def record_photo_view(
 ) -> None:
     """Record a photo view for analytics. Accepts Guest or Couple session."""
     from app.services.photo_service import PhotoService
-    
+
     photo_service = PhotoService(db)
     await photo_service.record_photo_view(session=session, photo_id=photo_id)

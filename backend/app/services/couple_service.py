@@ -114,7 +114,7 @@ class CoupleService:
 
         from app.models.enums import ProcessingStatus
         from app.models.photo import Photo
-        from app.schemas.photo import PhotoListResponse, PhotoResponse
+        from app.schemas.photo import PhotoListResponse
 
         # Build query
         stmt = select(Photo).where(
@@ -134,6 +134,7 @@ class CoupleService:
         photos = result.scalars().all()
 
         from app.services.photo_service import PhotoService
+
         photo_service = PhotoService(self.db)
         items = photo_service.build_photo_responses(list(photos))
 
@@ -148,16 +149,15 @@ class CoupleService:
 
     async def toggle_favorite(self, session: CoupleSession, photo_id: uuid.UUID) -> bool:
         """Toggle favorite status for a photo. Returns True if now favorited, False if removed."""
+        from app.models.enums import ProcessingStatus
         from app.models.favorite import Favorite
         from app.models.photo import Photo
 
-        from app.models.enums import ProcessingStatus
-
         # Check if photo exists, belongs to the event, and is completed
         stmt = select(Photo).where(
-            Photo.id == photo_id, 
+            Photo.id == photo_id,
             Photo.event_id == session.event_id,
-            Photo.processing_status == ProcessingStatus.COMPLETED
+            Photo.processing_status == ProcessingStatus.COMPLETED,
         )
         result = await self.db.execute(stmt)
         if not result.scalar_one_or_none():
@@ -188,7 +188,7 @@ class CoupleService:
 
         from app.models.favorite import Favorite
         from app.models.photo import Photo
-        from app.schemas.photo import PhotoListResponse, PhotoResponse
+        from app.schemas.photo import PhotoListResponse
 
         stmt = (
             select(Photo)
@@ -204,6 +204,7 @@ class CoupleService:
         photos = result.scalars().all()
 
         from app.services.photo_service import PhotoService
+
         photo_service = PhotoService(self.db)
         items = photo_service.build_photo_responses(list(photos))
 
@@ -243,5 +244,6 @@ class CoupleService:
 
         # Generate download URL via PhotoService
         from app.services.photo_service import PhotoService
+
         photo_service = PhotoService(self.db)
         return await photo_service.get_download_url(session.event_id, photo_id)
