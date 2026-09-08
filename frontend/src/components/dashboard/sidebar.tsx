@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Camera, User, ChevronLeft, ChevronRight, HardDrive } from 'lucide-react';
+import { Camera, User, ChevronLeft, ChevronRight, HardDrive, LogOut } from 'lucide-react';
 import { useUiStore } from '@/stores/ui-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useProfile } from '@/hooks/use-profile';
@@ -19,7 +19,7 @@ export function Sidebar() {
   const { isSidebarCollapsed, toggleSidebar } = useUiStore();
   const [isHovered, setIsHovered] = useState(false);
   const [isHoverLocked, setIsHoverLocked] = useState(false);
-  const { photographer } = useAuthStore();
+  const { photographer, logout } = useAuthStore();
   const { data: profile } = useProfile();
 
   const isExpanded = !isSidebarCollapsed || (isHovered && !isHoverLocked);
@@ -88,6 +88,24 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        <div className="border-t border-border p-3">
+          <button
+            onClick={() => {
+              void logout().finally(() => {
+                window.location.href = '/login';
+              });
+            }}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive overflow-hidden',
+              !isExpanded && 'justify-center'
+            )}
+            title={!isExpanded ? 'Log out' : undefined}
+          >
+            <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            {isExpanded && <span className="whitespace-nowrap">Log out</span>}
+          </button>
+        </div>
 
         {isExpanded && photographer && profile && (
           <div className="border-t border-border p-4 whitespace-nowrap overflow-hidden">
