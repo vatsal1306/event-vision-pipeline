@@ -40,10 +40,6 @@ export function Header() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-
-          <Link href="/dashboard/events" className="flex items-center gap-2 font-display font-semibold text-lg">
-            <span className="text-primary">SpotMe</span>
-          </Link>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
