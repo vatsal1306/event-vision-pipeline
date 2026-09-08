@@ -6,6 +6,7 @@ import { Bell, LogOut, UserCircle, Settings, ChevronDown, Menu } from 'lucide-re
 import { useAuthStore } from '@/stores/auth-store';
 import { useUiStore } from '@/stores/ui-store';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/shared/logo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +41,10 @@ export function Header() {
           >
             <Menu className="h-5 w-5" />
           </Button>
+
+          <Link href="/dashboard/events" className="flex items-center gap-2 font-display font-semibold text-lg">
+            <Logo size="sm" />
+          </Link>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">

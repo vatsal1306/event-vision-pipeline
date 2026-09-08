@@ -8,7 +8,6 @@ import { useUiStore } from '@/stores/ui-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useProfile } from '@/hooks/use-profile';
 import { cn, formatBytes } from '@/lib/utils';
-import { Logo } from '@/components/shared/logo';
 
 const navigation = [
   { name: 'Events', href: '/dashboard/events', icon: Camera },
@@ -35,17 +34,11 @@ export function Sidebar() {
       aria-label="Sidebar navigation"
     >
       <div className="flex h-full flex-col">
-        <div className="flex h-16 items-center justify-between border-b border-border px-4 overflow-hidden">
-          {isExpanded && (
-            <Link href="/dashboard/events" className="flex items-center gap-2 font-display font-semibold text-lg whitespace-nowrap min-w-max">
-              <Logo size="sm" />
-            </Link>
-          )}
+        <div className="flex h-16 items-center justify-center border-b border-border px-4 overflow-hidden">
           <button
             onClick={toggleSidebar}
             className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-accent',
-              !isExpanded && 'mx-auto'
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-accent'
             )}
             aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-expanded={!isSidebarCollapsed}

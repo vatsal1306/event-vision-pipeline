@@ -13,7 +13,7 @@ interface UiState {
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
-      isSidebarCollapsed: false,
+      isSidebarCollapsed: true,
       theme: 'system',
       
       toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
