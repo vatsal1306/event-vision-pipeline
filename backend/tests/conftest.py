@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import get_settings
 from app.core.database import get_db
+from app.core.redis_client import close_redis
 from app.main import app
 from tests.db_helpers import (
     ensure_test_database_exists,
@@ -20,6 +21,13 @@ from tests.db_helpers import (
     run_migrations,
     run_migrations_async,
 )
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def reset_redis_client() -> AsyncIterator[None]:
+    """Ensure the global Redis client is closed between tests."""
+    yield
+    await close_redis()
 
 
 @pytest.fixture

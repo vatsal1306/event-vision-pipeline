@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.logging import get_logger
+from app.core.rate_limit import rate_limit
 from app.schemas.upload import TusHookPayload
 from app.services.upload_service import UploadService
 
@@ -15,7 +16,10 @@ logger = get_logger()
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 
-@router.post("/hook")
+@router.post(
+    "/hook",
+    dependencies=[Depends(rate_limit("webhook", limit=100, window=60))],
+)
 async def tusd_hook(
     payload: TusHookPayload,
     response: Response,

@@ -271,3 +271,9 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - Storage efficiency dictates batching S3 `delete_objects`.
 - Restore moves objects back to `STANDARD`, resets status to `PROCESSING`, and queues proxy/face generation.
 - Guest and Couple links block access to archived events with `EVENT_ARCHIVED`.
+
+## Rate Limiting and Security (BE-019)
+
+- Security Headers: Uses `SecurityHeadersMiddleware` to set strict `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security`, and `Content-Security-Policy`.
+- Rate Limiting: Redis-backed sliding window via `RateLimiter` using a pipeline of `ZREMRANGEBYSCORE`, `ZADD`, `ZCARD`, and `EXPIRE`. Dependency `rate_limit(group, limit, window)` captures IP or authenticated subject via Authorization header.
+- Uses `fakeredis[lua]` isolated per test for reliable logic assertions.

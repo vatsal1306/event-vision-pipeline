@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     api_base_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
     secret_key: str = "dev-only-change-me"
+    trusted_proxies: list[str] = ["127.0.0.1"]
 
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/photoshare"
     database_pool_size: int = 20

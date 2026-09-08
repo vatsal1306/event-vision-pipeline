@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     import redis.asyncio as redis
 
 
+from app.core.rate_limit import rate_limit
+
 router = APIRouter(prefix="/event/{slug}/master", tags=["Couple"])
 
 
@@ -40,7 +42,11 @@ def get_couple_service(
     return CoupleService(db, otp_service)
 
 
-@router.post("/auth", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/auth",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("otp_send", limit=3, window=300))],
+)
 async def request_couple_auth(
     slug: str,
     request: CoupleAuthRequest,
@@ -54,7 +60,11 @@ async def request_couple_auth(
     )
 
 
-@router.post("/verify", response_model=CoupleTokenResponse)
+@router.post(
+    "/verify",
+    response_model=CoupleTokenResponse,
+    dependencies=[Depends(rate_limit("otp_verify", limit=5, window=300))],
+)
 async def verify_couple_auth(
     slug: str,
     request: CoupleVerifyRequest,
@@ -69,7 +79,11 @@ async def verify_couple_auth(
     )
 
 
-@router.get("/photos", response_model=PhotoListResponse)
+@router.get(
+    "/photos",
+    response_model=PhotoListResponse,
+    dependencies=[Depends(rate_limit("photo_list", limit=60, window=60))],
+)
 async def list_master_photos(
     slug: str,
     folder_id: UUID | None = Query(None),
@@ -104,7 +118,11 @@ async def toggle_favorite(
     return ToggleFavoriteResponse(is_favorite=is_favorite)
 
 
-@router.get("/favorites", response_model=PhotoListResponse)
+@router.get(
+    "/favorites",
+    response_model=PhotoListResponse,
+    dependencies=[Depends(rate_limit("photo_list", limit=60, window=60))],
+)
 async def list_favorites(
     slug: str,
     offset: int = Query(0, ge=0),
@@ -116,7 +134,11 @@ async def list_favorites(
     return await couple_service.get_favorites(session, offset, limit)
 
 
-@router.get("/photos/{photo_id}/download", response_model=DownloadPhotoResponse)
+@router.get(
+    "/photos/{photo_id}/download",
+    response_model=DownloadPhotoResponse,
+    dependencies=[Depends(rate_limit("download", limit=30, window=60))],
+)
 async def download_master_photo(
     slug: str,
     photo_id: UUID,
