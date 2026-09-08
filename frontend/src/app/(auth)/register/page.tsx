@@ -26,6 +26,7 @@ import {
 } from '@/lib/auth-schemas';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
+import { maskPhone } from '@/lib/utils';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -102,7 +103,7 @@ export default function RegisterPage() {
         <p className="text-sm text-muted-foreground">
           {step === 1
             ? 'Start delivering photos instantly to your clients.'
-            : `We sent a 6-digit code to ${registeredPhone}`}
+            : `We sent a 6-digit code to ${maskPhone(registeredPhone)}`}
         </p>
       </div>
 

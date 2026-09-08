@@ -21,6 +21,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { loginSchema, otpSchema, type LoginFormValues, type OtpFormValues } from '@/lib/auth-schemas';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
+import { maskPhone } from '@/lib/utils';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -97,7 +98,7 @@ export default function LoginPage() {
         <p className="text-sm text-muted-foreground">
           {step === 1
             ? 'Sign in with your email or phone number and password.'
-            : `Enter the 6-digit code sent to ${registeredPhone}`}
+            : `Enter the 6-digit code sent to ${maskPhone(registeredPhone)}`}
         </p>
       </div>
 
