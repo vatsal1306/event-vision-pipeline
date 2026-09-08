@@ -10,7 +10,13 @@ backend/app/ml/
 ├── device.py           # resolve_device() — cuda / mps / cpu
 ├── exceptions.py       # ModelNotRegisteredError, ModelLoadError
 ├── model_registry.py   # Thread-safe lazy singleton + register_model_loader()
-├── detection/          # ML-002
+├── detection/          # ML-002 — SCRFD + FaceCropper (done)
+│   ├── scrfd.py
+│   ├── face_cropper.py
+│   ├── types.py
+│   ├── onnx_providers.py
+│   └── registry.py
+├── face_preprocess.py  # ML-002 — ArcFace alignment utils
 ├── quality/            # ML-003
 ├── embedding/          # ML-004
 ├── clustering/         # ML-005, ML-006, ML-007
@@ -33,10 +39,10 @@ Model weight files live in `backend/models/` (git-ignored).
 
 | Value | Behaviour |
 |-------|-----------|
-| `auto` | CUDA if available, else Apple MPS, else CPU |
+| `auto` | CUDA if available, else CPU for ONNX; PyTorch still uses MPS on Apple Silicon |
 | `cuda` | CUDA if available, else CPU |
-| `mps` | Apple MPS if available, else CPU |
-| `cpu` | Always CPU (no torch import required) |
+| `mps` | PyTorch on Apple MPS; **ONNX SCRFD uses CPU** (CoreML EP breaks 128×128 pass) |
+| `cpu` | Always CPU |
 
 Use `ModelRegistry.resolved_device` or `resolve_device(config.device)` — both lazy-import torch.
 
@@ -83,40 +89,61 @@ uv sync --extra dev --extra ml
 | Empty subpackage tree | — |
 | `resolve_device()` with cuda/mps/cpu | — |
 | Import safety (no torch/onnx/tf at import) | — |
-| SCRFD detector | ML-002 |
-| Face cropper | ML-002 |
-| Vendor code copies | ML-002 through ML-004 |
+| SCRFD detector + FaceCropper | ML-002 (done) |
+| Vendor code copies | ML-004 |
 | Model weight files on disk | Manual copy by developer |
 | Quality filters | ML-003 |
 | Embeddings (R100, AdaFace, MBF) | ML-004 |
 | Clustering | ML-005/ML-006 |
 | FaceService + Celery tasks | ML-009 |
 
+| FaceService + Celery tasks | ML-009 |
+
+## ML-002 — Detection and Cropping
+
+| Module | Purpose |
+|--------|---------|
+| `detection/scrfd.py` | `SCRFDDetector` — multi-scale ONNX SCRFD (640+128) |
+| `detection/face_cropper.py` | `crop_all()`, `crop_primary()`, detect+crop helpers |
+| `detection/types.py` | `DetectedFace`, `FaceCrop` |
+| `detection/onnx_providers.py` | CUDA / CoreML / CPU provider selection |
+| `detection/registry.py` | Auto-registers `scrfd` loader |
+| `face_preprocess.py` | `norm_crop` (pix-workers) + legacy `preprocess()` (PicSee fallback) |
+
+**PicSee parity:** Ported from pix-workers `SCRFD` + `norm_crop`. Parity test in
+`tests/ml/test_scrfd_crop.py` compares bbox/landmarks/score against pix-workers on the same image.
+
+**Bbox clipping:** Raw SCRFD boxes are clipped to image bounds before normalizing to `[0, 1]` for DB.
+
+### Usage
+
+```python
+import cv2
+import app.ml.detection  # registers scrfd loader
+from app.ml.detection import FaceCropper
+from app.ml.model_registry import get_model_registry
+
+detector = get_model_registry().get_model("scrfd")
+image = cv2.imread("photo.jpg")
+faces = detector.detect(image)
+
+cropper = FaceCropper(detector=detector)
+all_crops = cropper.crop_all(image, faces)       # upload: every face
+selfie = cropper.crop_primary(image, faces)      # selfie: nose-closest-to-center
+```
+
 ## Testing
 
 ```bash
 cd backend
+uv sync --extra dev --extra ml
 uv run pytest tests/ml/ -v
 ```
 
-Tests run without model files or GPU. Torch-dependent tests use `pytest.importorskip("torch")`.
+SCRFD integration tests need `backend/models/det_10g.onnx`. Set `RUN_ML_TESTS=0` to skip without models.
+Fixtures: `tests/ml/fixtures/` (see `tests/ml/fixtures/README.md`).
 
-## Registering a Model (for ML-002+)
+## Registering Models
 
-```python
-from app.ml.model_registry import register_model_loader, get_model_registry
-
-
-def _load_scrfd(registry: ModelRegistry) -> SCRFDDetector:
-    return SCRFDDetector(
-        model_path=registry.config.scrfd_model_path,
-        device=registry.resolved_device,
-        det_thresh=registry.config.scrfd_det_thresh,
-    )
-
-
-register_model_loader("scrfd", _load_scrfd)
-
-# In Celery task:
-detector = get_model_registry().get_model("scrfd")
-```
+SCRFD is registered automatically via `import app.ml.detection`. Later stories add their own loaders in
+`detection/registry.py` or sibling `registry.py` modules.

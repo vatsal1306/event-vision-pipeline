@@ -76,6 +76,14 @@ packages = ["app"]
 
 [[tool.mypy.overrides]]
 module = [
+    "app.ml",
+    "app.ml.*",
+]
+disallow_untyped_calls = false
+disable_error_code = ["type-arg", "call-overload"]
+
+[[tool.mypy.overrides]]
+module = [
     "celery",
     "celery.*",
     "sentry_sdk.*",
@@ -106,6 +114,9 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing"
+markers = [
+    "ml: ML integration tests that require ONNX model files",
+]
 
 [tool.coverage.run]
 source = ["app"]

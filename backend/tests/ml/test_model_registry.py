@@ -71,8 +71,8 @@ def test_get_model_unknown_raises_not_registered() -> None:
     """Unregistered model names should raise ModelNotRegisteredError."""
     registry = get_model_registry()
 
-    with pytest.raises(ModelNotRegisteredError, match="scrfd"):
-        registry.get_model("scrfd")
+    with pytest.raises(ModelNotRegisteredError, match="unknown_model"):
+        registry.get_model("unknown_model")
 
 
 def test_unload_all_clears_cache_and_allows_reload() -> None:
