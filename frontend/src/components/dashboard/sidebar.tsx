@@ -91,8 +91,8 @@ export function Sidebar() {
 
         {isExpanded && photographer && profile && (
           <div className="border-t border-border px-3 py-4 whitespace-nowrap overflow-hidden">
-            <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground text-center mb-2">
-              <span className="font-medium">Storage Used</span>
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-2">
+              <span className="font-medium">Storage Used:</span>
               <span className="font-mono">{formatBytes(profile.storage_used_bytes)} / {formatBytes(profile.storage_limit_bytes)}</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
