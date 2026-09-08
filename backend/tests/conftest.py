@@ -64,11 +64,12 @@ async def db_session(
             class_=AsyncSession,
             expire_on_commit=False,
         )
-        
+
         import app.core.database
+
         original_factory = app.core.database.async_session_factory
         app.core.database.async_session_factory = session_factory
-        
+
         try:
             async with session_factory() as session:
                 yield session
