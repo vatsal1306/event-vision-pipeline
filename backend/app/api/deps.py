@@ -121,6 +121,11 @@ async def get_guest_session_for_slug(
     if guest_session.event_id != event.id:
         raise AuthorizationError("Session does not belong to this event", code="FORBIDDEN")
 
+    from app.models.enums import EventStatus
+
+    if event.status == EventStatus.ARCHIVED:
+        raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
     if not event.guest_link_active:
         raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
 
@@ -170,6 +175,11 @@ async def get_couple_session_for_slug(
 
     if couple_session.event_id != event.id:
         raise AuthorizationError("Session does not belong to this event", code="FORBIDDEN")
+
+    from app.models.enums import EventStatus
+
+    if event.status == EventStatus.ARCHIVED:
+        raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
 
     if not event.master_link_active:
         raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")

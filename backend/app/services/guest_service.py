@@ -161,6 +161,12 @@ class GuestService:
 
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
+
+        from app.models.enums import EventStatus
+
+        if event.status == EventStatus.ARCHIVED:
+            raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
         if not event.guest_link_active:
             raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
 
@@ -192,6 +198,12 @@ class GuestService:
 
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
+
+        from app.models.enums import EventStatus
+
+        if event.status == EventStatus.ARCHIVED:
+            raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
         if not event.guest_link_active:
             raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
 

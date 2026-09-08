@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config import get_settings
 
@@ -12,7 +13,10 @@ celery_app = Celery(
     "spotme",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.tasks.notification_tasks"],
+    include=[
+        "app.tasks.notification_tasks",
+        "app.tasks.archival_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -26,5 +30,16 @@ celery_app.conf.update(
         "app.tasks.photo_tasks.*": {"queue": "photo_processing"},
         "app.tasks.face_tasks.*": {"queue": "photo_processing"},
         "app.tasks.notification_tasks.*": {"queue": "photo_processing"},
+        "app.tasks.archival_tasks.*": {"queue": "photo_processing"},
+    },
+    beat_schedule={
+        "check-archival": {
+            "task": "app.tasks.archival_tasks.check_events_for_archival",
+            "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM IST
+        },
+        "send-archival-warnings": {
+            "task": "app.tasks.archival_tasks.send_archival_warnings",
+            "schedule": crontab(hour=10, minute=0),  # Daily at 10 AM IST
+        },
     },
 )

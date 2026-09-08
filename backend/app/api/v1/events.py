@@ -90,9 +90,23 @@ async def delete_event(
     event: Event = Depends(get_photographer_event),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Hard-delete an event and cascaded child rows."""
-    await EventService(db).delete_event(event)
+    """Hard-delete an event, S3 objects, and recalculate storage."""
+    from app.services.archival_service import ArchivalService
+
+    await ArchivalService(db).delete_event_permanently(event.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{event_id}/restore", status_code=status.HTTP_202_ACCEPTED)
+async def restore_event(
+    event: Event = Depends(get_photographer_event),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Restore an archived event."""
+    from app.services.archival_service import ArchivalService
+
+    await ArchivalService(db).restore_event(event.id)
+    return {"message": "Event restoration started"}
 
 
 @router.put("/{event_id}/settings", response_model=EventDetail)
