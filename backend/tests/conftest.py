@@ -64,9 +64,17 @@ async def db_session(
             class_=AsyncSession,
             expire_on_commit=False,
         )
-        async with session_factory() as session:
-            yield session
-            await session.rollback()
+        
+        import app.core.database
+        original_factory = app.core.database.async_session_factory
+        app.core.database.async_session_factory = session_factory
+        
+        try:
+            async with session_factory() as session:
+                yield session
+                await session.rollback()
+        finally:
+            app.core.database.async_session_factory = original_factory
     finally:
         await engine.dispose()
 
