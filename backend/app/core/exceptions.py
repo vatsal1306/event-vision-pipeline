@@ -98,3 +98,10 @@ class StorageError(AppException):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, "STORAGE_ERROR", 500)
+
+
+class RateLimitedError(AppException):
+    """Raised when a generic API rate limit is exceeded."""
+
+    def __init__(self, message: str = "Rate limit exceeded") -> None:
+        super().__init__(message, "RATE_LIMITED", 429)

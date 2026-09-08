@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_photographer, get_redis_dep
 from app.core.database import get_db
+from app.core.rate_limit import rate_limit
 from app.models.photographer import Photographer
 from app.schemas.auth import (
     ForgotPasswordRequest,
@@ -42,7 +43,12 @@ def _build_auth_service(
     return AuthService(db, otp_service, redis_client)
 
 
-@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("auth", limit=5, window=60))],
+)
 async def register(
     request: RegisterRequest,
     db: AsyncSession = Depends(get_db),
@@ -53,7 +59,11 @@ async def register(
     return await service.register(request)
 
 
-@router.post("/login", response_model=LoginOtpPendingResponse)
+@router.post(
+    "/login",
+    response_model=LoginOtpPendingResponse,
+    dependencies=[Depends(rate_limit("auth", limit=5, window=60))],
+)
 async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db),
@@ -64,7 +74,11 @@ async def login(
     return await service.login(request.email_or_phone, request.password)
 
 
-@router.post("/send-otp", response_model=SendOTPResponse)
+@router.post(
+    "/send-otp",
+    response_model=SendOTPResponse,
+    dependencies=[Depends(rate_limit("otp_send", limit=3, window=300))],
+)
 async def send_otp(
     request: SendOTPRequest,
     db: AsyncSession = Depends(get_db),
@@ -75,7 +89,11 @@ async def send_otp(
     return await service.send_otp(request.phone, request.purpose)
 
 
-@router.post("/verify-otp", response_model=TokenResponse)
+@router.post(
+    "/verify-otp",
+    response_model=TokenResponse,
+    dependencies=[Depends(rate_limit("otp_verify", limit=5, window=300))],
+)
 async def verify_otp(
     request: VerifyOTPRequest,
     db: AsyncSession = Depends(get_db),
@@ -109,7 +127,11 @@ async def logout(
     await service.logout(request.refresh_token)
 
 
-@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    dependencies=[Depends(rate_limit("auth", limit=5, window=60))],
+)
 async def forgot_password(
     request: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
@@ -120,7 +142,11 @@ async def forgot_password(
     return await service.forgot_password(request.email_or_phone)
 
 
-@router.post("/reset-password", response_model=ResetPasswordResponse)
+@router.post(
+    "/reset-password",
+    response_model=ResetPasswordResponse,
+    dependencies=[Depends(rate_limit("auth", limit=5, window=60))],
+)
 async def reset_password(
     request: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db),

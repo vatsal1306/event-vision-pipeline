@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     import redis.asyncio as redis
 
 
+from app.core.rate_limit import rate_limit
+
 router = APIRouter(prefix="/event/{slug}", tags=["Guest"])
 
 
@@ -45,7 +47,11 @@ def get_guest_service(
     return GuestService(db, otp_service)
 
 
-@router.post("/auth", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/auth",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("otp_send", limit=3, window=300))],
+)
 async def request_guest_auth(
     slug: str,
     request: GuestAuthRequest,
@@ -59,7 +65,11 @@ async def request_guest_auth(
     )
 
 
-@router.post("/auth/verify", response_model=GuestTokenResponse)
+@router.post(
+    "/auth/verify",
+    response_model=GuestTokenResponse,
+    dependencies=[Depends(rate_limit("otp_verify", limit=5, window=300))],
+)
 async def verify_guest_auth(
     slug: str,
     request: GuestVerifyRequest,
@@ -104,7 +114,11 @@ async def upload_selfie(
     )
 
 
-@router.get("/guest/photos", response_model=PhotoListResponse)
+@router.get(
+    "/guest/photos",
+    response_model=PhotoListResponse,
+    dependencies=[Depends(rate_limit("photo_list", limit=60, window=60))],
+)
 async def list_guest_photos(
     slug: str,
     folder_id: UUID | None = Query(None),
@@ -134,7 +148,11 @@ async def list_guest_photos(
     )
 
 
-@router.get("/photos/{photo_id}/download", response_model=DownloadPhotoResponse)
+@router.get(
+    "/photos/{photo_id}/download",
+    response_model=DownloadPhotoResponse,
+    dependencies=[Depends(rate_limit("download", limit=30, window=60))],
+)
 async def download_guest_photo(
     slug: str,
     photo_id: UUID,

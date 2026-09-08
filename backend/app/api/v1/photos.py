@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_photographer_event
 from app.core.database import get_db
+from app.core.rate_limit import rate_limit
 from app.models.event import Event
 from app.schemas.photo import DownloadPhotoResponse, MovePhotosRequest, PhotoListResponse
 from app.services.photo_service import PhotoService
@@ -16,7 +17,11 @@ from app.services.photo_service import PhotoService
 router = APIRouter(prefix="/events/{event_id}/photos", tags=["Photos"])
 
 
-@router.get("", response_model=PhotoListResponse)
+@router.get(
+    "",
+    response_model=PhotoListResponse,
+    dependencies=[Depends(rate_limit("photo_list", limit=60, window=60))],
+)
 async def list_photos(
     event_id: UUID,
     folder_id: UUID | None = Query(None),
@@ -53,7 +58,11 @@ async def delete_photo(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/{photo_id}/download", response_model=DownloadPhotoResponse)
+@router.get(
+    "/{photo_id}/download",
+    response_model=DownloadPhotoResponse,
+    dependencies=[Depends(rate_limit("download", limit=30, window=60))],
+)
 async def get_photo_download_url(
     event_id: UUID,
     photo_id: UUID,
