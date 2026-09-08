@@ -21,7 +21,7 @@ export const useUiStore = create<UiState>()(
       setTheme: (theme: 'light' | 'dark' | 'system') => set({ theme }),
     }),
     {
-      name: 'ui-storage',
+      name: 'ui-storage-v2',
     }
   )
 );

@@ -18,25 +18,39 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isSidebarCollapsed, toggleSidebar } = useUiStore();
   const [isHovered, setIsHovered] = useState(false);
+  const [isHoverLocked, setIsHoverLocked] = useState(false);
   const { photographer } = useAuthStore();
   const { data: profile } = useProfile();
 
-  const isExpanded = !isSidebarCollapsed || isHovered;
+  const isExpanded = !isSidebarCollapsed || (isHovered && !isHoverLocked);
+
+  const handleToggle = () => {
+    if (!isSidebarCollapsed) {
+      setIsHoverLocked(true);
+    }
+    toggleSidebar();
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setIsHoverLocked(false);
+  };
 
   return (
     <aside
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={handleMouseLeave}
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-background border-r border-border transition-all duration-300 ease-in-out',
-        isExpanded ? 'w-64' : 'w-16'
+        'fixed left-0 top-0 z-40 h-screen bg-background transition-all duration-300 ease-in-out',
+        isExpanded ? 'w-64' : 'w-16',
+        (isSidebarCollapsed && isHovered && !isHoverLocked) ? 'shadow-xl border-r border-border' : 'border-r border-border'
       )}
       aria-label="Sidebar navigation"
     >
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-center border-b border-border px-4 overflow-hidden">
           <button
-            onClick={toggleSidebar}
+            onClick={handleToggle}
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-accent'
             )}
