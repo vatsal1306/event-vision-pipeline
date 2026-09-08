@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 
+import httpx
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -14,6 +15,7 @@ from app.config import get_settings
 from app.core.database import get_db
 from app.core.redis_client import close_redis
 from app.main import app
+from app.tasks.celery_app import celery_app
 from tests.db_helpers import (
     ensure_test_database_exists,
     get_test_database_url,
@@ -21,6 +23,17 @@ from tests.db_helpers import (
     run_migrations,
     run_migrations_async,
 )
+
+celery_app.conf.update(
+    task_always_eager=True,
+    task_eager_propagates=True,
+)
+
+
+@pytest.fixture(autouse=True)
+def mock_external_http(respx_mock) -> None:
+    """Mock external HTTP calls (like SMS) globally using respx."""
+    respx_mock.route().mock(return_value=httpx.Response(200, json={"status": "mocked"}))
 
 
 @pytest_asyncio.fixture(autouse=True)

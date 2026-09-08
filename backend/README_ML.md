@@ -106,12 +106,14 @@ Tests run without model files or GPU. Torch-dependent tests use `pytest.importor
 ```python
 from app.ml.model_registry import register_model_loader, get_model_registry
 
+
 def _load_scrfd(registry: ModelRegistry) -> SCRFDDetector:
     return SCRFDDetector(
         model_path=registry.config.scrfd_model_path,
         device=registry.resolved_device,
         det_thresh=registry.config.scrfd_det_thresh,
     )
+
 
 register_model_loader("scrfd", _load_scrfd)
 

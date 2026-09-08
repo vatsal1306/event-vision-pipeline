@@ -27,6 +27,7 @@ Every function signature must have full type annotations. Use `from __future__ i
 ```python
 from __future__ import annotations
 
+
 async def get_event(event_id: UUID, db: AsyncSession) -> Event | None:
     """Retrieve an event by ID, or None if not found."""
     return await db.get(Event, event_id)
@@ -117,9 +118,7 @@ class EventService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def create_event(
-        self, photographer_id: UUID, request: CreateEventRequest
-    ) -> Event:
+    async def create_event(self, photographer_id: UUID, request: CreateEventRequest) -> Event:
         # Business logic here
         ...
 ```

@@ -152,7 +152,10 @@ async def test_process_uploaded_photo_success(
     await storage.put_object("platform-originals", s3_key, img_bytes, "image/jpeg")
 
     # Process
-    with patch("app.tasks.photo_tasks.async_session_factory") as mock_db:
+    with (
+        patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
+        patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
+    ):
         from contextlib import asynccontextmanager
 
         @asynccontextmanager
@@ -194,7 +197,10 @@ async def test_process_uploaded_photo_with_watermark(
     )
 
     # Process
-    with patch("app.tasks.photo_tasks.async_session_factory") as mock_db:
+    with (
+        patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
+        patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
+    ):
         from contextlib import asynccontextmanager
 
         @asynccontextmanager
@@ -221,7 +227,10 @@ async def test_process_uploaded_photo_failure(
     # Put invalid image data to cause cv2.imdecode to fail (which raises ValueError -> FAILED)
     await storage.put_object("platform-originals", s3_key, b"not an image", "image/jpeg")
 
-    with patch("app.tasks.photo_tasks.async_session_factory") as mock_db:
+    with (
+        patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
+        patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
+    ):
         from contextlib import asynccontextmanager
 
         @asynccontextmanager

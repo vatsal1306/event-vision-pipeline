@@ -55,21 +55,22 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
     op.execute(
-        "CREATE TYPE event_status AS ENUM "
-        "('draft', 'uploading', 'processing', 'ready', 'archived')"
+        "CREATE TYPE event_status AS ENUM ('draft', 'uploading', 'processing', 'ready', 'archived')"
     )
+    op.execute("CREATE TYPE event_type AS ENUM ('wedding', 'corporate', 'birthday', 'other')")
     op.execute(
-        "CREATE TYPE event_type AS ENUM ('wedding', 'corporate', 'birthday', 'other')"
-    )
-    op.execute(
-        "CREATE TYPE processing_status AS ENUM "
-        "('pending', 'processing', 'completed', 'failed')"
+        "CREATE TYPE processing_status AS ENUM ('pending', 'processing', 'completed', 'failed')"
     )
     op.execute("CREATE TYPE analytics_action AS ENUM ('view', 'download')")
 
     op.create_table(
         "photographers",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
         sa.Column("studio_name", sa.String(length=255), nullable=False),
@@ -77,7 +78,9 @@ def upgrade() -> None:
         sa.Column("phone_verified", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("logo_url", sa.String(length=500), nullable=True),
         sa.Column("watermark_url", sa.String(length=500), nullable=True),
-        sa.Column("storage_used_bytes", sa.BigInteger(), server_default=sa.text("0"), nullable=False),
+        sa.Column(
+            "storage_used_bytes", sa.BigInteger(), server_default=sa.text("0"), nullable=False
+        ),
         sa.Column(
             "storage_limit_bytes",
             sa.BigInteger(),
@@ -85,15 +88,30 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.UniqueConstraint("email", name="uq_photographers_email"),
     )
     op.create_index("idx_photographers_email", "photographers", ["email"])
 
     op.create_table(
         "events",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("photographer_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("slug", sa.String(length=255), nullable=False),
@@ -114,14 +132,28 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("cover_photo_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("download_enabled", sa.Boolean(), server_default=sa.text("true"), nullable=False),
-        sa.Column("master_link_active", sa.Boolean(), server_default=sa.text("true"), nullable=False),
-        sa.Column("guest_link_active", sa.Boolean(), server_default=sa.text("true"), nullable=False),
+        sa.Column(
+            "master_link_active", sa.Boolean(), server_default=sa.text("true"), nullable=False
+        ),
+        sa.Column(
+            "guest_link_active", sa.Boolean(), server_default=sa.text("true"), nullable=False
+        ),
         sa.Column("total_photos", sa.Integer(), server_default=sa.text("0"), nullable=False),
         sa.Column("total_faces", sa.Integer(), server_default=sa.text("0"), nullable=False),
         sa.Column("processed_photos", sa.Integer(), server_default=sa.text("0"), nullable=False),
         sa.Column("archive_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["photographer_id"], ["photographers.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("slug", name="uq_events_slug"),
     )
@@ -137,13 +169,28 @@ def upgrade() -> None:
 
     op.create_table(
         "folders",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("parent_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("sort_order", sa.Integer(), server_default=sa.text("0"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["parent_id"], ["folders.id"], ondelete="CASCADE"),
     )
@@ -166,7 +213,12 @@ def upgrade() -> None:
 
     op.create_table(
         "photos",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("folder_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("filename", sa.String(length=500), nullable=False),
@@ -185,8 +237,18 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("processing_error", sa.Text(), nullable=True),
-        sa.Column("uploaded_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "uploaded_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["folder_id"], ["folders.id"], ondelete="SET NULL"),
     )
@@ -202,19 +264,39 @@ def upgrade() -> None:
 
     op.create_table(
         "face_clusters",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("centroid", Vector(512), nullable=False),
         sa.Column("cluster_size", sa.Integer(), server_default=sa.text("0"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
     )
     op.create_index("idx_face_clusters_event", "face_clusters", ["event_id"])
 
     op.create_table(
         "face_embeddings",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("photo_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("cluster_id", postgresql.UUID(as_uuid=True), nullable=True),
@@ -225,7 +307,12 @@ def upgrade() -> None:
         sa.Column("bbox_h", sa.Float(), nullable=False),
         sa.Column("detection_score", sa.Float(), nullable=True),
         sa.Column("blur_score", sa.Float(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["photo_id"], ["photos.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["cluster_id"], ["face_clusters.id"], ondelete="SET NULL"),
@@ -241,7 +328,12 @@ def upgrade() -> None:
 
     op.create_table(
         "guest_sessions",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("phone", sa.String(length=20), nullable=False),
@@ -255,7 +347,12 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("matched_photo_count", sa.Integer(), server_default=sa.text("0"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("event_id", "phone", name="uq_guest_sessions_event_phone"),
     )
@@ -264,12 +361,22 @@ def upgrade() -> None:
 
     op.create_table(
         "couple_sessions",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("phone", sa.String(length=20), nullable=False),
         sa.Column("phone_verified", sa.Boolean(), server_default=sa.text("false"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("event_id", "phone", name="uq_couple_sessions_event_phone"),
     )
@@ -277,10 +384,20 @@ def upgrade() -> None:
 
     op.create_table(
         "favorites",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("couple_session_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("photo_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["couple_session_id"], ["couple_sessions.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["photo_id"], ["photos.id"], ondelete="CASCADE"),
         sa.UniqueConstraint(
@@ -293,13 +410,23 @@ def upgrade() -> None:
 
     op.create_table(
         "analytics_events",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("photo_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("guest_session_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("couple_session_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("action", ANALYTICS_ACTION, nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("NOW()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["photo_id"], ["photos.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["guest_session_id"], ["guest_sessions.id"], ondelete="SET NULL"),

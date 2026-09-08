@@ -198,6 +198,47 @@ async def test_other_photographer_event_returns_404(
 
 
 @pytest.mark.asyncio
+async def test_list_events_only_own(
+    db_session,
+    redis_client,
+) -> None:
+    """Listing events should only return the events owned by the authenticated photographer."""
+
+    async def override_get_db() -> AsyncIterator:
+        yield db_session
+
+    async def override_get_redis() -> AsyncIterator:
+        yield redis_client
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_redis_dep] = override_get_redis
+    transport = ASGITransport(app=app)
+
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            primary_tokens = await _verify_registration(client, redis_client, PRIMARY_REGISTER)
+            client.headers.update({"Authorization": f"Bearer {primary_tokens['access_token']}"})
+
+            own_event = await _create_event(client, name="Own Event")
+
+            secondary_tokens = await _verify_registration(client, redis_client, SECONDARY_REGISTER)
+            client.headers.update({"Authorization": f"Bearer {secondary_tokens['access_token']}"})
+
+            await _create_event(client, name="Other Event")
+
+            # Restore primary auth to check list
+            client.headers.update({"Authorization": f"Bearer {primary_tokens['access_token']}"})
+
+            response = await client.get("/api/v1/events")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["events"]) == 1
+            assert data["events"][0]["id"] == str(own_event["id"])
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
 async def test_list_supports_status_filter_and_sort(authed_client: AsyncClient) -> None:
     """List endpoint filters by status and sorts by name."""
     await _create_event(authed_client, name="Zulu Wedding")
