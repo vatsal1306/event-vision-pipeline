@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Camera, User, Settings, ChevronLeft, ChevronRight, HardDrive } from 'lucide-react';
+import { Camera, User, ChevronLeft, ChevronRight, HardDrive } from 'lucide-react';
 import { useUiStore } from '@/stores/ui-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useProfile } from '@/hooks/use-profile';
@@ -11,7 +11,6 @@ import { cn, formatBytes } from '@/lib/utils';
 const navigation = [
   { name: 'Events', href: '/dashboard/events', icon: Camera },
   { name: 'Profile', href: '/dashboard/profile', icon: User },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 export function Sidebar() {
