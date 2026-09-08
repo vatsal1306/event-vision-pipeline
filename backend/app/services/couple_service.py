@@ -36,6 +36,12 @@ class CoupleService:
 
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
+
+        from app.models.enums import EventStatus
+
+        if event.status == EventStatus.ARCHIVED:
+            raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
         if not event.master_link_active:
             raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")
 
@@ -67,6 +73,12 @@ class CoupleService:
 
         if not event:
             raise NotFoundError(f"Event with slug '{slug}'")
+
+        from app.models.enums import EventStatus
+
+        if event.status == EventStatus.ARCHIVED:
+            raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
         if not event.master_link_active:
             raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")
 

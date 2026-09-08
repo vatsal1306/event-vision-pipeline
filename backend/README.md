@@ -262,3 +262,12 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - OTP verification in `OTPService` bypasses Redis if `DEBUG=true` and `otp="123456"` to support development testing without incurring external API or mock usage costs.
 - Celery background tasks `notify_processing_complete_task` and `notify_archival_warning_task` handle formatting and dispatching emails to photographers when events become `READY` or approach their `archive_at` dates.
 - These notifications use simple text bodies for Phase 1 as no HTML templates were provided.
+- A local log provider handles email during dev (`email_provider=log`).
+- `send_processing_complete` notifies photographers when processing is complete.
+
+## Archival (BE-018)
+
+- Archival transitions `archive_at` events to `GLACIER_IR`, deletes web proxies, and cascades face data.
+- Storage efficiency dictates batching S3 `delete_objects`.
+- Restore moves objects back to `STANDARD`, resets status to `PROCESSING`, and queues proxy/face generation.
+- Guest and Couple links block access to archived events with `EVENT_ARCHIVED`.

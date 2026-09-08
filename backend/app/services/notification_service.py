@@ -109,6 +109,39 @@ class NotificationService:
             photographer_id=str(event.photographer_id),
         )
 
+    async def send_archival_complete(self, event_id: UUID) -> None:
+        """Send a notification when an event is successfully archived."""
+        event = await self.db.get(Event, event_id)
+        if not event:
+            raise NotFoundError("Event")
+
+        await self.db.refresh(event, ["photographer"])
+
+        if not event.photographer:
+            logger.warning("notification.no_photographer_for_event", event_id=str(event_id))
+            return
+
+        subject = f"Event Archived: {event.name}"
+        body = (
+            f"Hello {event.photographer.studio_name},\n\n"
+            f"Your event '{event.name}' has been successfully archived.\n"
+            "High-resolution original photos have been moved to cold storage. Web proxies "
+            "and facial recognition data have been removed to save space.\n\n"
+            "You can restore this event at any time from your dashboard, which will "
+            "make the photos available for viewing and downloading again.\n"
+        )
+
+        await self.email.send(
+            to=event.photographer.email,
+            subject=subject,
+            body=body,
+        )
+        logger.info(
+            "notification.archival_complete_sent",
+            event_id=str(event_id),
+            photographer_id=str(event.photographer_id),
+        )
+
 
 def get_notification_service(db: AsyncSession) -> NotificationService:
     """Return a configured NotificationService."""

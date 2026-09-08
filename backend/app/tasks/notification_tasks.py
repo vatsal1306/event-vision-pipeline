@@ -47,3 +47,22 @@ def notify_archival_warning_task(self: Any, event_id: str) -> None:
         raise
     except Exception as exc:
         raise self.retry(exc=exc)
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[untyped-decorator]
+def notify_archival_complete_task(self: Any, event_id: str) -> None:
+    """Send an email notification after an event is archived."""
+    import asyncio
+
+    async def _run() -> None:
+        async with async_session_factory() as db:
+            notification_service = get_notification_service(db)
+            await notification_service.send_archival_complete(UUID(event_id))
+
+    try:
+        asyncio.run(_run())
+    except NotFoundError:
+        # Do not retry if the event is not found
+        raise
+    except Exception as exc:
+        raise self.retry(exc=exc)

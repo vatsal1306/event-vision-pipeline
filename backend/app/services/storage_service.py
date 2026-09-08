@@ -38,6 +38,11 @@ class StorageService(abc.ABC):
         ...
 
     @abc.abstractmethod
+    async def delete_objects(self, bucket: str, keys: list[str]) -> None:
+        """Delete multiple objects."""
+        ...
+
+    @abc.abstractmethod
     async def generate_presigned_url(
         self,
         bucket: str,
@@ -106,6 +111,23 @@ class S3StorageService(StorageService):
                 await s3.delete_object(Bucket=bucket, Key=key)
         except (BotoCoreError, ClientError) as e:
             raise StorageError(f"Failed to delete object {key} from {bucket}: {e}") from e
+
+    async def delete_objects(self, bucket: str, keys: list[str]) -> None:
+        """Delete multiple objects from S3 efficiently."""
+        if not keys:
+            return
+
+        try:
+            async with self.session.client("s3") as s3:
+                # S3 delete_objects supports up to 1000 keys per request
+                for i in range(0, len(keys), 1000):
+                    batch = keys[i : i + 1000]
+                    await s3.delete_objects(
+                        Bucket=bucket,
+                        Delete={"Objects": [{"Key": k} for k in batch], "Quiet": True},
+                    )
+        except (BotoCoreError, ClientError) as e:
+            raise StorageError(f"Failed to delete {len(keys)} objects from {bucket}: {e}") from e
 
     async def generate_presigned_url(
         self,
@@ -183,6 +205,13 @@ class LocalStorageService(StorageService):
         path = self._get_path(bucket, key)
         if path.exists():
             path.unlink()
+
+    async def delete_objects(self, bucket: str, keys: list[str]) -> None:
+        """Delete multiple files from local disk."""
+        for key in keys:
+            path = self._get_path(bucket, key)
+            if path.exists():
+                path.unlink()
 
     async def generate_presigned_url(
         self,
