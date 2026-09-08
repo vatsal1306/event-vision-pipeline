@@ -103,8 +103,9 @@ async def restore_event(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """Restore an archived event."""
-    from app.models.enums import EventStatus
     from fastapi import HTTPException
+
+    from app.models.enums import EventStatus
     
     if event.status != EventStatus.ARCHIVED:
         raise HTTPException(status_code=409, detail="Event is not archived")

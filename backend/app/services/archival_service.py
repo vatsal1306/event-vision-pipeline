@@ -68,8 +68,14 @@ class ArchivalService:
             await asyncio.gather(*(move_to_glacier(p) for p in chunk))
 
         if failed_photos:
-            logger.error("archival.glacier_move_aborted", event_id=str(event_id), failed_count=len(failed_photos))
-            raise RuntimeError(f"Failed to move {len(failed_photos)} photos to Glacier. Aborting archival.")
+            logger.error(
+                "archival.glacier_move_aborted",
+                event_id=str(event_id),
+                failed_count=len(failed_photos),
+            )
+            raise RuntimeError(
+                f"Failed to move {len(failed_photos)} photos to Glacier. Aborting archival."
+            )
 
         # 2. Delete web proxies from S3
         proxy_keys = [p.proxy_s3_key for p in photos if p.proxy_s3_key]

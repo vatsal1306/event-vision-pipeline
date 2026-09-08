@@ -208,7 +208,9 @@ async def test_guest_auth_fails_on_archived_event(db_client: AsyncClient, db_ses
 
 
 @pytest.mark.asyncio
-async def test_master_auth_fails_on_archived_event(db_client: AsyncClient, db_session: AsyncSession):
+async def test_master_auth_fails_on_archived_event(
+    db_client: AsyncClient, db_session: AsyncSession
+):
     p = await create_photographer(db_session)
     e = await create_event(db_session, p.id, status=EventStatus.ARCHIVED)
     await db_session.commit()
@@ -229,6 +231,7 @@ async def test_restore_event_http(db_client: AsyncClient, db_session: AsyncSessi
     await db_session.commit()
     
     from app.api.v1.deps import get_photographer_event
+
     from app.main import app
     
     async def override_get_event() -> Event:
@@ -256,10 +259,16 @@ async def test_check_events_for_archival_db(db_session: AsyncSession):
     from datetime import timedelta
     p = await create_photographer(db_session)
     past_date = datetime.now(timezone.utc) - timedelta(days=1)
-    e1 = await create_event(db_session, p.id, status=EventStatus.READY, archive_at=past_date, slug="e1")
-    e2 = await create_event(db_session, p.id, status=EventStatus.PROCESSING, archive_at=past_date, slug="e2")
+    e1 = await create_event(
+        db_session, p.id, status=EventStatus.READY, archive_at=past_date, slug="e1"
+    )
+    await create_event(
+        db_session, p.id, status=EventStatus.PROCESSING, archive_at=past_date, slug="e2"
+    )
     future_date = datetime.now(timezone.utc) + timedelta(days=1)
-    e3 = await create_event(db_session, p.id, status=EventStatus.READY, archive_at=future_date, slug="e3")
+    await create_event(
+        db_session, p.id, status=EventStatus.READY, archive_at=future_date, slug="e3"
+    )
     await db_session.commit()
     
     from app.tasks.archival_tasks import check_events_for_archival
