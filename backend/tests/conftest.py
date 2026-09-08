@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import get_settings
 from app.core.database import get_db
+from app.core.redis_client import close_redis
 from app.main import app
 from tests.db_helpers import (
     ensure_test_database_exists,
@@ -20,7 +21,6 @@ from tests.db_helpers import (
     run_migrations,
     run_migrations_async,
 )
-from app.core.redis_client import close_redis
 
 
 @pytest_asyncio.fixture(autouse=True)
