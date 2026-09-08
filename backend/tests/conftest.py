@@ -20,6 +20,14 @@ from tests.db_helpers import (
     run_migrations,
     run_migrations_async,
 )
+from app.core.redis_client import close_redis
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def reset_redis_client() -> AsyncIterator[None]:
+    """Ensure the global Redis client is closed between tests."""
+    yield
+    await close_redis()
 
 
 @pytest.fixture

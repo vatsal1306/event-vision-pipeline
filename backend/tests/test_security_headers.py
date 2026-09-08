@@ -10,7 +10,7 @@ pytestmark = pytest.mark.asyncio
 
 async def test_security_headers_present_on_success(client: AsyncClient) -> None:
     """Test that a successful API request includes the security headers."""
-    response = await client.get("/health/ready")
+    response = await client.get("/health")
     assert response.status_code == 200
 
     headers = response.headers
