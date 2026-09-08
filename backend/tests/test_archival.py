@@ -271,12 +271,10 @@ async def test_check_events_for_archival_db(db_session: AsyncSession):
     )
     await db_session.commit()
 
-    import asyncio
-
-    from app.tasks.archival_tasks import check_events_for_archival
+    from app.tasks.archival_tasks import _check_events_for_archival_impl
 
     with patch("app.tasks.archival_tasks.archive_event_task.delay") as mock_delay:
-        await asyncio.to_thread(check_events_for_archival)
+        await _check_events_for_archival_impl()
 
         # Only e1 should be archived because it is READY and past archive_at
         mock_delay.assert_called_once_with(str(e1.id))

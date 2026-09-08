@@ -18,22 +18,22 @@ from app.tasks.celery_app import celery_app
 from app.tasks.notification_tasks import notify_archival_warning_task
 
 
+async def _check_events_for_archival_impl() -> None:
+    async with async_session_factory() as db:
+        now = datetime.now(timezone.utc)
+        stmt = select(Event).where(
+            Event.archive_at <= now,
+            Event.status == EventStatus.READY,
+        )
+        events = (await db.execute(stmt)).scalars().all()
+        for event in events:
+            archive_event_task.delay(str(event.id))
+
+
 @celery_app.task  # type: ignore[untyped-decorator]
 def check_events_for_archival() -> None:
     """Check for events past their archive_at date and archive them."""
-
-    async def _run() -> None:
-        async with async_session_factory() as db:
-            now = datetime.now(timezone.utc)
-            stmt = select(Event).where(
-                Event.archive_at <= now,
-                Event.status == EventStatus.READY,
-            )
-            events = (await db.execute(stmt)).scalars().all()
-            for event in events:
-                archive_event_task.delay(str(event.id))
-
-    asyncio.run(_run())
+    asyncio.run(_check_events_for_archival_impl())
 
 
 @celery_app.task  # type: ignore[untyped-decorator]
