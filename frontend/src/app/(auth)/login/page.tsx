@@ -206,7 +206,10 @@ export default function LoginPage() {
               variant="ghost"
               className="w-full"
               disabled={isLoading}
-              onClick={() => setStep(1)}
+              onClick={() => {
+                form.reset();
+                setStep(1);
+              }}
             >
               Back to login
             </Button>
