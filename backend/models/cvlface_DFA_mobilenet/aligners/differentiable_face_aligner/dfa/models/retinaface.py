@@ -11,7 +11,7 @@ from .net import MobileNetV1 as MobileNetV1
 
 class ClassHead(nn.Module):
     def __init__(self,inchannels=512,num_anchors=3):
-        super().__init__()
+        super(ClassHead,self).__init__()
         self.num_anchors = num_anchors
         self.conv1x1 = nn.Conv2d(inchannels,self.num_anchors*2,kernel_size=(1,1),stride=1,padding=0)
 
@@ -23,7 +23,7 @@ class ClassHead(nn.Module):
 
 class BboxHead(nn.Module):
     def __init__(self,inchannels=512,num_anchors=3):
-        super().__init__()
+        super(BboxHead,self).__init__()
         self.conv1x1 = nn.Conv2d(inchannels,num_anchors*4,kernel_size=(1,1),stride=1,padding=0)
 
     def forward(self,x):
@@ -34,7 +34,7 @@ class BboxHead(nn.Module):
 
 class LandmarkHead(nn.Module):
     def __init__(self,inchannels=512,num_anchors=3):
-        super().__init__()
+        super(LandmarkHead,self).__init__()
         self.conv1x1 = nn.Conv2d(inchannels,num_anchors*10,kernel_size=(1,1),stride=1,padding=0)
 
     def forward(self,x):
@@ -49,7 +49,7 @@ class RetinaFace(nn.Module):
         :param cfg:  Network related settings.
         :param phase: train or test.
         """
-        super().__init__()
+        super(RetinaFace,self).__init__()
         self.phase = phase
         backbone = None
         if cfg['name'] == 'mobilenet0.25':

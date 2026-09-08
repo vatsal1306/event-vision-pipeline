@@ -4,13 +4,7 @@ import torch
 import torch.nn as nn
 from easydict import EasyDict as edict
 
-from .dist import (
-    _rp_2d_cross_cols,
-    _rp_2d_cross_rows,
-    _rp_2d_euclidean,
-    _rp_2d_product,
-    _rp_2d_quant,
-)
+from .dist import _rp_2d_cross_cols, _rp_2d_cross_rows, _rp_2d_euclidean, _rp_2d_product, _rp_2d_quant
 
 try:
     from ..rpe_ops.rpe_index import RPEIndexFunction
@@ -498,10 +492,10 @@ version in non-transposed version"
         return torch.matmul(x.permute(1, 2, 0, 3), weight).permute(2, 0, 1, 3)
 
     def __repr__(self):
-        return f'iRPE(head_dim={self.head_dim}, num_heads={self.num_heads}, \
-mode="{self.mode}", method={self.method}, transposed={self.transposed}, \
-num_buckets={self.num_buckets}, initializer={self.initializer}, \
-rpe_config={self.rpe_config})'
+        return 'iRPE(head_dim={rpe.head_dim}, num_heads={rpe.num_heads}, \
+mode="{rpe.mode}", method={rpe.method}, transposed={rpe.transposed}, \
+num_buckets={rpe.num_buckets}, initializer={rpe.initializer}, \
+rpe_config={rpe.rpe_config})'.format(rpe=self)
 
 
 class iRPE_Cross(nn.Module):
@@ -571,11 +565,11 @@ class iRPE_Cross(nn.Module):
         return rows + cols
 
     def __repr__(self):
-        return f'iRPE_Cross(head_dim={self.rp_rows.head_dim}, \
-num_heads={self.rp_rows.num_heads}, mode="{self.rp_rows.mode}", method={self.rp_rows.method}, \
-transposed={self.rp_rows.transposed}, num_buckets={self.rp_rows.num_buckets}, \
-initializer={self.rp_rows.initializer}, \
-rpe_config={self.rp_rows.rpe_config})'
+        return 'iRPE_Cross(head_dim={rpe.head_dim}, \
+num_heads={rpe.num_heads}, mode="{rpe.mode}", method={rpe.method}, \
+transposed={rpe.transposed}, num_buckets={rpe.num_buckets}, \
+initializer={rpe.initializer}, \
+rpe_config={rpe.rpe_config})'.format(rpe=self.rp_rows)
 
 
 def get_single_rpe_config(ratio=1.9,

@@ -1,5 +1,4 @@
-from collections.abc import Callable
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -179,7 +178,7 @@ class VisionTransformerWithKPRPE(nn.Module):
                  drop_rate: float = 0.,
                  attn_drop_rate: float = 0.,
                  drop_path_rate: float = 0.,
-                 num_patches: int | None = None,
+                 num_patches: Optional[int] = None,
                  norm_layer: str = "ln",
                  mask_ratio = 0.1,
                  using_checkpoint = False,

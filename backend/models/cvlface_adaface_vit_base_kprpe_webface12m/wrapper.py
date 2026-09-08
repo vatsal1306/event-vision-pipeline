@@ -1,8 +1,7 @@
 import yaml
+from models import get_model
 from omegaconf import OmegaConf
 from transformers import PretrainedConfig, PreTrainedModel
-
-from models import get_model
 
 
 class ModelConfig(PretrainedConfig):
