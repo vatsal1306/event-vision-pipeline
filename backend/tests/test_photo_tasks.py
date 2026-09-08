@@ -153,7 +153,7 @@ async def test_process_uploaded_photo_success(
 
     # Process
     with patch("app.tasks.photo_tasks.async_session_factory") as mock_db, \
-         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay") as mock_notify:
+         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"):
         from contextlib import asynccontextmanager
 
         @asynccontextmanager
@@ -196,7 +196,7 @@ async def test_process_uploaded_photo_with_watermark(
 
     # Process
     with patch("app.tasks.photo_tasks.async_session_factory") as mock_db, \
-         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay") as mock_notify:
+         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"):
         from contextlib import asynccontextmanager
 
         @asynccontextmanager
@@ -224,7 +224,7 @@ async def test_process_uploaded_photo_failure(
     await storage.put_object("platform-originals", s3_key, b"not an image", "image/jpeg")
 
     with patch("app.tasks.photo_tasks.async_session_factory") as mock_db, \
-         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay") as mock_notify:
+         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"):
         from contextlib import asynccontextmanager
 
         @asynccontextmanager

@@ -223,7 +223,7 @@ async def test_list_events_only_own(
             secondary_tokens = await _verify_registration(client, redis_client, SECONDARY_REGISTER)
             client.headers.update({"Authorization": f"Bearer {secondary_tokens['access_token']}"})
             
-            other_event = await _create_event(client, name="Other Event")
+            await _create_event(client, name="Other Event")
 
             # Restore primary auth to check list
             client.headers.update({"Authorization": f"Bearer {primary_tokens['access_token']}"})
