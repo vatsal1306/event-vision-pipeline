@@ -21,6 +21,22 @@ from tests.db_helpers import (
     run_migrations,
     run_migrations_async,
 )
+from app.core.redis_client import close_redis
+from app.tasks.celery_app import celery_app
+import respx
+
+celery_app.conf.update(
+    task_always_eager=True,
+    task_eager_propagates=True,
+)
+
+
+import httpx
+
+@pytest.fixture(autouse=True)
+def mock_external_http(respx_mock) -> None:
+    """Mock external HTTP calls (like SMS) globally using respx."""
+    respx_mock.route().mock(return_value=httpx.Response(200, json={"status": "mocked"}))
 
 
 @pytest_asyncio.fixture(autouse=True)

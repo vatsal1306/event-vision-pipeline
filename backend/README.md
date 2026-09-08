@@ -277,3 +277,10 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - Security Headers: Uses `SecurityHeadersMiddleware` to set strict `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security`, and `Content-Security-Policy`.
 - Rate Limiting: Redis-backed sliding window via `RateLimiter` using a pipeline of `ZREMRANGEBYSCORE`, `ZADD`, `ZCARD`, and `EXPIRE`. Dependency `rate_limit(group, limit, window)` captures IP or authenticated subject via Authorization header.
 - Uses `fakeredis[lua]` isolated per test for reliable logic assertions.
+
+## Backend Test Harness (BE-020)
+
+- Eager Celery execution is enforced via `celery_app.conf.update(task_always_eager=True)` in `conftest.py`. This ensures background ingest tasks actually execute and bubble up errors synchronously during test runs.
+- Test names strictly follow the `test_{method}_{scenario}_{expected_result}` convention to clarify intent and behavior.
+- All external HTTP calls (such as future SMS/AWS provider integrations) are completely stubbed using `respx.mock` injected via the `mock_external_http` autouse fixture to guarantee zero external I/O leakage during CI.
+- Additional test cases added include strict ownership isolation to enforce that cross-photographer entities return `404 Not Found`.
