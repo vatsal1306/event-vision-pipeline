@@ -95,4 +95,3 @@ def restore_event_task(self: Any, event_id: str) -> None:
         raise
     except Exception as exc:
         raise self.retry(exc=exc)
-

@@ -103,7 +103,7 @@ async def test_get_public_info_archived_event(
 ) -> None:
     """Test retrieving public info for an archived event."""
     photographer, event = await create_test_photographer_and_event(db_session, with_logo=False)
-    
+
     # Archive the event
     event.status = EventStatus.ARCHIVED
     await db_session.commit()

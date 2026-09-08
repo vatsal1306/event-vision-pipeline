@@ -229,34 +229,35 @@ async def test_restore_event_http(db_client: AsyncClient, db_session: AsyncSessi
     p = await create_photographer(db_session)
     e = await create_event(db_session, p.id, status=EventStatus.ARCHIVED)
     await db_session.commit()
-    
+
     from app.api.v1.deps import get_photographer_event
 
     from app.main import app
-    
+
     async def override_get_event() -> Event:
         return e
-        
+
     app.dependency_overrides[get_photographer_event] = override_get_event
-    
+
     with patch("app.tasks.archival_tasks.restore_event_task.delay") as mock_delay:
         response = await db_client.post(f"/api/v1/events/{e.id}/restore")
         assert response.status_code == 202
         mock_delay.assert_called_once_with(str(e.id))
-        
+
     # Also test that it returns 409 if not archived
     e.status = EventStatus.READY
     await db_session.commit()
-    
+
     response2 = await db_client.post(f"/api/v1/events/{e.id}/restore")
     assert response2.status_code == 409
-    
+
     app.dependency_overrides.pop(get_photographer_event, None)
 
 
 @pytest.mark.asyncio
 async def test_check_events_for_archival_db(db_session: AsyncSession):
     from datetime import timedelta
+
     p = await create_photographer(db_session)
     past_date = datetime.now(timezone.utc) - timedelta(days=1)
     e1 = await create_event(
@@ -270,10 +271,11 @@ async def test_check_events_for_archival_db(db_session: AsyncSession):
         db_session, p.id, status=EventStatus.READY, archive_at=future_date, slug="e3"
     )
     await db_session.commit()
-    
+
     from app.tasks.archival_tasks import check_events_for_archival
+
     with patch("app.tasks.archival_tasks.archive_event_task.delay") as mock_delay:
         check_events_for_archival()
-        
+
         # Only e1 should be archived because it is READY and past archive_at
         mock_delay.assert_called_once_with(str(e1.id))

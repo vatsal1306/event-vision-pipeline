@@ -106,13 +106,14 @@ async def restore_event(
     from fastapi import HTTPException
 
     from app.models.enums import EventStatus
-    
+
     if event.status != EventStatus.ARCHIVED:
         raise HTTPException(status_code=409, detail="Event is not archived")
 
     from app.tasks.archival_tasks import restore_event_task
+
     restore_event_task.delay(str(event.id))
-    
+
     return {"message": "Event restoration started"}
 
 
