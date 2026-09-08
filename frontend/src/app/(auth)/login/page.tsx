@@ -207,7 +207,8 @@ export default function LoginPage() {
               className="w-full"
               disabled={isLoading}
               onClick={() => {
-                form.reset();
+                form.reset({ email_or_phone: '', password: '' });
+                form.clearErrors();
                 setStep(1);
               }}
             >
