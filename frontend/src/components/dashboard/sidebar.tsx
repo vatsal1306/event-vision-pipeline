@@ -89,24 +89,6 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className="border-t border-border p-3">
-          <button
-            onClick={() => {
-              void logout().finally(() => {
-                window.location.href = '/login';
-              });
-            }}
-            className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive overflow-hidden',
-              !isExpanded && 'justify-center'
-            )}
-            title={!isExpanded ? 'Log out' : undefined}
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-            {isExpanded && <span className="whitespace-nowrap">Log out</span>}
-          </button>
-        </div>
-
         {isExpanded && photographer && profile && (
           <div className="border-t border-border p-4 whitespace-nowrap overflow-hidden">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -126,6 +108,24 @@ export function Sidebar() {
             </div>
           </div>
         )}
+
+        <div className="border-t border-border p-3">
+          <button
+            onClick={() => {
+              void logout().finally(() => {
+                window.location.href = '/login';
+              });
+            }}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive overflow-hidden',
+              !isExpanded && 'justify-center'
+            )}
+            title={!isExpanded ? 'Log out' : undefined}
+          >
+            <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            {isExpanded && <span className="whitespace-nowrap">Log out</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );
