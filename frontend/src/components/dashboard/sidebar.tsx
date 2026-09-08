@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useProfile } from '@/hooks/use-profile';
 import { cn, formatBytes } from '@/lib/utils';
 
+const navigation = [
   { name: 'Events', href: '/dashboard/events', icon: Camera },
   { name: 'Profile', href: '/dashboard/profile', icon: User },
 ];
