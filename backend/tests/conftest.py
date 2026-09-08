@@ -67,15 +67,17 @@ async def db_session(
 
         import app.core.database
 
-        original_factory = app.core.database.async_session_factory
-        app.core.database.async_session_factory = session_factory
+        # Configure the existing global session_factory to use the test engine
+        # so any module that has already imported it will use the test database
+        original_engine = app.core.database.async_session_factory.kw["bind"]
+        app.core.database.async_session_factory.configure(bind=engine)
 
         try:
             async with session_factory() as session:
                 yield session
                 await session.rollback()
         finally:
-            app.core.database.async_session_factory = original_factory
+            app.core.database.async_session_factory.configure(bind=original_engine)
     finally:
         await engine.dispose()
 
