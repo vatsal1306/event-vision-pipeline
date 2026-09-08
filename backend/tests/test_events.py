@@ -203,6 +203,7 @@ async def test_list_events_only_own(
     redis_client,
 ) -> None:
     """Listing events should only return the events owned by the authenticated photographer."""
+
     async def override_get_db() -> AsyncIterator:
         yield db_session
 
@@ -217,12 +218,12 @@ async def test_list_events_only_own(
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             primary_tokens = await _verify_registration(client, redis_client, PRIMARY_REGISTER)
             client.headers.update({"Authorization": f"Bearer {primary_tokens['access_token']}"})
-            
+
             own_event = await _create_event(client, name="Own Event")
 
             secondary_tokens = await _verify_registration(client, redis_client, SECONDARY_REGISTER)
             client.headers.update({"Authorization": f"Bearer {secondary_tokens['access_token']}"})
-            
+
             await _create_event(client, name="Other Event")
 
             # Restore primary auth to check list

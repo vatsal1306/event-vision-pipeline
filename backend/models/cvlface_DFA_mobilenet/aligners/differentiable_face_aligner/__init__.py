@@ -22,7 +22,7 @@ class DifferentiableFaceAligner(BaseAligner):
     '''
 
     def __init__(self, net, prior_box, preprocessor, config):
-        super(DifferentiableFaceAligner, self).__init__()
+        super().__init__()
         self.net = net
         self.prior_box = prior_box
         self.preprocessor = preprocessor

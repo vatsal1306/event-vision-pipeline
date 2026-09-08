@@ -1,7 +1,6 @@
 import itertools
 import os
 from pathlib import Path
-from typing import List, Tuple, Union
 
 import safetensors
 import torch
@@ -15,7 +14,7 @@ def get_parameter_device(parameter: torch.nn.Module):
         return next(parameters_and_buffers).device
     except StopIteration:
         # For torch.nn.DataParallel compatibility in PyTorch 1.5
-        def find_tensor_attributes(module: torch.nn.Module) -> List[Tuple[str, Tensor]]:
+        def find_tensor_attributes(module: torch.nn.Module) -> list[tuple[str, Tensor]]:
             tuples = [(k, v) for k, v in module.__dict__.items() if torch.is_tensor(v)]
             return tuples
         gen = parameter._named_members(get_members_fn=find_tensor_attributes)
@@ -36,7 +35,7 @@ def get_parameter_dtype(parameter: torch.nn.Module):
     except StopIteration:
         # For torch.nn.DataParallel compatibility in PyTorch 1.5
 
-        def find_tensor_attributes(module: torch.nn.Module) -> List[Tuple[str, Tensor]]:
+        def find_tensor_attributes(module: torch.nn.Module) -> list[tuple[str, Tensor]]:
             tuples = [(k, v) for k, v in module.__dict__.items() if torch.is_tensor(v)]
             return tuples
 
@@ -45,15 +44,15 @@ def get_parameter_dtype(parameter: torch.nn.Module):
         return first_tuple[1].dtype
 
 
-def get_parent_directory(save_path: Union[str, os.PathLike]) -> Path:
+def get_parent_directory(save_path: str | os.PathLike) -> Path:
     path_obj = Path(save_path)
     return path_obj.parent
 
-def get_base_name(save_path: Union[str, os.PathLike]) -> str:
+def get_base_name(save_path: str | os.PathLike) -> str:
     path_obj = Path(save_path)
     return path_obj.name
 
-def load_state_dict_from_path(path: Union[str, os.PathLike]):
+def load_state_dict_from_path(path: str | os.PathLike):
     # Load a state dict from a path.
     if 'safetensors' in path:
         state_dict = safetensors.torch.load_file(path)

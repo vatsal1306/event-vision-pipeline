@@ -20,7 +20,7 @@ class ViTKPRPEModel(BaseModel):
     ```
     """
     def __init__(self, net, config):
-        super(ViTKPRPEModel, self).__init__(config)
+        super().__init__(config)
         self.net = net
 
 

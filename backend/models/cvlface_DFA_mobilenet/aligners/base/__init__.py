@@ -4,7 +4,12 @@ from typing import Union
 import torch
 from torch import device
 
-from .utils import get_parameter_device, get_parameter_dtype, load_state_dict_from_path, save_state_dict_and_config
+from .utils import (
+    get_parameter_device,
+    get_parameter_dtype,
+    load_state_dict_from_path,
+    save_state_dict_and_config,
+)
 
 
 class BaseAligner(torch.nn.Module):
@@ -28,7 +33,7 @@ class BaseAligner(torch.nn.Module):
 
     def save_pretrained(
         self,
-        save_dir: Union[str, os.PathLike],
+        save_dir: str | os.PathLike,
         name: str = 'model.pt',
         rank: int = 0,
     ):

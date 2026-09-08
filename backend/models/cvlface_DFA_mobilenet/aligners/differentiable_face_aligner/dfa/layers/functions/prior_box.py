@@ -4,7 +4,7 @@ from math import ceil
 import torch
 
 
-class PriorBox(object):
+class PriorBox:
 
     def __init__(self,
                  image_size,
@@ -13,7 +13,7 @@ class PriorBox(object):
                  clip=False,
                  variances=[0.1, 0.2],
                  ):
-        super(PriorBox, self).__init__()
+        super().__init__()
         self.min_sizes = min_sizes
         self.steps = steps
         self.clip = clip

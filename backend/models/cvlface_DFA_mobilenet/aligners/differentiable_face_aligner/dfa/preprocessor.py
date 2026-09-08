@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 
-class Preprocessor():
+class Preprocessor:
 
     def __init__(self, output_size=160, padding=0.0, padding_val='zero'):
         self.output_size = output_size
