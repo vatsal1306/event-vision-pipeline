@@ -49,6 +49,7 @@ async def test_rate_limiter_dependency_integration(fake_redis: FakeRedis) -> Non
     """Test that the rate_limit dependency integrates with FastAPI correctly."""
     app = FastAPI()
     from app.core.exception_handlers import register_exception_handlers
+
     register_exception_handlers(app)
 
     # Override the get_redis_dep inside the rate_limit closure

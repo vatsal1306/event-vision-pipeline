@@ -55,7 +55,7 @@ def create_app() -> FastAPI:
 
     _configure_cors(app, settings)
     from app.core.middleware import SecurityHeadersMiddleware
-    
+
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestContextMiddleware)
     register_exception_handlers(app)
