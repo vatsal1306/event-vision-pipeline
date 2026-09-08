@@ -54,10 +54,10 @@ export function Sidebar() {
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-accent'
             )}
-            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!isSidebarCollapsed}
+            aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-expanded={isExpanded}
           >
-            {isSidebarCollapsed ? (
+            {!isExpanded ? (
               <ChevronRight className="h-5 w-5" />
             ) : (
               <ChevronLeft className="h-5 w-5" />
