@@ -90,12 +90,12 @@ export function Sidebar() {
         </nav>
 
         {isExpanded && photographer && profile && (
-          <div className="border-t border-border p-4 whitespace-nowrap overflow-hidden">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Storage Used</span>
+          <div className="border-t border-border px-3 py-4 whitespace-nowrap overflow-hidden">
+            <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground text-center mb-2">
+              <span className="font-medium">Storage Used</span>
               <span className="font-mono">{formatBytes(profile.storage_used_bytes)} / {formatBytes(profile.storage_limit_bytes)}</span>
             </div>
-            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
               <div
                 className="h-full bg-primary transition-all duration-300"
                 style={{ width: `${Math.min(100, (profile.storage_used_bytes / profile.storage_limit_bytes) * 100)}%` }}
