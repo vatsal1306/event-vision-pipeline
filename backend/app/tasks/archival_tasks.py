@@ -27,7 +27,7 @@ def check_events_for_archival() -> None:
             now = datetime.now(timezone.utc)
             stmt = select(Event).where(
                 Event.archive_at <= now,
-                Event.status != EventStatus.ARCHIVED,
+                Event.status == EventStatus.READY,
             )
             events = (await db.execute(stmt)).scalars().all()
             for event in events:
@@ -53,11 +53,11 @@ def send_archival_warnings() -> None:
                     continue
                 # Calculate absolute days remaining
                 delta = event.archive_at - now
-                days_left = delta.days
+                days_left = delta.total_seconds() / 86400.0
 
-                # Check for 7 day or 1 day warnings.
-                # (Assuming cron runs daily, so `days` will accurately hit 7 and 1 exactly once)
-                if days_left == 7 or days_left == 1:
+                # Check for 7 day or 1 day warnings using a 24-hour window
+                # to tolerate timezone shifts or delayed Beat runs.
+                if (6.5 <= days_left <= 7.5) or (0.5 <= days_left <= 1.5):
                     notify_archival_warning_task.delay(str(event.id))
 
     asyncio.run(_run())
@@ -78,3 +78,21 @@ def archive_event_task(self: Any, event_id: str) -> None:
         raise
     except Exception as exc:
         raise self.retry(exc=exc)
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[untyped-decorator]
+def restore_event_task(self: Any, event_id: str) -> None:
+    """Restore an archived event."""
+
+    async def _run() -> None:
+        async with async_session_factory() as db:
+            service = ArchivalService(db)
+            await service.restore_event(UUID(event_id))
+
+    try:
+        asyncio.run(_run())
+    except NotFoundError:
+        raise
+    except Exception as exc:
+        raise self.retry(exc=exc)
+

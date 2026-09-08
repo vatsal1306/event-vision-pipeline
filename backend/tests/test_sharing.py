@@ -94,3 +94,22 @@ async def test_get_public_info_not_found(
     response = await db_client.get("/api/v1/event/invalid-slug-123/info")
     assert response.status_code == 404
     assert response.json()["detail"] == "Event with slug 'invalid-slug-123' not found"
+
+
+@pytest.mark.asyncio
+async def test_get_public_info_archived_event(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Test retrieving public info for an archived event."""
+    photographer, event = await create_test_photographer_and_event(db_session, with_logo=False)
+    
+    # Archive the event
+    event.status = EventStatus.ARCHIVED
+    await db_session.commit()
+
+    response = await db_client.get(f"/api/v1/event/{event.slug}/info")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["event"]["status"] == EventStatus.ARCHIVED.value

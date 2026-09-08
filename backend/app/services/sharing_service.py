@@ -44,6 +44,7 @@ class SharingService:
                 id=event.id,
                 name=event.name,
                 slug=event.slug,
+                status=event.status,
                 download_enabled=event.download_enabled,
                 date_start=event.date_start,
                 date_end=event.date_end,

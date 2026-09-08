@@ -163,6 +163,7 @@ class EventPublicInfoEvent(BaseModel):
     id: UUID
     name: str
     slug: str
+    status: EventStatus
     download_enabled: bool
     date_start: date | None
     date_end: date | None

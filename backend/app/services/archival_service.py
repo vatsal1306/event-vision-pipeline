@@ -48,6 +48,8 @@ class ArchivalService:
         proxy_bucket = self.settings.s3_bucket_proxies
 
         # 1. Move originals to GLACIER_IR
+        failed_photos = []
+
         async def move_to_glacier(photo: Photo) -> None:
             try:
                 await self.storage.change_storage_class(
@@ -57,12 +59,17 @@ class ArchivalService:
                 )
             except Exception as exc:
                 logger.error("archival.glacier_move_failed", photo_id=str(photo.id), error=str(exc))
+                failed_photos.append(photo.id)
 
         # Run in parallel batches (e.g. 50 at a time)
         chunk_size = 50
         for i in range(0, len(photos), chunk_size):
             chunk = photos[i : i + chunk_size]
             await asyncio.gather(*(move_to_glacier(p) for p in chunk))
+
+        if failed_photos:
+            logger.error("archival.glacier_move_aborted", event_id=str(event_id), failed_count=len(failed_photos))
+            raise RuntimeError(f"Failed to move {len(failed_photos)} photos to Glacier. Aborting archival.")
 
         # 2. Delete web proxies from S3
         proxy_keys = [p.proxy_s3_key for p in photos if p.proxy_s3_key]

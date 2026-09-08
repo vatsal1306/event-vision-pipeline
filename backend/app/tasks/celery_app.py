@@ -16,6 +16,8 @@ celery_app = Celery(
     include=[
         "app.tasks.notification_tasks",
         "app.tasks.archival_tasks",
+        "app.tasks.photo_tasks",
+        "app.tasks.face_tasks",
     ],
 )
 
