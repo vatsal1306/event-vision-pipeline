@@ -39,6 +39,7 @@ dev = [
     "ruff>=0.8,<1",
     "types-passlib>=1.7,<2",
     "types-python-jose>=3.3,<4",
+    "types-PyYAML>=6.0,<7",
 ]
 ml = [
     # Pin torch to pix-workers production versions (Python 3.10 compatible).
@@ -73,6 +74,7 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.10"
 strict = true
 packages = ["app"]
+exclude = ["app/ml/vendor/"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -102,6 +104,8 @@ module = [
     "onnxruntime.*",
     "ai_edge_litert",
     "ai_edge_litert.*",
+    "glasses_detector",
+    "glasses_detector.*",
     "cv2",
     "sklearn",
     "sklearn.*",

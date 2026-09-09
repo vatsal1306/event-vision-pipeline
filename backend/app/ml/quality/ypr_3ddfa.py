@@ -68,9 +68,9 @@ class YPR3DDFAPredictor:
 
             def center_distance(box: list[float]) -> float:
                 x1, y1, x2, y2 = box[:4]
-                face_cx = (x1 + x2) / 2
-                face_cy = (y1 + y2) / 2
-                return (face_cx - img_cx) ** 2 + (face_cy - img_cy) ** 2
+                face_cx = (x1 + x2) / 2.0
+                face_cy = (y1 + y2) / 2.0
+                return float((face_cx - img_cx) ** 2 + (face_cy - img_cy) ** 2)
 
             top_box = [min(boxes, key=center_distance)]
 
@@ -116,7 +116,7 @@ class YPR3DDFAPredictor:
             x = asin(rotation[2, 0])
             y = atan2(rotation[2, 1] / cos(x), rotation[2, 2] / cos(x))
             z = atan2(rotation[1, 0] / cos(x), rotation[0, 0] / cos(x))
-        return tuple(angle * 180 / np.pi for angle in (x, y, z))
+        return (x * 180 / np.pi, y * 180 / np.pi, z * 180 / np.pi)
 
     def _calc_pose(self, param: np.ndarray) -> tuple[float, float, float]:
         projection = param[:12].reshape(3, -1)
