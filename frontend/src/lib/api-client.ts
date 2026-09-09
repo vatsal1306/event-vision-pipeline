@@ -71,8 +71,10 @@ class ApiClient {
       const response = await fetch(`${this.baseUrl}${path}`, fetchOptions);
 
       if (response.status === 401) {
-        await this.handle401();
-        // optionally retry request here later
+        if (!path.includes('/auth/login')) {
+          await this.handle401();
+        }
+        // Let the normal error handling below parse the response body for login endpoints
       }
 
       if (!response.ok) {
