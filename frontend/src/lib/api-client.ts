@@ -218,12 +218,12 @@ export const api = {
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
   getMasterPhotos: (slug: string, token?: string) =>
-    apiClient.get<Photo[]>(
+    apiClient.get<PaginatedResponse<Photo>>(
       `/api/v1/event/${slug}/master/photos`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
   getMasterFolders: (slug: string, token?: string) =>
-    apiClient.get<FolderNode[]>(
+    apiClient.get<{ folders: FolderNode[] }>(
       `/api/v1/event/${slug}/master/folders`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
@@ -234,7 +234,7 @@ export const api = {
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
   getFavorites: (slug: string, token?: string) =>
-    apiClient.get<Photo[]>(
+    apiClient.get<PaginatedResponse<Photo>>(
       `/api/v1/event/${slug}/master/favorites`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),

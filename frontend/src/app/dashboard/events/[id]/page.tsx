@@ -244,7 +244,7 @@ export default function EventDetailPage() {
 
         {currentTab === 'upload' && (
           <div className="p-8 max-w-4xl mx-auto mt-6">
-            <UploadDropzone eventId={id} folders={folders} />
+            <UploadDropzone eventId={id} folders={folders} initialFolderId={folderId} />
             <UploadProgress eventId={id} />
           </div>
         )}

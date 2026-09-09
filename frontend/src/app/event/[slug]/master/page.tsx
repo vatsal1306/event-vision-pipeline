@@ -291,15 +291,20 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   return (
     <ErrorBoundary>
     <div className="dark min-h-screen bg-background text-foreground flex flex-col">
-      <GalleryHeader event={event} photographer={photographer} />
-      
-      {/* Logout button injected into header area for convenience */}
-      <div className="absolute top-3 right-16 z-20">
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-white">
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
-        </Button>
-      </div>
+      <GalleryHeader 
+        event={event} 
+        photographer={photographer} 
+        onShare={() => {
+          navigator.clipboard.writeText(window.location.href);
+          toast.success('Gallery link copied to clipboard!');
+        }}
+        rightActions={
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        }
+      />
 
       <main className="flex-1 w-full max-w-screen-2xl mx-auto flex flex-col">
         <FolderNav

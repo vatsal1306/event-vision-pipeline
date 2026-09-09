@@ -1,10 +1,17 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { mapEventFromApi } from '@/lib/map-api';
 
 export function useEventInfo(slug: string) {
   return useQuery({
     queryKey: ['event-info', slug],
-    queryFn: () => api.getEventInfo(slug),
+    queryFn: async () => {
+      const data = await api.getEventInfo(slug);
+      return {
+        ...data,
+        event: mapEventFromApi(data.event as unknown as Record<string, unknown>),
+      };
+    },
   });
 }
 
@@ -25,7 +32,10 @@ export function useMasterVerify() {
 export function useMasterFolders(slug: string, token: string | null) {
   return useQuery({
     queryKey: ['master-folders', slug, token],
-    queryFn: () => api.getMasterFolders(slug, token!),
+    queryFn: async () => {
+      const res = await api.getMasterFolders(slug, token!);
+      return res.folders || [];
+    },
     enabled: !!token,
   });
 }
@@ -33,7 +43,10 @@ export function useMasterFolders(slug: string, token: string | null) {
 export function useMasterPhotos(slug: string, token: string | null) {
   return useQuery({
     queryKey: ['master-photos', slug, token],
-    queryFn: () => api.getMasterPhotos(slug, token!),
+    queryFn: async () => {
+      const res = await api.getMasterPhotos(slug, token!);
+      return res.items || [];
+    },
     enabled: !!token,
   });
 }

@@ -105,7 +105,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       const formData = new FormData();
       formData.append('file', imageBlob, 'selfie.jpg');
       
-      const { matchCount } = await selfieMutation.mutateAsync({ slug, data: formData });
+      const { matchCount } = await selfieMutation.mutateAsync({ slug, data: formData, token: sessionToken });
       
       // Update session to indicate selfie is no longer needed
       setGuestSession(guestSession, sessionToken, false);

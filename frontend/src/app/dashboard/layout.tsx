@@ -17,7 +17,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { accessToken } = useAuthStore();
-  const { isSidebarCollapsed } = useUiStore();
+  const { isSidebarCollapsed, isSidebarHovered, isHoverLocked } = useUiStore();
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -42,13 +42,15 @@ export default function DashboardLayout({
     );
   }
 
+  const isExpanded = !isSidebarCollapsed || (isSidebarHovered && !isHoverLocked);
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
       <div
         className={cn(
           'transition-all duration-300',
-          isSidebarCollapsed ? 'md:pl-16' : 'md:pl-64'
+          isExpanded ? 'md:pl-64' : 'md:pl-16'
         )}
       >
         <Header />

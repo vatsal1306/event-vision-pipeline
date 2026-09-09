@@ -18,8 +18,8 @@ export function useGuestVerify() {
 export function useSubmitSelfie() {
   return useMutation({
     // We send FormData for selfie upload. Data is a FormData object.
-    mutationFn: ({ slug, data }: { slug: string; data: FormData }) =>
-      api.submitSelfie(slug, data),
+    mutationFn: ({ slug, data, token }: { slug: string; data: FormData; token: string }) =>
+      api.submitSelfie(slug, data, token),
   });
 }
 

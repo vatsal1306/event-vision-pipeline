@@ -6,6 +6,7 @@ import { GalleryGrid } from '@/components/gallery/gallery-grid';
 import { Button } from '@/components/ui/button';
 import { Camera } from 'lucide-react';
 import { EmptyState } from '@/components/shared/empty-state';
+import { Logo } from '@/components/shared/logo';
 
 const PhotoViewer = dynamic(
   () => import('@/components/gallery/photo-viewer').then(mod => mod.PhotoViewer),
@@ -58,12 +59,15 @@ export function PersonalizedGallery({
     <div className="flex flex-col w-full h-full max-w-7xl mx-auto">
       <div className="px-6 py-8 md:py-12 border-b border-white/5">
         <div className="flex items-center gap-4 mb-6">
-          {photographerLogo && (
-            <img src={photographerLogo} alt="Logo" className="h-8 w-auto opacity-80" />
-          )}
-          {eventName && (
-            <span className="text-zinc-500 font-medium text-sm tracking-wide uppercase">{eventName}</span>
-          )}
+          <Logo size="sm" />
+          <div className="flex items-center gap-4 border-l border-white/10 pl-4">
+            {photographerLogo && (
+              <img src={photographerLogo} alt="Logo" className="h-8 w-auto opacity-80" />
+            )}
+            {eventName && (
+              <span className="text-zinc-500 font-medium text-sm tracking-wide uppercase hidden sm:inline-block">{eventName}</span>
+            )}
+          </div>
         </div>
         <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
           Hi {guestName}!
