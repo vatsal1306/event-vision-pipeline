@@ -116,6 +116,14 @@ module = [
     "skimage.*",
     "transformers",
     "transformers.*",
+    "omegaconf",
+    "omegaconf.*",
+    "safetensors",
+    "safetensors.*",
+    "timm",
+    "timm.*",
+    "easydict",
+    "easydict.*",
 ]
 ignore_missing_imports = true
 
