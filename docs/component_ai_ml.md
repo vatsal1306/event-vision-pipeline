@@ -431,6 +431,13 @@ class FaceCrop:
 
 ## 5. Face Embedding Extraction
 
+> **Implemented (ML-004):** See `backend/app/ml/embedding/` and `backend/README_ML.md`.
+> Production uses **dual-model** extraction: ArcFace R100 (primary, clustering) +
+> AdaFace VIT-KPRPE (secondary, match validation). MobileFaceNet TFLite is a CPU
+> OOM fallback for primary only — not a selectable mode. Config: `ML_EMBEDDING_MODEL`
+> (`dual` | `r100`) and `ML_DUAL_MODEL_ENABLED`. The illustrative snippets below
+> predate ML-004 and show a simpler single-model design.
+
 ### 5.1 Embedding Interface
 
 ```python

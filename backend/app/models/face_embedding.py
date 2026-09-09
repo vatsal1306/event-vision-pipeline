@@ -44,6 +44,10 @@ class FaceEmbedding(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
         ForeignKey("face_clusters.id", ondelete="SET NULL"),
     )
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSIONS), nullable=False)
+    secondary_embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(EMBEDDING_DIMENSIONS),
+        nullable=True,
+    )
     bbox_x: Mapped[float] = mapped_column(Float, nullable=False)
     bbox_y: Mapped[float] = mapped_column(Float, nullable=False)
     bbox_w: Mapped[float] = mapped_column(Float, nullable=False)

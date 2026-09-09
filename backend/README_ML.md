@@ -27,7 +27,16 @@ backend/app/ml/
 │   ├── quality_filter.py
 │   ├── types.py
 │   └── registry.py
-├── embedding/          # ML-004
+├── embedding/          # ML-004 — dual embeddings (done)
+│   ├── base.py
+│   ├── arcface_r100.py
+│   ├── adaface_vit_kprpe.py
+│   ├── mobilefacenet.py
+│   ├── dual_embedder.py
+│   ├── batch_utils.py
+│   ├── mode.py
+│   ├── types.py
+│   └── registry.py
 ├── clustering/         # ML-005, ML-006, ML-007
 ├── matching/           # ML-008
 └── vendor/             # PicSee / pix-workers code copies
@@ -86,6 +95,9 @@ uv sync --extra dev --extra ml
 | torchvision | 0.21.0 | pix-workers production |
 | onnxruntime | >=1.20.1 | pix-workers + clustering_pipeline |
 | ai-edge-litert | >=2.1 | TFLite inference (blur, YPR, MBF) — replaces deprecated `tf.lite.Interpreter` |
+| timm | >=1.0.29 | AdaFace VIT-KPRPE backbone |
+| easydict | >=1.13 | AdaFace VIT-KPRPE RPE config |
+| safetensors | >=0.8.0 | AdaFace/DFA weight loading |
 
 > Note: `clustering_pipeline` pins torch 2.7.1 but requires Python 3.12. We use pix-workers'
 > torch 2.6.0 for Python 3.10 compatibility.
@@ -103,7 +115,7 @@ uv sync --extra dev --extra ml
 | Vendor code copies | ML-003 (ypr_3ddfa_v2), ML-004 |
 | Model weight files on disk | Manual copy by developer |
 | Quality filters | ML-003 (done) |
-| Embeddings (R100, AdaFace, MBF) | ML-004 |
+| Embeddings (R100, AdaFace, MBF) | ML-004 (done) |
 | Clustering | ML-005/ML-006 |
 | FaceService + Celery tasks | ML-009 |
 
@@ -189,6 +201,73 @@ uv run pytest tests/ml/test_age_detector_integration.py -v  # loads ViT; run sep
 ```
 
 Run age integration test separately from SCRFD tests if you see a Torch/Triton registration error (known TF+torch coexistence issue in one pytest process).
+
+## ML-004 — Dual-Model Embeddings
+
+| Module | Purpose |
+|--------|---------|
+| `embedding/arcface_r100.py` | Primary ArcFace R100 (PicSee normalization) |
+| `embedding/adaface_vit_kprpe.py` | Secondary AdaFace VIT-KPRPE + DFA aligner |
+| `embedding/mobilefacenet.py` | TFLite CPU fallback when GPU OOM persists |
+| `embedding/dual_embedder.py` | Orchestrator — primary + optional secondary |
+| `embedding/registry.py` | Registers `arcface_r100`, `adaface_vit_kprpe`, `mobilefacenet`, `dual_embedder` |
+| `vendor/adaface_insightface/backbones.py` | R100 IResNet-100 architecture (vendor copy) |
+
+### Model Files
+
+| File | Location |
+|------|----------|
+| ArcFace R100 | `models/model_v1_scratch_training_epoch_20_r100.pt` |
+| AdaFace VIT-KPRPE | `models/cvlface_adaface_vit_base_kprpe_webface12m/` |
+| DFA Mobilenet aligner | `models/cvlface_DFA_mobilenet/` |
+| MobileFaceNet TFLite | `models/preprocessed_transformation_mbf_model_w12m_RE10.tflite` |
+
+Weights stay in `backend/models/` (git-ignored). HuggingFace model **code** for AdaFace/DFA lives alongside weights in those directories (not duplicated under `vendor/`).
+
+**Weight loading (ML-004 decision):** `cvlface_loader.py` tries `pretrained_model/model.pt` then root `model.safetensors`, strips `model.` key prefixes from HuggingFace exports, and skips corrupt checkpoints. Some local copies ship truncated `.pt` files — safetensors is the reliable source for AdaFace VIT.
+
+### Embedding Modes
+
+| `ML_EMBEDDING_MODEL` | `ML_DUAL_MODEL_ENABLED` | Behaviour |
+|----------------------|-------------------------|-----------|
+| `dual` (default) | `true` (default) | R100 primary + AdaFace secondary |
+| `r100` | any | R100 primary only |
+| any | `false` | R100 primary only |
+
+`adaface` and `mbf` are **not** standalone modes. MobileFaceNet is used only when R100 OOM persists at batch size 1.
+
+### OOM Fallback Policy
+
+1. Halve batch size on CUDA OOM (down to 1) for R100 and AdaFace.
+2. If R100 still fails at batch size 1 → MobileFaceNet replaces primary for that batch.
+3. If AdaFace fails → omit `secondary_embedding` (primary still stored).
+
+### Database
+
+Migration `add_secondary_embedding` adds nullable `face_embeddings.secondary_embedding vector(512)`. No HNSW index on secondary (matching uses cluster centroids in ML-006/ML-008).
+
+### Usage
+
+```python
+import app.ml.embedding.registry  # registers loaders
+from app.ml.model_registry import get_model_registry
+
+embedder = get_model_registry().get_model("dual_embedder")
+results = embedder.embed_batch([crop.aligned_face for crop in face_crops])
+
+for result in results:
+    primary = result.primary          # (512,) L2-normalized R100
+    secondary = result.secondary      # (512,) or None
+```
+
+### Testing
+
+```bash
+cd backend
+uv sync --extra dev --extra ml
+uv run pytest tests/ml/test_embedding_unit.py -v
+uv run pytest tests/ml/test_embedding_integration.py -v  # loads ~700MB of weights
+```
 
 ## ML-002 — Detection and Cropping
 

@@ -74,6 +74,34 @@ def age_model_available() -> bool:
     )
 
 
+def r100_model_available() -> bool:
+    """Return True when ArcFace R100 PyTorch weights exist locally."""
+    return get_ml_config().r100_model_path.exists()
+
+
+def adaface_models_available() -> bool:
+    """Return True when AdaFace VIT-KPRPE and DFA aligner exports exist."""
+    config = get_ml_config()
+    adaface_dir = config.adaface_model_path
+    aligner_dir = config.dfa_aligner_path
+    return (
+        adaface_dir.is_dir()
+        and (adaface_dir / "config.json").exists()
+        and aligner_dir.is_dir()
+        and (aligner_dir / "config.json").exists()
+    )
+
+
+def mbf_model_available() -> bool:
+    """Return True when MobileFaceNet TFLite weights exist locally."""
+    return get_ml_config().mbf_model_path.exists()
+
+
+def embedding_models_available() -> bool:
+    """Return True when primary embedding model assets exist locally."""
+    return r100_model_available()
+
+
 @pytest.fixture
 def fixtures_dir() -> Path:
     """Path to ``tests/ml/fixtures``."""
