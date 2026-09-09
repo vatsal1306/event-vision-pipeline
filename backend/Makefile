@@ -1,4 +1,4 @@
-.PHONY: dev lint format typecheck test migrate docker-up
+.PHONY: dev lint format typecheck sync sync-ci test test-ci migrate docker-up
 
 dev:
 	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -13,10 +13,16 @@ format:
 typecheck:
 	uv run mypy app
 
-test:
+sync:
+	uv sync --extra dev --extra ml
+
+sync-ci:
+	uv sync --extra dev
+
+test: sync
 	uv run pytest --cov=app --cov-report=term-missing
 
-test-ci:
+test-ci: sync-ci
 	uv run pytest -m "not ml" --cov=app --cov-report=term-missing
 
 migrate:
