@@ -40,10 +40,10 @@ def ypr_models_available() -> bool:
     """Return True when YPR model assets exist locally."""
     config = get_ml_config()
     return (
-        config.ypr_tflite_model_path.exists()
-        and config.resnet22_onnx_path.exists()
-        and config.faceboxes_onnx_path.exists()
-        and config.ypr_3ddfa_config_path.exists()
+            config.ypr_tflite_model_path.exists()
+            and config.resnet22_onnx_path.exists()
+            and config.faceboxes_onnx_path.exists()
+            and config.ypr_3ddfa_config_path.exists()
     )
 
 
@@ -52,10 +52,10 @@ def age_model_available() -> bool:
     config = get_ml_config()
     model_dir = config.age_model_path
     return (
-        model_dir.exists()
-        and (model_dir / "config.json").exists()
-        and ((model_dir / "model.safetensors").exists() or (model_dir / "pytorch_model.bin").exists())
-    )
+            model_dir.exists()
+            and (model_dir / "config.json").exists()
+            and ((model_dir / "model.safetensors").exists()
+                 or (model_dir / "pytorch_model.bin").exists()))
 
 
 @pytest.fixture
@@ -118,7 +118,8 @@ def quality_registry(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def quality_filter(quality_registry, scrfd_detector: SCRFDDetector, face_cropper: FaceCropper, load_bgr_image):
+def quality_filter(quality_registry, scrfd_detector: SCRFDDetector, face_cropper: FaceCropper,
+                   load_bgr_image):
     """Quality filter backed by local model weights."""
     if not run_ml_integration_tests():
         pytest.skip("RUN_ML_TESTS!=1")
