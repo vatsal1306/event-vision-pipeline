@@ -42,6 +42,27 @@ export function useCreateEvent() {
   });
 }
 
+export function useUpdateEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Event> }) => {
+      const updated = await api.updateEvent(id, {
+        name: data.name,
+        date_start: data.dateStart || null,
+        date_end: data.dateEnd || null,
+        event_type: data.eventType,
+        description: data.description || null,
+      });
+      return mapEventFromApi(updated);
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['event', id] });
+    },
+  });
+}
+
 export function useEvent(id: string) {
   return useQuery({
     queryKey: ['event', id],
