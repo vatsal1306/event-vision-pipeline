@@ -71,6 +71,7 @@ class ClusteringTypeConfig:
     name: str
     creates_new_clusters: bool
     expands_existing: bool
+    allows_merge_clusters: bool   # Sweeper: False — blocked merges → unassigned crops
     centroid_field: str           # Which centroid to use for matching
     pyr_range: tuple[float, float]  # (min_degrees, max_degrees) for YPR filter
 
@@ -78,6 +79,7 @@ CLUSTER_TYPE = ClusteringTypeConfig(
     name="cluster",
     creates_new_clusters=True,
     expands_existing=True,
+    allows_merge_clusters=True,
     centroid_field="centroid",
     pyr_range=(0.0, 47.0),
 )
@@ -86,6 +88,7 @@ SWEEPER_TYPE = ClusteringTypeConfig(
     name="sweeper",
     creates_new_clusters=False,    # Sweeper only expands, never creates
     expands_existing=True,
+    allows_merge_clusters=False,   # Blocked merges → unassigned crops (PicSee)
     centroid_field="centroid",     # Matches against regular centroid
     pyr_range=(47.0, 120.0),      # Only processes high-angle faces
 )
@@ -140,9 +143,11 @@ class NewCluster:
 @dataclass
 class ExpandedCluster:
     cluster_id: str               # Existing cluster ID
-    new_centroid: np.ndarray      # Weighted updated centroid
     new_crop_ids: list[str]       # Only the new additions
-    new_size: int                 # Updated total size
+    new_centroid: np.ndarray | None = None      # Regular pass: weighted updated main centroid
+    new_size: int | None = None                 # Regular pass: updated total size
+    new_pyr_centroid: np.ndarray | None = None  # Sweeper pass: updated high-angle centroid
+    new_pyr_size: int | None = None             # Sweeper pass: count for pyr weighting
 
 @dataclass
 class MergedCluster:
@@ -188,11 +193,22 @@ def update_centroid(old_centroid, old_size, new_embeddings):
 
 ## Acceptance
 
-- [ ] Two identical embeddings + empty existing → one `new_cluster` with size 2
-- [ ] New embedding near existing centroid → `expanded_clusters` with updated centroid
-- [ ] Two centroids that should merge → `merged_clusters` with largest as survivor
-- [ ] Sweeper type: never produces `new_clusters`, only `expanded_clusters`
-- [ ] Weighted centroid update is L2-normalized
-- [ ] Batch of 5000+ embeddings processes without memory issues
-- [ ] Pure numpy/sklearn — no database imports in this module
-- [ ] All parameters configurable via `MLConfig`
+- [x] Two identical embeddings + empty existing → one `new_cluster` with size 2
+- [x] New embedding near existing centroid → `expanded_clusters` with updated centroid
+- [x] Two centroids that should merge → `merged_clusters` with largest as survivor
+- [x] Sweeper type: never produces `new_clusters`, only `expanded_clusters`
+- [x] Weighted centroid update is L2-normalized
+- [x] Batch of 5000+ embeddings processes without memory issues
+- [x] Pure numpy/sklearn — no database imports in this module
+- [x] All parameters configurable via `MLConfig`
+
+## Implementation Notes (ML-005 — completed)
+
+**Scope delivered:**
+- `IncrementalClusterer.cluster()` — pure algorithm, no DB
+- `CLUSTER_TYPE` / `SWEEPER_TYPE` with `allows_merge_clusters` flag
+- Sweeper blocked new/merge → `unassigned_crop_ids` (not silently dropped)
+- Sweeper expand returns `new_pyr_centroid` + `new_pyr_size`; main centroid unchanged
+- Merge survivor: largest `size`; tie-break on lexicographically smaller cluster id
+- PicSee `face_rec_id` conflict resolution **not** ported (deferred — no equivalent field)
+- Internal batching deferred to ML-006 (`ML_CLUSTERING_BATCH_SIZE`)

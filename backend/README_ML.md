@@ -38,6 +38,10 @@ backend/app/ml/
 │   ├── types.py
 │   └── registry.py
 ├── clustering/         # ML-005, ML-006, ML-007
+│   ├── incremental_clusterer.py  # DBSCAN + Agglomerative (done)
+│   ├── clustering_config.py      # Cluster vs Sweeper configs (done)
+│   ├── types.py                  # Input/output dataclasses (done)
+│   └── recovery/                 # ML-007
 ├── matching/           # ML-008
 └── vendor/             # PicSee / pix-workers code copies
     └── ypr_3ddfa_v2/   # 3DDFA FaceBoxes + TDDFA ONNX (ML-003)
@@ -116,7 +120,8 @@ uv sync --extra dev --extra ml
 | Model weight files on disk | Manual copy by developer |
 | Quality filters | ML-003 (done) |
 | Embeddings (R100, AdaFace, MBF) | ML-004 (done) |
-| Clustering | ML-005/ML-006 |
+| Clustering algorithm | ML-005 (done) |
+| Cluster persistence (pgvector) | ML-006 |
 | FaceService + Celery tasks | ML-009 |
 
 ## ML-003 — Quality Filters
@@ -301,6 +306,82 @@ cropper = FaceCropper(detector=detector)
 all_crops = cropper.crop_all(image, faces)       # upload: every face
 selfie = cropper.crop_primary(image, faces)      # selfie: nose-closest-to-center
 ```
+
+## ML-005 — Incremental Clustering
+
+| Module | Purpose |
+|--------|---------|
+| `clustering/types.py` | Input/output dataclasses (`ClusteringInput`, `ClusteringResult`, …) |
+| `clustering/clustering_config.py` | `CLUSTER_TYPE` (0–47°) and `SWEEPER_TYPE` (47–120°) |
+| `clustering/incremental_clusterer.py` | DBSCAN → centroid → agglomerative merge (PicSee port) |
+
+Pure numpy/sklearn — **no database imports**. Batching (5000 crops) is handled by ML-006; one `cluster()` call processes the full input list it receives.
+
+### Algorithm
+
+1. Inject existing cluster **main centroids** as pseudo-embeddings (`centroid_{id}`).
+2. DBSCAN (cosine, `ML_DBSCAN_EPS`, `ML_DBSCAN_MIN_SAMPLES`, `algorithm=brute`).
+3. L2-normalise per-group centroids.
+4. Agglomerative merge (cosine, average linkage, `ML_AGGLO_THRESHOLD`).
+5. Classify groups as **new**, **expanded**, or **merged**; DBSCAN noise → `unassigned_crop_ids`.
+
+### Cluster vs Sweeper
+
+| Pass | Creates new clusters | Merges existing | Updates main centroid | Updates pyr centroid |
+|------|---------------------|-----------------|----------------------|----------------------|
+| `CLUSTER_TYPE` | Yes | Yes (largest survives; tie → smaller id) | Yes | No |
+| `SWEEPER_TYPE` | No → unassigned | No → unassigned crops | No | Yes (`new_pyr_centroid`, `new_pyr_size`) |
+
+Sweeper matches against the **main** centroid (PicSee behaviour) but only writes the high-angle average. PicSee `face_rec_id` conflict resolution is **not** ported (no equivalent IDs yet).
+
+### Config Keys
+
+| Setting | Env var | Default |
+|---------|---------|---------|
+| DBSCAN eps | `ML_DBSCAN_EPS` | 0.45 |
+| DBSCAN min samples | `ML_DBSCAN_MIN_SAMPLES` | 1 |
+| Agglo threshold | `ML_AGGLO_THRESHOLD` | 0.45 |
+| Batch size (ML-006) | `ML_CLUSTERING_BATCH_SIZE` | 5000 |
+| Sweeper PYR min/max | `ML_SWEEPER_PYR_MIN` / `ML_SWEEPER_PYR_MAX` | 47 / 120 |
+
+### Usage
+
+```python
+from app.ml.clustering import (
+    CLUSTER_TYPE,
+    SWEEPER_TYPE,
+    ClusteringInput,
+    ExistingCluster,
+    IncrementalClusterer,
+)
+
+clusterer = IncrementalClusterer()
+result = clusterer.cluster(
+    ClusteringInput(
+        new_embeddings={"crop-uuid": embedding_vector},  # (512,) float32, L2-normalised
+        existing_clusters={
+            "cluster-uuid": ExistingCluster(
+                centroid=centroid_vector,
+                size=12,
+                crop_ids=["existing-crop"],
+                pyr_centroid=None,
+                pyr_size=0,
+            )
+        },
+        clustering_type=CLUSTER_TYPE,
+    )
+)
+```
+
+### Testing
+
+```bash
+cd backend
+uv sync --extra dev --extra ml
+uv run pytest tests/ml/test_clustering_unit.py -v --no-cov
+```
+
+Synthetic embeddings only — no model weights or GPU required.
 
 ## Testing
 
