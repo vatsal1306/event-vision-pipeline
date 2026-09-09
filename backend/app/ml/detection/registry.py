@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.ml.detection.scrfd import SCRFDDetector
+from app.ml.device import resolve_onnx_device
 from app.ml.model_registry import ModelRegistry, register_model_loader
 
 
@@ -11,7 +12,7 @@ def _load_scrfd(registry: ModelRegistry) -> SCRFDDetector:
     config = registry.config
     return SCRFDDetector(
         model_path=config.scrfd_model_path,
-        device=registry.resolved_device,
+        device=resolve_onnx_device(config.device),
         det_thresh=config.scrfd_det_thresh,
         nms_thresh=config.scrfd_nms_thresh,
         input_sizes=config.scrfd_input_sizes,
