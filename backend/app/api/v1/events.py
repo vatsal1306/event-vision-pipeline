@@ -97,6 +97,26 @@ async def delete_event(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post("/{event_id}/archive", status_code=status.HTTP_202_ACCEPTED)
+async def archive_event(
+    event: Event = Depends(get_photographer_event),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Manually trigger archival of an event."""
+    from fastapi import HTTPException
+
+    from app.models.enums import EventStatus
+
+    if event.status == EventStatus.ARCHIVED:
+        raise HTTPException(status_code=409, detail="Event is already archived")
+
+    from app.tasks.archival_tasks import archive_event_task
+
+    archive_event_task.delay(str(event.id))
+
+    return {"message": "Event archival started"}
+
+
 @router.post("/{event_id}/restore", status_code=status.HTTP_202_ACCEPTED)
 async def restore_event(
     event: Event = Depends(get_photographer_event),
