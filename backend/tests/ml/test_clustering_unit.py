@@ -7,14 +7,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.ml.clustering import (
+pytest.importorskip("sklearn")
+
+from app.ml.clustering import (  # noqa: E402
     CLUSTER_TYPE,
     SWEEPER_TYPE,
     ClusteringInput,
     ExistingCluster,
     IncrementalClusterer,
 )
-from app.ml.config import MLConfig
+from app.ml.config import MLConfig  # noqa: E402
+
+pytestmark = pytest.mark.ml
 
 EMBEDDING_DIM = 512
 

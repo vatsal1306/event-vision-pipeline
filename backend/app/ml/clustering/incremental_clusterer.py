@@ -6,12 +6,12 @@ from dataclasses import dataclass
 
 import numpy as np
 import structlog
-from sklearn.cluster import DBSCAN, AgglomerativeClustering
 
 from app.ml.clustering.types import (
     EMBEDDING_DIM,
     ClusteringInput,
     ClusteringResult,
+    ClusteringTypeConfig,
     ExistingCluster,
     ExpandedCluster,
     MergedCluster,
@@ -157,13 +157,16 @@ class IncrementalClusterer:
 
     def _perform_dbscan(self, vectors: np.ndarray) -> np.ndarray:
         """Run DBSCAN with cosine distance on the combined matrix."""
+        from sklearn.cluster import DBSCAN
+
         dbscan = DBSCAN(
             metric="cosine",
             eps=self.dbscan_eps,
             min_samples=self.dbscan_min_samples,
             algorithm="brute",
         )
-        return dbscan.fit_predict(vectors)
+        labels: np.ndarray = np.asarray(dbscan.fit_predict(vectors), dtype=np.int64)
+        return labels
 
     def _compute_group_centroids(
         self,
@@ -191,8 +194,10 @@ class IncrementalClusterer:
         """Merge DBSCAN micro-clusters via agglomerative clustering."""
         if len(group_labels) <= 1:
             if not group_labels:
-                return np.array([], dtype=int)
-            return np.array([0], dtype=int)
+                return np.array([], dtype=np.int64)
+            return np.array([0], dtype=np.int64)
+
+        from sklearn.cluster import AgglomerativeClustering
 
         agglo = AgglomerativeClustering(
             n_clusters=None,
@@ -200,7 +205,8 @@ class IncrementalClusterer:
             linkage="average",
             distance_threshold=self.agglo_threshold,
         )
-        return agglo.fit_predict(group_centroids)
+        labels: np.ndarray = np.asarray(agglo.fit_predict(group_centroids), dtype=np.int64)
+        return labels
 
     def _build_result(
         self,
@@ -208,7 +214,7 @@ class IncrementalClusterer:
         dbscan_labels: np.ndarray,
         member_agglo_labels: np.ndarray,
         existing_clusters: dict[str, ExistingCluster],
-        clustering_type,
+        clustering_type: ClusteringTypeConfig,
     ) -> ClusteringResult:
         """Classify agglomerative groups and apply sweeper restrictions."""
         result = ClusteringResult()
@@ -268,7 +274,7 @@ class IncrementalClusterer:
         self,
         result: ClusteringResult,
         crop_members: list[_MemberRecord],
-        clustering_type,
+        clustering_type: ClusteringTypeConfig,
         unassigned: set[str],
     ) -> None:
         """Create a new cluster or mark crops unassigned for sweeper."""
@@ -297,7 +303,7 @@ class IncrementalClusterer:
         crop_members: list[_MemberRecord],
         group_members: list[_MemberRecord],
         existing_clusters: dict[str, ExistingCluster],
-        clustering_type,
+        clustering_type: ClusteringTypeConfig,
         unassigned: set[str],
     ) -> None:
         """Expand an existing cluster with new crops."""
@@ -352,7 +358,7 @@ class IncrementalClusterer:
         crop_members: list[_MemberRecord],
         group_members: list[_MemberRecord],
         existing_clusters: dict[str, ExistingCluster],
-        clustering_type,
+        clustering_type: ClusteringTypeConfig,
         unassigned: set[str],
     ) -> None:
         """Merge multiple existing clusters or block the merge for sweeper."""
@@ -458,4 +464,5 @@ class IncrementalClusterer:
         norm = np.linalg.norm(vector)
         if norm == 0:
             return vector.astype(np.float32)
-        return (vector / norm).astype(np.float32)
+        normalized: np.ndarray = (vector / norm).astype(np.float32)
+        return normalized
