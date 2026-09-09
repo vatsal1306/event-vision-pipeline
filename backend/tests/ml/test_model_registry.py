@@ -2,21 +2,13 @@
 
 from __future__ import annotations
 
-import threading
-from typing import Any
-
 import pytest
 
-from app.ml import model_registry as model_registry_module
-from app.ml.config import MLConfig, get_ml_config
-from app.ml.exceptions import ModelLoadError, ModelNotRegisteredError
+from app.ml.config import get_ml_config
 from app.ml.model_registry import (
     ModelRegistry,
-    get_model_registry,
-    register_model_loader,
     restore_model_loaders,
     snapshot_model_loaders,
-    unregister_model_loader,
 )
 from app.ml.registry_bootstrap import register_default_model_loaders
 
