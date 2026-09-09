@@ -191,6 +191,7 @@ export default function EventDetailPage() {
                 eventId={id}
                 folderId={folderId}
                 onPhotoClick={setSelectedPhoto}
+                onUploadClick={() => handleTabChange('upload')}
               />
             </div>
           </div>
