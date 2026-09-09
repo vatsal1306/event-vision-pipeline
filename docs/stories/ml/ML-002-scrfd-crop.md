@@ -123,11 +123,30 @@ class FaceCrop:
 - HEIC/HEIF: handled upstream by photo processing (convert to JPEG/PNG before detection)
 - Thread-safe: ONNX session is shareable across threads
 
+## Implementation Notes (ML-002 — completed)
+
+**Source:** Ported from pix-workers `face_rec_service/embedding/utils/face_cropper.py` (SCRFD +
+`estimate_norm`/`norm_crop` alignment). Legacy `face_preprocess.preprocess()` copied from
+PicSee `clustering_pipeline/adaface_insightface/face_preprocess.py` for bbox-only fallback.
+
+**Design decisions:**
+
+| Topic | Decision |
+|-------|----------|
+| ONNX providers | CUDA → CPU; **no CoreML on Mac** (SCRFD 128×128 incompatible with CoreML EP) |
+| Alignment path | Primary: pix-workers `norm_crop` (ArcFace template). Fallback: PicSee `preprocess()` bbox crop |
+| Bbox clipping | Raw SCRFD boxes clipped to image bounds before normalizing to `[0, 1]` for DB storage |
+| Registry | `register_model_loader("scrfd", ...)` in `detection/registry.py`; import `app.ml.detection` to register |
+| Selfie vs upload | `crop_all()` = all faces; `crop_primary()` = nose-closest-to-center (pix-workers `get_faces=1`) |
+
+**Tests:** `tests/ml/test_scrfd_crop.py` + fixtures in `tests/ml/fixtures/`. PicSee parity test
+compares bbox/landmarks/score against pix-workers SCRFD on the same image.
+
 ## Acceptance
 
-- [ ] No-face image → empty list, no exception
-- [ ] Known fixture (1-face photo) → exactly 1 `DetectedFace` with 5 landmarks
-- [ ] Crop output shape is `(112, 112, 3)` dtype `uint8`
-- [ ] Group photo fixture (3+ faces) → 3+ detections
-- [ ] Normalized bbox values are all in `[0.0, 1.0]`
-- [ ] Multi-scale detects small faces that single 640×640 pass misses
+- [x] No-face image → empty list, no exception
+- [x] Known fixture (1-face photo) → exactly 1 `DetectedFace` with 5 landmarks
+- [x] Crop output shape is `(112, 112, 3)` dtype `uint8`
+- [x] Group photo fixture (3+ faces) → 3+ detections
+- [x] Normalized bbox values are all in `[0.0, 1.0]` (clipped to image bounds)
+- [x] Multi-scale detects small faces that single 640×640 pass misses

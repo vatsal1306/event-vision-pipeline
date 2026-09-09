@@ -39,6 +39,7 @@ dev = [
     "ruff>=0.8,<1",
     "types-passlib>=1.7,<2",
     "types-python-jose>=3.3,<4",
+    "types-PyYAML>=6.0,<7",
 ]
 ml = [
     # Pin torch to pix-workers production versions (Python 3.10 compatible).
@@ -47,7 +48,7 @@ ml = [
     "onnxruntime>=1.20.1,<2",
     "scikit-learn>=1.3,<2",
     "scikit-image>=0.24,<1",
-    "tensorflow>=2.16,<3",
+    "ai-edge-litert>=2.1,<3",
     "omegaconf>=2.3,<3",
     "transformers>=4.51,<5",
     # numpy, pillow, opencv-python-headless are base deps (from main merge).
@@ -64,7 +65,7 @@ packages = ["app"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-extend-exclude = ["models"]
+extend-exclude = ["models", "app/ml/vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
@@ -73,6 +74,15 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.10"
 strict = true
 packages = ["app"]
+exclude = ["app/ml/vendor/"]
+
+[[tool.mypy.overrides]]
+module = [
+    "app.ml",
+    "app.ml.*",
+]
+disallow_untyped_calls = false
+disable_error_code = ["type-arg", "call-overload"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -92,13 +102,17 @@ module = [
     "torchvision.*",
     "onnxruntime",
     "onnxruntime.*",
-    "tensorflow",
-    "tensorflow.*",
+    "ai_edge_litert",
+    "ai_edge_litert.*",
+    "glasses_detector",
+    "glasses_detector.*",
     "cv2",
     "sklearn",
     "sklearn.*",
     "skimage",
     "skimage.*",
+    "transformers",
+    "transformers.*",
 ]
 ignore_missing_imports = true
 
@@ -106,6 +120,9 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing"
+markers = [
+    "ml: tests that require the ml optional extra (torch, onnxruntime, litert, transformers, model weights)",
+]
 
 [tool.coverage.run]
 source = ["app"]

@@ -16,6 +16,9 @@ typecheck:
 test:
 	uv run pytest --cov=app --cov-report=term-missing
 
+test-ci:
+	uv run pytest -m "not ml" --cov=app --cov-report=term-missing
+
 migrate:
 	uv run alembic upgrade head
 

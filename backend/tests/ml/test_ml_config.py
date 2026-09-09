@@ -30,6 +30,7 @@ def test_ml_config_defaults_match_story_spec() -> None:
     assert config.mbf_model == "preprocessed_transformation_mbf_model_w12m_RE10.tflite"
     assert config.blur_model == "blur_model_tflite_may6_ckpt49.tflite"
     assert config.ypr_tflite_model == "ypr_model_float32.tflite"
+    assert config.age_model_dir == "vit-age-classifier"
     assert config.ypr_3ddfa_config == "ypr_3ddfa_v2/resnet_config.yml"
     assert config.resnet22_onnx == "resnet22.onnx"
     assert config.faceboxes_onnx == "FaceBoxesProd.onnx"
