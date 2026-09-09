@@ -104,9 +104,7 @@ class AdaFaceVitKprpe(BaseEmbeddingModel):
         with torch.no_grad():
             for start in range(0, len(faces), batch_size):
                 batch_faces = faces[start : start + batch_size]
-                tensors = [
-                    torch.from_numpy(self._to_rgb_tensor(face)) for face in batch_faces
-                ]
+                tensors = [torch.from_numpy(self._to_rgb_tensor(face)) for face in batch_faces]
                 input_tensor = torch.stack(tensors).to(self._device)
 
                 _aligned_x, orig_ldmks, _aligned_ldmks, _score, _thetas, _bbox = self._aligner(
