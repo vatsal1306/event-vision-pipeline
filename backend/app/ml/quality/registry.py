@@ -60,8 +60,13 @@ def _load_quality_filter(registry: ModelRegistry) -> QualityFilter:
     )
 
 
-register_model_loader("blur_detector", _load_blur_detector)
-register_model_loader("ypr_predictor", _load_ypr_predictor)
-register_model_loader("age_detector", _load_age_detector)
-register_model_loader("sunglasses_detector", _load_sunglasses_detector)
-register_model_loader("quality_filter", _load_quality_filter)
+def register_quality_loaders() -> None:
+    """Register blur, YPR, age, sunglasses, and quality filter loaders."""
+    register_model_loader("blur_detector", _load_blur_detector)
+    register_model_loader("ypr_predictor", _load_ypr_predictor)
+    register_model_loader("age_detector", _load_age_detector)
+    register_model_loader("sunglasses_detector", _load_sunglasses_detector)
+    register_model_loader("quality_filter", _load_quality_filter)
+
+
+register_quality_loaders()

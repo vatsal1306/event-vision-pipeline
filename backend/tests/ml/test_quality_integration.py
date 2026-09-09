@@ -11,6 +11,7 @@ from app.ml.detection.types import DetectedFace, FaceCrop
 from app.ml.model_registry import ModelRegistry, get_model_registry
 from app.ml.quality.blur_detector import BlurDetector
 from app.ml.quality.ypr_3ddfa import YPRPredictor
+from app.ml.registry_bootstrap import register_default_model_loaders
 
 pytestmark = pytest.mark.ml
 
@@ -114,12 +115,12 @@ def test_quality_filter_ypr_pass_on_error_when_no_face_in_crop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Blank crop should trigger YPR pass-on-error semantics."""
-    import app.ml.quality.registry  # noqa: F401
-
+    monkeypatch.setenv("ML_DEVICE", "cpu")
     monkeypatch.setenv("ML_AGE_DETECTION_ENABLED", "false")
     monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
     get_ml_config.cache_clear()
     ModelRegistry.reset_for_tests()
+    register_default_model_loaders()
 
     config = get_ml_config()
     if not config.ypr_3ddfa_config_path.exists():
@@ -135,13 +136,8 @@ def test_quality_filter_ypr_pass_on_error_when_no_face_in_crop(
     crop = FaceCrop(aligned_face=blank, source_detection=detection, alignment_matrix=None)
 
     registry = get_model_registry()
-    try:
-        quality = registry.get_model("quality_filter")
-        result = quality.filter(crop)
-    finally:
-        registry.unload_all()
-        ModelRegistry.reset_for_tests()
-        get_ml_config.cache_clear()
+    quality = registry.get_model("quality_filter")
+    result = quality.filter(crop)
 
     assert result.passed is True
     assert result.metadata.get("ypr_pass_on_error") is True

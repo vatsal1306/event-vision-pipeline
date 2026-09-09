@@ -47,6 +47,19 @@ def clear_model_loaders() -> None:
         _LOADERS.clear()
 
 
+def snapshot_model_loaders() -> dict[str, ModelLoader]:
+    """Return a copy of the current loader registry (test helper)."""
+    with _LOADER_LOCK:
+        return dict(_LOADERS)
+
+
+def restore_model_loaders(loaders: dict[str, ModelLoader]) -> None:
+    """Replace the loader registry with a previously captured snapshot."""
+    with _LOADER_LOCK:
+        _LOADERS.clear()
+        _LOADERS.update(loaders)
+
+
 def is_celery_worker_process() -> bool:
     """Return True when the current process is a Celery worker."""
     argv = " ".join(sys.argv).lower()
@@ -128,7 +141,11 @@ class ModelRegistry:
                 raise ModelLoadError(name, str(exc)) from exc
 
             self._models[name] = model
-            logger.info("ml_model_loaded", model_name=name, device=self.resolved_device)
+            logger.info(
+                "ml_model_loaded",
+                model_name=name,
+                configured_device=self._config.device,
+            )
             return model
 
     def unload_all(self) -> None:

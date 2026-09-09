@@ -18,4 +18,9 @@ def _load_scrfd(registry: ModelRegistry) -> SCRFDDetector:
     )
 
 
-register_model_loader("scrfd", _load_scrfd)
+def register_detection_loaders() -> None:
+    """Register SCRFD and related detection model loaders."""
+    register_model_loader("scrfd", _load_scrfd)
+
+
+register_detection_loaders()

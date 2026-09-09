@@ -14,11 +14,22 @@ from app.ml.detection.face_cropper import FaceCropper
 from app.ml.detection.scrfd import SCRFDDetector
 from app.ml.model_registry import ModelRegistry, get_model_registry
 from app.ml.quality.quality_filter import QualityFilter
+from app.ml.registry_bootstrap import register_default_model_loaders
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 PICSEE_FACE_CROPPER = Path(
     "/Users/vatsal/Documents/picsee/tmp/code/pix-workers/face_rec_service/embedding/utils/face_cropper.py"
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _initialize_ml_test_runtime() -> None:
+    """Register loaders once and import torch before mixed ML runtimes."""
+    register_default_model_loaders()
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        pass
 
 
 def scrfd_model_available() -> bool:
@@ -105,11 +116,11 @@ def face_cropper(scrfd_detector: SCRFDDetector) -> FaceCropper:
 
 @pytest.fixture
 def quality_registry(monkeypatch: pytest.MonkeyPatch):
-    """Fresh registry with quality loaders registered."""
-    import app.ml.quality.registry  # noqa: F401 — register loaders
-
+    """Fresh registry with default loaders registered."""
+    monkeypatch.setenv("ML_DEVICE", "cpu")
     monkeypatch.setenv("ML_AGE_DETECTION_ENABLED", "false")
     monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
+    register_default_model_loaders()
     get_ml_config.cache_clear()
     ModelRegistry.reset_for_tests()
     registry = get_model_registry()
@@ -121,15 +132,27 @@ def quality_registry(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture
 def quality_filter(
-    quality_registry, scrfd_detector: SCRFDDetector, face_cropper: FaceCropper, load_bgr_image
+    quality_registry,
+    scrfd_detector: SCRFDDetector,
+    face_cropper: FaceCropper,
+    load_bgr_image,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     """Quality filter backed by local model weights."""
+    monkeypatch.setenv("ML_DEVICE", "cpu")
+    monkeypatch.setenv("ML_AGE_DETECTION_ENABLED", "false")
+    monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
+    get_ml_config.cache_clear()
+    ModelRegistry.reset_for_tests()
+    register_default_model_loaders()
+    registry = get_model_registry()
+
     if not run_ml_integration_tests():
         pytest.skip("RUN_ML_TESTS!=1")
     if not blur_model_available() or not ypr_models_available():
         pytest.skip("Quality model files missing")
 
-    quality_filter_model = quality_registry.get_model("quality_filter")
+    quality_filter_model = registry.get_model("quality_filter")
     assert isinstance(quality_filter_model, QualityFilter)
 
     image = load_bgr_image("single_face.jpg")
