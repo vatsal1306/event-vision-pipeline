@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import { mapEventFromApi } from '@/lib/map-api';
+import { mapEventFromApi, mapPhotoFromApi } from '@/lib/map-api';
 
 export function useEventInfo(slug: string) {
   return useQuery({
@@ -45,7 +45,9 @@ export function useMasterPhotos(slug: string, token: string | null) {
     queryKey: ['master-photos', slug, token],
     queryFn: async () => {
       const res = await api.getMasterPhotos(slug, token!);
-      return res.items || [];
+      return (res.items || []).map((item) =>
+        mapPhotoFromApi(item as unknown as Record<string, unknown>)
+      );
     },
     enabled: !!token,
   });

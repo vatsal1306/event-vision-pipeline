@@ -1,5 +1,6 @@
 import { useUploadStore } from '../stores/upload-store';
 import { FileProgress } from '@/types/upload';
+import { uploadManager } from '@/lib/upload/upload-manager';
 
 export const useUpload = (eventId: string) => {
   const store = useUploadStore();
@@ -20,9 +21,9 @@ export const useUpload = (eventId: string) => {
     addFiles: (files: { file: File; targetFolderId: string; relativePath?: string }[]) => store.addFiles(eventId, files),
     removeFile: (fileId: string) => store.removeFile(eventId, fileId),
     retryFile: (fileId: string) => store.retryFile(eventId, fileId),
-    pauseEvent: () => store.pauseEvent(eventId),
-    resumeEvent: () => store.resumeEvent(eventId),
-    cancelEvent: () => store.cancelEvent(eventId),
+    pauseEvent: () => uploadManager.pause(eventId),
+    resumeEvent: () => uploadManager.resume(eventId),
+    cancelEvent: () => uploadManager.cancel(eventId),
     updateFileProgress: (fileId: string, progress: FileProgress) => store.updateFileProgress(eventId, fileId, progress),
   };
 };

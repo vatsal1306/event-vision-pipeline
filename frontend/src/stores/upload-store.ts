@@ -71,7 +71,7 @@ export const useUploadStore = create<UploadState>()(
                 files: updatedFiles,
                 totalFiles: updatedFiles.length,
                 totalBytes: evState.totalBytes + newBytes,
-                status: evState.status === 'idle' ? 'uploading' : evState.status,
+                status: 'uploading',
               }
             }
           };
@@ -202,6 +202,16 @@ export const useUploadStore = create<UploadState>()(
           });
 
           // TODO FE-012: Actually calculate uploadSpeed based on time delta instead of static 0
+          const unfinished = updatedFiles.filter(
+            (item) => item.status !== 'complete' && item.status !== 'failed'
+          );
+          let nextStatus = evState.status;
+          if (unfinished.length === 0 && updatedFiles.length > 0) {
+            nextStatus = newFailed === updatedFiles.length ? 'error' : 'complete';
+          } else if (evState.status !== 'paused') {
+            nextStatus = 'uploading';
+          }
+
           return {
             events: {
               ...state.events,
@@ -212,6 +222,7 @@ export const useUploadStore = create<UploadState>()(
                 completedFiles: newCompleted,
                 failedFiles: newFailed,
                 uploadSpeed: 0, // TODO FE-012
+                status: nextStatus,
               }
             },
             activeUploads: Math.max(0, state.activeUploads + activeDelta)

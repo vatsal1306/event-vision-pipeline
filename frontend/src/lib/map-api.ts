@@ -1,4 +1,4 @@
-import { Event, EventStatus, EventType, FolderNode } from '@/types/event';
+import { Event, EventStatus, EventType, FolderNode, Photo, ProcessingStatus } from '@/types/event';
 
 export function mapEventFromApi(raw: Record<string, unknown>): Event {
   return {
@@ -40,5 +40,27 @@ export function mapFolderNodeFromApi(raw: Record<string, unknown>): FolderNode {
     updatedAt: String(raw.updated_at ?? raw.created_at ?? new Date().toISOString()),
     children,
     photoCount: typeof raw.photo_count === 'number' ? raw.photo_count : undefined,
+  };
+}
+
+export function mapPhotoFromApi(raw: Record<string, unknown>): Photo {
+  const processing = raw.processing_status ?? raw.processingStatus;
+  return {
+    id: String(raw.id),
+    eventId: String(raw.event_id ?? raw.eventId ?? ''),
+    folderId: (raw.folder_id as string | null | undefined) ?? (raw.folderId as string | null) ?? null,
+    filename: String(raw.filename ?? ''),
+    originalS3Key: String(raw.original_s3_key ?? raw.originalS3Key ?? ''),
+    proxyUrl: (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null) ?? null,
+    blurhash: (raw.blurhash as string | null) ?? null,
+    width: typeof raw.width === 'number' ? raw.width : null,
+    height: typeof raw.height === 'number' ? raw.height : null,
+    fileSizeBytes: Number(raw.file_size_bytes ?? raw.fileSizeBytes ?? 0),
+    mimeType: String(raw.mime_type ?? raw.mimeType ?? ''),
+    faceCount: Number(raw.face_count ?? raw.faceCount ?? 0),
+    processingStatus: (processing as ProcessingStatus) ?? 'pending',
+    processingError: (raw.processing_error as string | null | undefined) ?? (raw.processingError as string | null) ?? null,
+    uploadedAt: String(raw.uploaded_at ?? raw.uploadedAt ?? new Date().toISOString()),
+    createdAt: String(raw.created_at ?? raw.createdAt ?? new Date().toISOString()),
   };
 }

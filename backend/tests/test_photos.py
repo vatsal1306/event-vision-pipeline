@@ -140,13 +140,14 @@ async def test_list_photos(authed_client: AsyncClient, db_session) -> None:
     assert data["total"] == 2
     assert len(data["items"]) == 2
 
-    # Check mock proxy_url is set for completed photo
+    # Check signed preview URL is set for completed and pending photos
     completed_photo = next(p for p in data["items"] if p["id"] == str(photo1.id))
-    assert completed_photo["proxy_url"] == "https://mock-s3.local/proxy/root_proxy.jpg"
+    assert completed_photo["proxy_url"] is not None
+    assert "/preview?" in completed_photo["proxy_url"]
 
-    # Check mock proxy_url is null for pending photo
     pending_photo = next(p for p in data["items"] if p["id"] == str(photo2.id))
-    assert pending_photo["proxy_url"] is None
+    assert pending_photo["proxy_url"] is not None
+    assert "/preview?" in pending_photo["proxy_url"]
 
     # List photos in folder
     resp = await authed_client.get(f"/api/v1/events/{event_id}/photos?folder_id={folder_id}")
@@ -275,3 +276,73 @@ async def test_download_photo_url(authed_client: AsyncClient, db_session) -> Non
     assert resp.status_code == 200
     data = resp.json()
     assert data["url"] == "https://mock-s3.local/download/original_image_123.jpg?expires=3600"
+
+
+def _jpeg_bytes() -> bytes:
+    """Return a tiny valid JPEG payload for upload tests."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (16, 16), color=(200, 40, 40)).save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_direct_upload_creates_photo_and_preview(
+    authed_client: AsyncClient, tmp_path
+) -> None:
+    """POST /photos stores the original and returns a signed preview URL."""
+    from pathlib import Path
+    from unittest.mock import patch
+    from urllib.parse import parse_qs, urlparse
+
+    from app.services.storage_service import LocalStorageService
+
+    event = await _create_event(authed_client)
+    event_id = event["id"]
+    payload = _jpeg_bytes()
+
+    storage = LocalStorageService()
+    storage.base_dir = Path(tmp_path)
+
+    with (
+        patch("app.services.photo_service.get_storage_service", return_value=storage),
+        patch("app.tasks.photo_tasks.process_uploaded_photo.delay"),
+    ):
+        resp = await authed_client.post(
+            f"/api/v1/events/{event_id}/photos",
+            files={"file": ("reception.jpg", payload, "image/jpeg")},
+        )
+
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["filename"] == "reception.jpg"
+        assert body["file_size_bytes"] == len(payload)
+        assert "/preview?" in body["proxy_url"]
+
+        listed = await authed_client.get(f"/api/v1/events/{event_id}/photos")
+        assert listed.status_code == 200
+        assert listed.json()["total"] == 1
+
+        preview_url = body["proxy_url"]
+        parsed = urlparse(preview_url)
+        query = parse_qs(parsed.query)
+        preview = await authed_client.get(
+            parsed.path,
+            params={"expires": query["expires"][0], "sig": query["sig"][0]},
+        )
+        assert preview.status_code == 200
+        assert preview.content == payload
+
+
+@pytest.mark.asyncio
+async def test_direct_upload_rejects_unsupported_type(authed_client: AsyncClient) -> None:
+    """Reject non-image uploads at the ingest boundary."""
+    event = await _create_event(authed_client)
+    resp = await authed_client.post(
+        f"/api/v1/events/{event['id']}/photos",
+        files={"file": ("notes.txt", b"hello", "text/plain")},
+    )
+    assert resp.status_code == 422
