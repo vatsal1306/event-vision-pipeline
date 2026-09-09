@@ -111,6 +111,8 @@ module = [
     "sklearn.*",
     "skimage",
     "skimage.*",
+    "transformers",
+    "transformers.*",
 ]
 ignore_missing_imports = true
 
