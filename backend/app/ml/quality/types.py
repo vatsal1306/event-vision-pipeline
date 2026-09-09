@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# Sentinel returned when age estimation fails; kept here to avoid importing torch in callers.
+AGE_ESTIMATION_FAILED = 200
+
 
 @dataclass(frozen=True)
 class QualityResult:

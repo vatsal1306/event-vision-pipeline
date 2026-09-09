@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+pytest.importorskip("torch")
+pytest.importorskip("transformers")
+
 from app.ml.config import get_ml_config
 from app.ml.quality.age_detector import AgeDetector
 from tests.ml.conftest import age_model_available, run_ml_integration_tests

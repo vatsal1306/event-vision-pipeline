@@ -8,6 +8,8 @@ import sys
 import numpy as np
 import pytest
 
+pytest.importorskip("onnxruntime")
+
 from app.ml.config import get_ml_config
 from app.ml.detection import registry as detection_registry  # noqa: F401
 from app.ml.detection.face_cropper import FaceCropper

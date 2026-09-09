@@ -119,7 +119,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing"
 markers = [
-    "ml: ML integration tests that require ONNX model files",
+    "ml: tests that require the ml optional extra (torch, onnxruntime, litert, transformers, model weights)",
 ]
 
 [tool.coverage.run]

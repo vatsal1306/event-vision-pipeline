@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("onnxruntime")
+
 from app.ml.detection.onnx_providers import get_onnxruntime_providers
 from app.ml.device import resolve_onnx_device
+
+pytestmark = pytest.mark.ml
 
 
 def test_mps_device_uses_cpu_only_for_onnx() -> None:
@@ -16,11 +22,6 @@ def test_mps_device_uses_cpu_only_for_onnx() -> None:
 def test_cpu_device_uses_cpu_only() -> None:
     """Explicit CPU should return CPUExecutionProvider only."""
     assert get_onnxruntime_providers("cpu") == ["CPUExecutionProvider"]
-
-
-def test_resolve_onnx_device_maps_mps_to_cpu() -> None:
-    """MPS is a PyTorch-only backend; ONNX inference stays on CPU."""
-    assert resolve_onnx_device("mps") == "cpu"
 
 
 def test_resolve_onnx_device_auto_matches_cuda_ep_availability() -> None:

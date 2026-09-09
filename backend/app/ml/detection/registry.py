@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from app.ml.detection.scrfd import SCRFDDetector
+from typing import TYPE_CHECKING
+
 from app.ml.device import resolve_onnx_device
 from app.ml.model_registry import ModelRegistry, register_model_loader
+
+if TYPE_CHECKING:
+    from app.ml.detection.scrfd import SCRFDDetector
 
 
 def _load_scrfd(registry: ModelRegistry) -> SCRFDDetector:
     """Construct a configured SCRFD detector from registry settings."""
+    from app.ml.detection.scrfd import SCRFDDetector
+
     config = registry.config
     return SCRFDDetector(
         model_path=config.scrfd_model_path,

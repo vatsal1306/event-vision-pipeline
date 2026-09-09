@@ -10,10 +10,7 @@ import numpy as np
 import pytest
 
 from app.ml.config import get_ml_config
-from app.ml.detection.face_cropper import FaceCropper
-from app.ml.detection.scrfd import SCRFDDetector
 from app.ml.model_registry import ModelRegistry, get_model_registry
-from app.ml.quality.quality_filter import QualityFilter
 from app.ml.registry_bootstrap import register_default_model_loaders
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -24,12 +21,13 @@ PICSEE_FACE_CROPPER = Path(
 
 @pytest.fixture(scope="session", autouse=True)
 def _initialize_ml_test_runtime() -> None:
-    """Register loaders once and import torch before mixed ML runtimes."""
+    """Register loaders once; pre-import torch only for local ML integration runs."""
     register_default_model_loaders()
-    try:
-        import torch  # noqa: F401
-    except ImportError:
-        pass
+    if run_ml_integration_tests():
+        try:
+            import torch  # noqa: F401
+        except ImportError:
+            pass
 
 
 def scrfd_model_available() -> bool:
@@ -97,8 +95,11 @@ def load_bgr_image(fixtures_dir: Path):
 
 
 @pytest.fixture
-def scrfd_detector() -> SCRFDDetector:
+def scrfd_detector():
     """SCRFD detector backed by local ONNX weights."""
+    pytest.importorskip("onnxruntime")
+    from app.ml.detection.scrfd import SCRFDDetector
+
     if not scrfd_model_available() or not run_ml_integration_tests():
         pytest.skip("SCRFD model file missing or RUN_ML_TESTS!=1")
     config = get_ml_config()
@@ -114,8 +115,10 @@ def scrfd_detector() -> SCRFDDetector:
 
 
 @pytest.fixture
-def face_cropper(scrfd_detector: SCRFDDetector) -> FaceCropper:
+def face_cropper(scrfd_detector):
     """Face cropper bound to a live SCRFD detector."""
+    from app.ml.detection.face_cropper import FaceCropper
+
     return FaceCropper(detector=scrfd_detector)
 
 
@@ -138,8 +141,8 @@ def quality_registry(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture
 def quality_filter(
     quality_registry,
-    scrfd_detector: SCRFDDetector,
-    face_cropper: FaceCropper,
+    scrfd_detector,
+    face_cropper,
     load_bgr_image,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -158,6 +161,8 @@ def quality_filter(
         pytest.skip("Quality model files missing")
 
     quality_filter_model = registry.get_model("quality_filter")
+    from app.ml.quality.quality_filter import QualityFilter
+
     assert isinstance(quality_filter_model, QualityFilter)
 
     image = load_bgr_image("single_face.jpg")

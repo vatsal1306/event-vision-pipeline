@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from app.ml.model_registry import ModelRegistry, register_model_loader
-from app.ml.quality.age_detector import AgeDetector
-from app.ml.quality.blur_detector import BlurDetector
-from app.ml.quality.quality_filter import QualityFilter
-from app.ml.quality.sunglasses import SunglassesDetector
-from app.ml.quality.ypr_3ddfa import YPRPredictor
+
+if TYPE_CHECKING:
+    from app.ml.quality.age_detector import AgeDetector
+    from app.ml.quality.blur_detector import BlurDetector
+    from app.ml.quality.quality_filter import QualityFilter
+    from app.ml.quality.sunglasses import SunglassesDetector
+    from app.ml.quality.ypr_3ddfa import YPRPredictor
 
 
 def _load_blur_detector(registry: ModelRegistry) -> BlurDetector:
+    from app.ml.quality.blur_detector import BlurDetector
+
     config = registry.config
     return BlurDetector(
         model_path=config.blur_model_path,
@@ -19,6 +25,8 @@ def _load_blur_detector(registry: ModelRegistry) -> BlurDetector:
 
 
 def _load_ypr_predictor(registry: ModelRegistry) -> YPRPredictor:
+    from app.ml.quality.ypr_3ddfa import YPRPredictor
+
     config = registry.config
     return YPRPredictor(
         model_type=config.ypr_model_type,
@@ -31,6 +39,8 @@ def _load_ypr_predictor(registry: ModelRegistry) -> YPRPredictor:
 
 
 def _load_age_detector(registry: ModelRegistry) -> AgeDetector | None:
+    from app.ml.quality.age_detector import AgeDetector
+
     config = registry.config
     if not config.age_detection_enabled:
         return None
@@ -41,6 +51,8 @@ def _load_age_detector(registry: ModelRegistry) -> AgeDetector | None:
 
 
 def _load_sunglasses_detector(registry: ModelRegistry) -> SunglassesDetector | None:
+    from app.ml.quality.sunglasses import SunglassesDetector
+
     config = registry.config
     if not config.sunglasses_detection_enabled:
         return None
@@ -48,6 +60,8 @@ def _load_sunglasses_detector(registry: ModelRegistry) -> SunglassesDetector | N
 
 
 def _load_quality_filter(registry: ModelRegistry) -> QualityFilter:
+    from app.ml.quality.quality_filter import QualityFilter
+
     config = registry.config
     return QualityFilter(
         blur_detector=registry.get_model("blur_detector"),

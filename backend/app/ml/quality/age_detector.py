@@ -11,10 +11,12 @@ import torch
 from PIL import Image
 from transformers import ViTForImageClassification, ViTImageProcessor
 
+from app.ml.quality.types import AGE_ESTIMATION_FAILED
+
 logger = structlog.get_logger(__name__)
 
 DEFAULT_AGE_BINS = torch.tensor([2, 9, 19, 29, 39, 49, 59, 69, 79])
-DEFAULT_FAILED_AGE = 200
+DEFAULT_FAILED_AGE = AGE_ESTIMATION_FAILED
 
 
 class AgeDetector:

@@ -5,8 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+pytest.importorskip("skimage")
+
 from app.ml.detection.types import DetectedFace
 from app.ml.face_preprocess import estimate_norm, norm_crop
+
+pytestmark = pytest.mark.ml
 
 
 def test_estimate_norm_returns_2x3_matrix() -> None:

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 
-from app.ml.detection.scrfd import SCRFDDetector
 from app.ml.detection.types import DetectedFace, FaceCrop
 from app.ml.face_preprocess import estimate_norm, norm_crop, preprocess
+
+if TYPE_CHECKING:
+    from app.ml.detection.scrfd import SCRFDDetector
 
 
 class FaceCropper:

@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
 
 from app.ml.detection.types import FaceCrop
-from app.ml.quality.age_detector import DEFAULT_FAILED_AGE, AgeDetector
-from app.ml.quality.blur_detector import BlurDetector
-from app.ml.quality.sunglasses import SunglassesDetector
-from app.ml.quality.types import QualityResult
-from app.ml.quality.ypr_3ddfa import YPRPredictor
+from app.ml.quality.types import AGE_ESTIMATION_FAILED, QualityResult
+
+if TYPE_CHECKING:
+    from app.ml.quality.age_detector import AgeDetector
+    from app.ml.quality.blur_detector import BlurDetector
+    from app.ml.quality.sunglasses import SunglassesDetector
+    from app.ml.quality.ypr_3ddfa import YPRPredictor
 
 logger = structlog.get_logger(__name__)
 
@@ -97,7 +101,7 @@ class QualityFilter:
             try:
                 estimated_age, age_confidence = self._age_detector.estimate(crop)
                 metadata["age_confidence"] = age_confidence
-                if estimated_age == DEFAULT_FAILED_AGE:
+                if estimated_age == AGE_ESTIMATION_FAILED:
                     metadata["age_pass_on_error"] = True
                     logger.warning("age_detector_low_confidence_pass_on_error")
                 else:

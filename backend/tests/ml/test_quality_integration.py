@@ -6,6 +6,9 @@ import cv2
 import numpy as np
 import pytest
 
+pytest.importorskip("onnxruntime")
+pytest.importorskip("ai_edge_litert")
+
 from app.ml.config import get_ml_config
 from app.ml.detection.types import DetectedFace, FaceCrop
 from app.ml.quality.blur_detector import BlurDetector
