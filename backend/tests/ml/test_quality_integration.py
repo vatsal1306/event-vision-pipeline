@@ -8,12 +8,20 @@ import pytest
 
 from app.ml.config import get_ml_config
 from app.ml.detection.types import DetectedFace, FaceCrop
-from app.ml.model_registry import ModelRegistry, get_model_registry
 from app.ml.quality.blur_detector import BlurDetector
 from app.ml.quality.ypr_3ddfa import YPRPredictor
-from app.ml.registry_bootstrap import register_default_model_loaders
+from tests.ml.conftest import quality_models_available, run_ml_integration_tests
 
 pytestmark = pytest.mark.ml
+
+
+@pytest.fixture(autouse=True)
+def _require_quality_integration_models() -> None:
+    """Skip integration tests when ML weights are unavailable (e.g. CI)."""
+    if not run_ml_integration_tests():
+        pytest.skip("RUN_ML_TESTS!=1")
+    if not quality_models_available():
+        pytest.skip("Quality model files missing")
 
 
 def test_blur_detector_scores_sharp_crop_low(
@@ -112,20 +120,9 @@ def test_ypr_predictor_returns_angles_for_aligned_crop(quality_filter) -> None:
 
 
 def test_quality_filter_ypr_pass_on_error_when_no_face_in_crop(
-    monkeypatch: pytest.MonkeyPatch,
+    quality_registry,
 ) -> None:
     """Blank crop should trigger YPR pass-on-error semantics."""
-    monkeypatch.setenv("ML_DEVICE", "cpu")
-    monkeypatch.setenv("ML_AGE_DETECTION_ENABLED", "false")
-    monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
-    get_ml_config.cache_clear()
-    ModelRegistry.reset_for_tests()
-    register_default_model_loaders()
-
-    config = get_ml_config()
-    if not config.ypr_3ddfa_config_path.exists():
-        pytest.skip("YPR config missing")
-
     blank = np.zeros((112, 112, 3), dtype=np.uint8)
     detection = DetectedFace(
         bbox=np.zeros(4),
@@ -135,8 +132,7 @@ def test_quality_filter_ypr_pass_on_error_when_no_face_in_crop(
     )
     crop = FaceCrop(aligned_face=blank, source_detection=detection, alignment_matrix=None)
 
-    registry = get_model_registry()
-    quality = registry.get_model("quality_filter")
+    quality = quality_registry.get_model("quality_filter")
     result = quality.filter(crop)
 
     assert result.passed is True

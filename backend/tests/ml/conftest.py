@@ -58,6 +58,11 @@ def ypr_models_available() -> bool:
     )
 
 
+def quality_models_available() -> bool:
+    """Return True when all quality-filter model assets exist locally."""
+    return blur_model_available() and ypr_models_available()
+
+
 def age_model_available() -> bool:
     """Return True when the local ViT age snapshot exists."""
     config = get_ml_config()
@@ -149,7 +154,7 @@ def quality_filter(
 
     if not run_ml_integration_tests():
         pytest.skip("RUN_ML_TESTS!=1")
-    if not blur_model_available() or not ypr_models_available():
+    if not quality_models_available():
         pytest.skip("Quality model files missing")
 
     quality_filter_model = registry.get_model("quality_filter")
