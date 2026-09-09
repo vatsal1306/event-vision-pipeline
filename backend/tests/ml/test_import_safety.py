@@ -11,8 +11,8 @@ from app.ml.config import MLConfig, get_ml_config
 
 
 def test_importing_app_ml_does_not_import_heavy_ml_libraries() -> None:
-    """Importing app.ml must not pull torch, onnxruntime, or tensorflow."""
-    for module_name in ("torch", "onnxruntime", "tensorflow"):
+    """Importing app.ml must not pull torch, onnxruntime, or ai-edge-litert."""
+    for module_name in ("torch", "onnxruntime", "ai_edge_litert"):
         sys.modules.pop(module_name, None)
 
     if "app.ml" in sys.modules:
@@ -22,7 +22,7 @@ def test_importing_app_ml_does_not_import_heavy_ml_libraries() -> None:
 
     assert "torch" not in sys.modules
     assert "onnxruntime" not in sys.modules
-    assert "tensorflow" not in sys.modules
+    assert "ai_edge_litert" not in sys.modules
 
 
 def test_fastapi_starts_without_model_files(monkeypatch: pytest.MonkeyPatch) -> None:

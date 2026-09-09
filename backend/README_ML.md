@@ -17,6 +17,7 @@ backend/app/ml/
 │   ├── onnx_providers.py
 │   └── registry.py
 ├── face_preprocess.py  # ML-002 — ArcFace alignment utils
+├── tflite_interpreter.py  # LiteRT factory for all .tflite models
 ├── quality/            # ML-003 — blur, YPR, age, sunglasses (done)
 │   ├── blur_detector.py
 │   ├── ypr_3ddfa.py
@@ -84,7 +85,7 @@ uv sync --extra dev --extra ml
 | torch | 2.6.0 | pix-workers production |
 | torchvision | 0.21.0 | pix-workers production |
 | onnxruntime | >=1.20.1 | pix-workers + clustering_pipeline |
-| tensorflow | >=2.16 | TFLite models (blur, YPR, MBF) |
+| ai-edge-litert | >=2.1 | TFLite inference (blur, YPR, MBF) — replaces deprecated `tf.lite.Interpreter` |
 
 > Note: `clustering_pipeline` pins torch 2.7.1 but requires Python 3.12. We use pix-workers'
 > torch 2.6.0 for Python 3.10 compatibility.
@@ -157,6 +158,8 @@ Keep `config.json`, `preprocessor_config.json`, and `model.safetensors` (drop du
 **YPR fallback:** TFLite is used only when 3DDFA **fails to initialize** or throws at runtime. When 3DDFA finds no face in the crop, we **pass-on-error** (do not fall back to TFLite).
 
 **3DDFA NMS on macOS:** vendored FaceBoxes uses pure-Python NMS (`py_cpu_nms`) when the Cython extension is unavailable.
+
+**TFLite runtime (ML-003):** blur and YPR TFLite models use the standalone `ai-edge-litert` package via `app/ml/tflite_interpreter.py`. This replaces the deprecated `tf.lite.Interpreter` removed in TensorFlow 2.20+ and drops the full TensorFlow dependency (~220 MB saved).
 
 **Registry fix (ML-003):** `ModelRegistry` uses `threading.RLock` so composite loaders (e.g. `quality_filter`) can call `get_model()` recursively.
 

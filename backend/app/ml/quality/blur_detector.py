@@ -7,7 +7,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 import structlog
-import tensorflow as tf
+
+from app.ml.tflite_interpreter import create_tflite_interpreter
 
 logger = structlog.get_logger(__name__)
 
@@ -32,8 +33,7 @@ class BlurDetector:
         if not path.exists():
             raise FileNotFoundError(f"Blur model file not found: {path}")
 
-        self._interpreter = tf.lite.Interpreter(model_path=str(path))
-        self._interpreter.allocate_tensors()
+        self._interpreter = create_tflite_interpreter(path)
         self._input_details = self._interpreter.get_input_details()
         self._output_details = self._interpreter.get_output_details()
         self.threshold = threshold
