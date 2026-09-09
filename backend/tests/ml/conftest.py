@@ -11,7 +11,6 @@ import pytest
 
 from app.ml.config import get_ml_config
 from app.ml.model_registry import ModelRegistry, get_model_registry
-from app.ml.registry_bootstrap import register_default_model_loaders
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 PICSEE_FACE_CROPPER = Path(
@@ -19,10 +18,17 @@ PICSEE_FACE_CROPPER = Path(
 )
 
 
+def _register_default_loaders() -> None:
+    """Register ML loaders without importing heavy deps at conftest import time."""
+    from app.ml.registry_bootstrap import register_default_model_loaders
+
+    register_default_model_loaders()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _initialize_ml_test_runtime() -> None:
     """Register loaders once; pre-import torch only for local ML integration runs."""
-    register_default_model_loaders()
+    _register_default_loaders()
     if run_ml_integration_tests():
         try:
             import torch  # noqa: F401
@@ -72,6 +78,34 @@ def age_model_available() -> bool:
             (model_dir / "model.safetensors").exists() or (model_dir / "pytorch_model.bin").exists()
         )
     )
+
+
+def r100_model_available() -> bool:
+    """Return True when ArcFace R100 PyTorch weights exist locally."""
+    return get_ml_config().r100_model_path.exists()
+
+
+def adaface_models_available() -> bool:
+    """Return True when AdaFace VIT-KPRPE and DFA aligner exports exist."""
+    config = get_ml_config()
+    adaface_dir = config.adaface_model_path
+    aligner_dir = config.dfa_aligner_path
+    return (
+        adaface_dir.is_dir()
+        and (adaface_dir / "config.json").exists()
+        and aligner_dir.is_dir()
+        and (aligner_dir / "config.json").exists()
+    )
+
+
+def mbf_model_available() -> bool:
+    """Return True when MobileFaceNet TFLite weights exist locally."""
+    return get_ml_config().mbf_model_path.exists()
+
+
+def embedding_models_available() -> bool:
+    """Return True when primary embedding model assets exist locally."""
+    return r100_model_available()
 
 
 @pytest.fixture
@@ -128,7 +162,7 @@ def quality_registry(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ML_DEVICE", "cpu")
     monkeypatch.setenv("ML_AGE_DETECTION_ENABLED", "false")
     monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
-    register_default_model_loaders()
+    _register_default_loaders()
     get_ml_config.cache_clear()
     ModelRegistry.reset_for_tests()
     registry = get_model_registry()
@@ -152,7 +186,7 @@ def quality_filter(
     monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
     get_ml_config.cache_clear()
     ModelRegistry.reset_for_tests()
-    register_default_model_loaders()
+    _register_default_loaders()
     registry = get_model_registry()
 
     if not run_ml_integration_tests():

@@ -53,6 +53,9 @@ ml = [
     "transformers>=4.51,<5",
     # numpy, pillow, opencv-python-headless are base deps (from main merge).
     # glasses-detector requires Python 3.12+ — added in ML-003 when sunglasses module ships
+    "timm>=1.0.29",
+    "easydict>=1.13",
+    "safetensors>=0.8.0",
 ]
 
 [build-system]
@@ -113,6 +116,14 @@ module = [
     "skimage.*",
     "transformers",
     "transformers.*",
+    "omegaconf",
+    "omegaconf.*",
+    "safetensors",
+    "safetensors.*",
+    "timm",
+    "timm.*",
+    "easydict",
+    "easydict.*",
 ]
 ignore_missing_imports = true
 
