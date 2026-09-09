@@ -67,7 +67,7 @@ class ModelRegistry:
     def __init__(self, config: MLConfig | None = None) -> None:
         self._config = config or get_ml_config()
         self._models: dict[str, Any] = {}
-        self._model_lock = threading.Lock()
+        self._model_lock = threading.RLock()
 
     @classmethod
     def get_instance(cls, config: MLConfig | None = None) -> ModelRegistry:

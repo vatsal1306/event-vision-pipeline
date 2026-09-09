@@ -175,6 +175,8 @@ backend/models/**/*.pt
 backend/models/**/*.tflite
 backend/models/adaface_insightface/
 backend/**/*.safetensors
+backend/**/*.bin
+backend/**/*.pkl
 
 # Backend secrets and local storage
 backend/.env

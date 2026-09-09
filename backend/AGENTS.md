@@ -169,7 +169,10 @@ The ML pipeline is adapted from the **PicSee clustering pipeline** (`/Users/vats
 | `detection/scrfd.py` | SCRFD class + multi-scale autodetect | Service class with batch support |
 | `embedding/insightface_r100.py` | R100 backbone + `get_model()` | Batch GPU inference wrapper |
 | `quality/blur_detector.py` | TFLite blur model | Quality gate service |
-| `quality/pose_estimator.py` | TFLite YPR model | Quality gate service |
+| `quality/ypr_3ddfa.py` + `quality/ypr_tflite.py` | 3DDFA_V2 ONNX + TFLite fallback | Head pose filtering (ML-003) |
+| `quality/age_detector.py` | Local ViT age snapshot | Child flag (< 5 years) |
+| `quality/sunglasses.py` | Optional glasses-detector | Soft flag (Python 3.12+ package) |
+| `quality/quality_filter.py` | Orchestrator | Early exit + pass-on-error |
 | `clustering/incremental_clusterer.py` | DBSCAN + Agglomerative + centroid injection | pgvector-backed storage |
 | `matching/selfie_matcher.py` | N/A (new) | Cosine similarity vs cluster centroids |
 
@@ -183,7 +186,7 @@ The ML pipeline is adapted from the **PicSee clustering pipeline** (`/Users/vats
 ### Processing Conventions
 
 - Face detection threshold: `0.5` (SCRFD).
-- Blur rejection threshold: `0.5` (lower = blurrier; reject below).
+- Blur rejection threshold: `0.5` — reject when blur score **exceeds** threshold (higher = blurrier; PicSee production semantics).
 - Head pose thresholds: yaw `45°`, pitch `35°`, roll `45°`.
 - Clustering: DBSCAN `eps=0.45` + Agglomerative `distance_threshold=0.45`, cosine metric.
 - Selfie match threshold: `0.55` cosine similarity against cluster centroids.

@@ -38,6 +38,7 @@ class MLConfig(BaseSettings):
     mbf_model: str = "preprocessed_transformation_mbf_model_w12m_RE10.tflite"
     blur_model: str = "blur_model_tflite_may6_ckpt49.tflite"
     ypr_tflite_model: str = "ypr_model_float32.tflite"
+    age_model_dir: str = "vit-age-classifier"
     ypr_3ddfa_config: str = "ypr_3ddfa_v2/resnet_config.yml"
     resnet22_onnx: str = "resnet22.onnx"
     faceboxes_onnx: str = "FaceBoxesProd.onnx"
@@ -185,6 +186,11 @@ class MLConfig(BaseSettings):
     def faceboxes_onnx_path(self) -> Path:
         """Absolute path to the FaceBoxes ONNX weights."""
         return self.resolve_model_path(self.faceboxes_onnx)
+
+    @property
+    def age_model_path(self) -> Path:
+        """Absolute path to the local ViT age classifier snapshot."""
+        return self.resolve_model_path(self.age_model_dir)
 
 
 @lru_cache

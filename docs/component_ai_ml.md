@@ -553,6 +553,12 @@ class MobileFaceNet(BaseEmbeddingModel):
 
 ## 6. Quality Filtering
 
+> **Implemented (ML-003):** See `backend/app/ml/quality/` and `backend/README_ML.md`.
+> Production code adds 3DDFA_V2 YPR (primary), age + sunglasses gates, early exit,
+> pass-on-error semantics, and PicSee blur semantics (reject when score **exceeds**
+> threshold). The illustrative snippets below predate ML-003 and use the simpler
+> two-filter TFLite-only design.
+
 ### 6.1 Blur Detection
 
 ```python

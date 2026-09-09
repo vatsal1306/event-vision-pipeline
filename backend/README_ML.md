@@ -17,11 +17,20 @@ backend/app/ml/
 │   ├── onnx_providers.py
 │   └── registry.py
 ├── face_preprocess.py  # ML-002 — ArcFace alignment utils
-├── quality/            # ML-003
+├── quality/            # ML-003 — blur, YPR, age, sunglasses (done)
+│   ├── blur_detector.py
+│   ├── ypr_3ddfa.py
+│   ├── ypr_tflite.py
+│   ├── age_detector.py
+│   ├── sunglasses.py
+│   ├── quality_filter.py
+│   ├── types.py
+│   └── registry.py
 ├── embedding/          # ML-004
 ├── clustering/         # ML-005, ML-006, ML-007
 ├── matching/           # ML-008
-└── vendor/             # PicSee / pix-workers code copies (ML-002+)
+└── vendor/             # PicSee / pix-workers code copies
+    └── ypr_3ddfa_v2/   # 3DDFA FaceBoxes + TDDFA ONNX (ML-003)
 ```
 
 Model weight files live in `backend/models/` (git-ignored).
@@ -90,14 +99,93 @@ uv sync --extra dev --extra ml
 | `resolve_device()` with cuda/mps/cpu | — |
 | Import safety (no torch/onnx/tf at import) | — |
 | SCRFD detector + FaceCropper | ML-002 (done) |
-| Vendor code copies | ML-004 |
+| Vendor code copies | ML-003 (ypr_3ddfa_v2), ML-004 |
 | Model weight files on disk | Manual copy by developer |
-| Quality filters | ML-003 |
+| Quality filters | ML-003 (done) |
 | Embeddings (R100, AdaFace, MBF) | ML-004 |
 | Clustering | ML-005/ML-006 |
 | FaceService + Celery tasks | ML-009 |
 
-| FaceService + Celery tasks | ML-009 |
+## ML-003 — Quality Filters
+
+| Module | Purpose |
+|--------|---------|
+| `quality/blur_detector.py` | TFLite blur score — reject when score **>** `ML_BLUR_THRESHOLD` |
+| `quality/ypr_3ddfa.py` | 3DDFA_V2 ONNX YPR (primary) + unified `YPRPredictor` |
+| `quality/ypr_tflite.py` | TFLite YPR fallback |
+| `quality/age_detector.py` | Local ViT snapshot (`ML_AGE_MODEL_DIR`, default `vit-age-classifier`) |
+| `quality/sunglasses.py` | Optional `glasses-detector` (Python 3.12+ only; inactive on 3.10) |
+| `quality/quality_filter.py` | Orchestrator with early exit + pass-on-error |
+| `quality/registry.py` | Registers `blur_detector`, `ypr_predictor`, `age_detector`, `sunglasses_detector`, `quality_filter` |
+
+### Model Files
+
+| File | Location |
+|------|----------|
+| Blur TFLite | `models/blur_model_tflite_may6_ckpt49.tflite` |
+| YPR TFLite fallback | `models/ypr_model_float32.tflite` |
+| 3DDFA ResNet22 | `models/resnet22.onnx` |
+| FaceBoxes | `models/FaceBoxesProd.onnx` |
+| 3DDFA config + stats | `models/ypr_3ddfa_v2/resnet_config.yml`, `param_mean_std_62d_120x120.pkl` |
+| Age ViT snapshot | `models/vit-age-classifier/` (local HuggingFace export) |
+
+Download age model once:
+
+```bash
+cd backend
+huggingface-cli download nateraw/vit-age-classifier \
+  --local-dir models/vit-age-classifier \
+  --local-dir-use-symlinks False
+```
+
+Keep `config.json`, `preprocessor_config.json`, and `model.safetensors` (drop duplicate `pytorch_model.bin` to save space).
+
+### Filter Behaviour
+
+| Gate | Hard reject? | Embedding |
+|------|--------------|-----------|
+| Blur (score > threshold) | Yes (`reject_reason="blur"`) | Skip |
+| YPR (angle exceeds thresholds) | Yes (`reject_reason="ypr"`) | Skip |
+| Age (< `ML_AGE_MIN_THRESHOLD`) | Yes (`reject_reason="age"`) | Skip |
+| Sunglasses | No — soft flag only | Still embed |
+| Model inference error | No — pass-on-error | Still embed |
+
+**Early exit:** blur → YPR → age → sunglasses. Later gates are skipped after a hard reject.
+
+**Blur semantics (PicSee production):** higher score = blurrier. Reject when `blur_score > ML_BLUR_THRESHOLD` (default `0.5`). Story wording was imprecise; implementation follows PicSee.
+
+**YPR fallback:** TFLite is used only when 3DDFA **fails to initialize** or throws at runtime. When 3DDFA finds no face in the crop, we **pass-on-error** (do not fall back to TFLite).
+
+**3DDFA NMS on macOS:** vendored FaceBoxes uses pure-Python NMS (`py_cpu_nms`) when the Cython extension is unavailable.
+
+**Registry fix (ML-003):** `ModelRegistry` uses `threading.RLock` so composite loaders (e.g. `quality_filter`) can call `get_model()` recursively.
+
+### Usage
+
+```python
+import app.ml.detection   # scrfd loader
+import app.ml.quality.registry  # quality loaders
+from app.ml.model_registry import get_model_registry
+
+registry = get_model_registry()
+quality = registry.get_model("quality_filter")
+
+result = quality.filter(face_crop)
+if result.passed:
+    ...  # proceed to embedding in ML-004
+```
+
+Config flags: `ML_AGE_DETECTION_ENABLED`, `ML_SUNGLASSES_DETECTION_ENABLED`, `ML_YPR_MODEL_TYPE` (`3ddfa` | `tflite`).
+
+### Testing
+
+```bash
+cd backend
+uv run pytest tests/ml/test_quality_filter_unit.py tests/ml/test_quality_integration.py -v
+uv run pytest tests/ml/test_age_detector_integration.py -v  # loads ViT; run separately if TF/torch conflict
+```
+
+Run age integration test separately from SCRFD tests if you see a Torch/Triton registration error (known TF+torch coexistence issue in one pytest process).
 
 ## ML-002 — Detection and Cropping
 

@@ -12,6 +12,8 @@ import pytest
 from app.ml.config import get_ml_config
 from app.ml.detection.face_cropper import FaceCropper
 from app.ml.detection.scrfd import SCRFDDetector
+from app.ml.model_registry import ModelRegistry, get_model_registry
+from app.ml.quality.quality_filter import QualityFilter
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 PICSEE_FACE_CROPPER = Path(
@@ -27,6 +29,33 @@ def scrfd_model_available() -> bool:
 def run_ml_integration_tests() -> bool:
     """Return True when integration tests should load real models."""
     return os.environ.get("RUN_ML_TESTS", "1") == "1"
+
+
+def blur_model_available() -> bool:
+    """Return True when blur TFLite weights exist locally."""
+    return get_ml_config().blur_model_path.exists()
+
+
+def ypr_models_available() -> bool:
+    """Return True when YPR model assets exist locally."""
+    config = get_ml_config()
+    return (
+        config.ypr_tflite_model_path.exists()
+        and config.resnet22_onnx_path.exists()
+        and config.faceboxes_onnx_path.exists()
+        and config.ypr_3ddfa_config_path.exists()
+    )
+
+
+def age_model_available() -> bool:
+    """Return True when the local ViT age snapshot exists."""
+    config = get_ml_config()
+    model_dir = config.age_model_path
+    return (
+        model_dir.exists()
+        and (model_dir / "config.json").exists()
+        and ((model_dir / "model.safetensors").exists() or (model_dir / "pytorch_model.bin").exists())
+    )
 
 
 @pytest.fixture
@@ -70,3 +99,38 @@ def scrfd_detector() -> SCRFDDetector:
 def face_cropper(scrfd_detector: SCRFDDetector) -> FaceCropper:
     """Face cropper bound to a live SCRFD detector."""
     return FaceCropper(detector=scrfd_detector)
+
+
+@pytest.fixture
+def quality_registry(monkeypatch: pytest.MonkeyPatch):
+    """Fresh registry with quality loaders registered."""
+    import app.ml.quality.registry  # noqa: F401 — register loaders
+
+    monkeypatch.setenv("ML_AGE_DETECTION_ENABLED", "false")
+    monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
+    get_ml_config.cache_clear()
+    ModelRegistry.reset_for_tests()
+    registry = get_model_registry()
+    yield registry
+    registry.unload_all()
+    ModelRegistry.reset_for_tests()
+    get_ml_config.cache_clear()
+
+
+@pytest.fixture
+def quality_filter(quality_registry, scrfd_detector: SCRFDDetector, face_cropper: FaceCropper, load_bgr_image):
+    """Quality filter backed by local model weights."""
+    if not run_ml_integration_tests():
+        pytest.skip("RUN_ML_TESTS!=1")
+    if not blur_model_available() or not ypr_models_available():
+        pytest.skip("Quality model files missing")
+
+    quality_filter_model = quality_registry.get_model("quality_filter")
+    assert isinstance(quality_filter_model, QualityFilter)
+
+    image = load_bgr_image("single_face.jpg")
+    faces = scrfd_detector.detect(image)
+    crops = face_cropper.crop_all(image, faces)
+    assert crops, "Expected at least one crop from single_face fixture"
+
+    yield quality_filter_model, crops[0]

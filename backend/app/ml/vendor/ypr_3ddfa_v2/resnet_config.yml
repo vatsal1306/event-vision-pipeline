@@ -1,0 +1,7 @@
+# Fallback config for vendor imports; production uses backend/models/ypr_3ddfa_v2/.
+arch: resnet22
+resnet_onnx: ../../../../models/resnet22.onnx
+faceboxesprod_onnx: ../../../../models/FaceBoxesProd.onnx
+param_mean_std: ../../../../models/ypr_3ddfa_v2/param_mean_std_62d_120x120.pkl
+size: 120
+num_params: 62
