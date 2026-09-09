@@ -10,14 +10,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ai_edge_litert.interpreter import Interpreter
-
 
 def create_tflite_interpreter(
     model_path: Path | str,
     *,
     num_threads: int | None = None,
-) -> Interpreter:
+) -> Any:
     """Create a LiteRT interpreter and allocate input/output tensors.
 
     Args:
@@ -33,6 +31,8 @@ def create_tflite_interpreter(
     path = Path(model_path)
     if not path.exists():
         raise FileNotFoundError(f"TFLite model file not found: {path}")
+
+    from ai_edge_litert.interpreter import Interpreter
 
     kwargs: dict[str, Any] = {"model_path": str(path)}
     if num_threads is not None:
