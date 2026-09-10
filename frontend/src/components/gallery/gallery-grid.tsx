@@ -63,14 +63,23 @@ function VirtualColumn({
                 className="relative group cursor-pointer rounded-[2px] overflow-hidden bg-muted"
                 onClick={() => onPhotoClick(originalIndex)}
               >
-              <ResponsiveImage
-                src={photo.proxyUrl || ''}
-                alt={photo.filename}
-                blurhash={photo.blurhash}
-                aspectRatio={aspectRatio}
-                className="w-full h-auto rounded-[2px]"
-                imageClassName="group-hover:scale-105 transition-transform duration-500"
-              />
+              {photo.proxyUrl ? (
+                <ResponsiveImage
+                  src={photo.proxyUrl}
+                  alt={photo.filename}
+                  blurhash={photo.blurhash}
+                  aspectRatio={aspectRatio}
+                  className="w-full h-auto rounded-[2px]"
+                  imageClassName="group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <div 
+                  className="w-full bg-muted flex items-center justify-center text-muted-foreground"
+                  style={{ paddingBottom: `${(1 / aspectRatio) * 100}%` }}
+                >
+                  <span className="absolute inset-0 flex items-center justify-center text-xs">Processing...</span>
+                </div>
+              )}
               
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
               

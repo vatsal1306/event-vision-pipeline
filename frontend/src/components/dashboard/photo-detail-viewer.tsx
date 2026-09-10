@@ -87,8 +87,7 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
                 src={photo.proxyUrl}
                 alt={photo.filename}
                 blurhash={photo.blurhash}
-                width={800}
-                height={600}
+                aspectRatio={photo.width && photo.height ? photo.width / photo.height : 4/3}
                 className="w-full h-auto max-h-[60vh]"
                 imageClassName="object-contain"
                 unoptimized
