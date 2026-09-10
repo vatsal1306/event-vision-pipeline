@@ -36,7 +36,7 @@ export function useMovePhotos(eventId: string) {
 
   return useMutation({
     mutationFn: (data: { photoIds: string[]; targetFolderId: string | null }) => 
-      api.movePhotos(eventId, data),
+      api.movePhotos(eventId, { photo_ids: data.photoIds, folder_id: data.targetFolderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-photos', eventId] });
     },

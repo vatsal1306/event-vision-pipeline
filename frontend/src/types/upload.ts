@@ -12,7 +12,7 @@ export interface UploadFile {
   id: string;
   file?: File; // Optional because we can't persist File objects
   relativePath?: string;
-  targetFolderId: string;
+  targetFolderId: string | null;
   status: UploadStatus;
   progress: number;
   uploadedBytes: number;

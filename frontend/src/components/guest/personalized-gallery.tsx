@@ -95,6 +95,17 @@ export function PersonalizedGallery({
         onChangeIndex={setViewerIndex}
         downloadEnabled={downloadEnabled}
       />
+
+      <div className="fixed bottom-6 right-6 z-40 transition-transform duration-300 hover:scale-105">
+        <Button
+          size="lg"
+          onClick={onRetakeSelfie}
+          className="rounded-pill shadow-xl flex items-center gap-2 px-6 h-14 border border-white/10 bg-ink/80 text-white backdrop-blur-md hover:bg-ink"
+        >
+          <Camera className="h-5 w-5" />
+          <span className="font-semibold text-sm">Retake Selfie</span>
+        </Button>
+      </div>
     </div>
   );
 }

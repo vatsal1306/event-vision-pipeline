@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import { mapEventFromApi, mapPhotoFromApi } from '@/lib/map-api';
+import { mapEventFromApi, mapPhotoFromApi, mapFolderNodeFromApi } from '@/lib/map-api';
 
 export function useEventInfo(slug: string) {
   return useQuery({
@@ -34,7 +34,9 @@ export function useMasterFolders(slug: string, token: string | null) {
     queryKey: ['master-folders', slug, token],
     queryFn: async () => {
       const res = await api.getMasterFolders(slug, token!);
-      return res.folders || [];
+      return (res.folders || []).map((folder) =>
+        mapFolderNodeFromApi(folder as unknown as Record<string, unknown>)
+      );
     },
     enabled: !!token,
   });

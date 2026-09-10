@@ -260,7 +260,7 @@ export class UploadManager {
     const folderCache = new Map<string, string>();
     if (rootFolderId) folderCache.set('', rootFolderId);
 
-    const filesToQueue: { file: File; targetFolderId: string; relativePath: string }[] = [];
+    const filesToQueue: { file: File; targetFolderId: string | null; relativePath: string }[] = [];
 
     for (const item of items) {
       const parts = item.relativePath.split('/');
@@ -293,7 +293,7 @@ export class UploadManager {
 
       filesToQueue.push({
         file: item.file,
-        targetFolderId: currentFolderId || 'root',
+        targetFolderId: currentFolderId || null,
         relativePath: item.relativePath,
       });
     }

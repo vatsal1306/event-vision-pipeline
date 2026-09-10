@@ -36,7 +36,7 @@ export function Sidebar() {
       onMouseEnter={() => setSidebarHovered(true)}
       onMouseLeave={handleMouseLeave}
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-background transition-all duration-300 ease-in-out',
+        'hidden md:flex md:flex-col fixed left-0 top-0 z-40 h-screen bg-background transition-all duration-300 ease-in-out',
         isExpanded ? 'w-64' : 'w-16',
         (isSidebarCollapsed && isSidebarHovered && !isHoverLocked) ? 'shadow-xl border-r border-border' : 'border-r border-border'
       )}

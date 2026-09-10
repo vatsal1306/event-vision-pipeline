@@ -49,7 +49,7 @@ export function GalleryHeader({
 
         {/* Event Details */}
         <div className="flex flex-col items-center flex-1 px-4">
-          <h1 className="text-base sm:text-lg font-bold truncate max-w-full">
+          <h1 className="text-base sm:text-lg font-display font-bold truncate max-w-full">
             {event.name}
           </h1>
           <p className="text-xs text-muted-foreground">

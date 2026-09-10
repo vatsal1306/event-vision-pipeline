@@ -92,7 +92,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       );
       toast.success('Successfully logged in');
     } catch (err) {
-      toast.error('Invalid OTP. Use 123456 for testing.');
+      toast.error('Invalid OTP. Please check the code and try again.');
     }
   };
 
@@ -105,7 +105,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       const formData = new FormData();
       formData.append('file', imageBlob, 'selfie.jpg');
       
-      const { matchCount } = await selfieMutation.mutateAsync({ slug, data: formData, token: sessionToken });
+      const { matched_photo_count } = await selfieMutation.mutateAsync({ slug, data: formData, token: sessionToken });
       
       // Update session to indicate selfie is no longer needed
       setGuestSession(guestSession, sessionToken, false);
@@ -114,8 +114,8 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       // but let's do it explicitly to be sure.
       setStep('gallery');
       
-      if (matchCount > 0) {
-        toast.success(`Found ${matchCount} matching photos!`);
+      if (matched_photo_count > 0) {
+        toast.success(`Found ${matched_photo_count} matching photos!`);
       }
     } catch (err) {
       toast.error('Failed to process selfie. Please try again.');
@@ -134,11 +134,10 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-black">
         <EmptyState
-          title="Failed to load gallery"
-          description={infoError.message}
-          icon={<AlertCircle className="h-8 w-8 text-destructive" />}
-          action={<Button onClick={() => refetchInfo()}>Try again</Button>}
-          className="bg-zinc-950 text-white border-zinc-800"
+          title="Gallery Unavailable"
+          description="This gallery isn't available. Check the link from your photographer."
+          icon={<AlertCircle className="h-8 w-8" />}
+          variant="dark"
         />
       </div>
     );

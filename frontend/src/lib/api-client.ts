@@ -32,13 +32,23 @@ class ApiClient {
     return null;
   }
 
-  private async handle401() {
-    // Placeholder for token refresh logic to be implemented later
+  private async handle401(): Promise<void> {
     if (typeof window !== 'undefined') {
-      // e.g. trigger Zustand store logout if refresh fails
-      // window.location.href = '/login';
+      try {
+        await useAuthStore.getState().refreshToken();
+        return; // Token refreshed, can retry
+      } catch (e) {
+        useAuthStore.getState().clearTokens();
+      }
     }
     throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
+  }
+
+  private parseDetail(detail: unknown): string {
+    if (Array.isArray(detail)) {
+      return detail.map((err) => err.msg || JSON.stringify(err)).join(', ');
+    }
+    return typeof detail === 'string' ? detail : 'An error occurred';
   }
 
   private async request<T>(method: string, path: string, options?: RequestOptions): Promise<T> {
@@ -71,17 +81,29 @@ class ApiClient {
       const response = await fetch(`${this.baseUrl}${path}`, fetchOptions);
 
       if (response.status === 401) {
-        if (!path.includes('/auth/login')) {
+        if (!path.includes('/auth/login') && !path.includes('/auth/refresh')) {
           await this.handle401();
+          // Retry the request once with the new token
+          const newToken = this.getToken();
+          if (newToken) {
+            const retryHeaders = { ...headers, Authorization: `Bearer ${newToken}` };
+            const retryResponse = await fetch(`${this.baseUrl}${path}`, { ...fetchOptions, headers: retryHeaders });
+            
+            if (!retryResponse.ok) {
+              const errorData = await retryResponse.json().catch(() => ({}));
+              throw new ApiError(retryResponse.status, this.parseDetail(errorData.detail), errorData.code || 'UNKNOWN_ERROR', errorData.errors);
+            }
+            if (retryResponse.status === 204) return {} as T;
+            return await retryResponse.json();
+          }
         }
-        // Let the normal error handling below parse the response body for login endpoints
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new ApiError(
           response.status,
-          errorData.detail || 'An error occurred',
+          this.parseDetail(errorData.detail),
           errorData.code || 'UNKNOWN_ERROR',
           errorData.errors
         );
@@ -179,8 +201,15 @@ export const api = {
     apiClient.delete<void>(`/api/v1/events/${eventId}/photos/${photoId}`),
   movePhotos: (eventId: string, data: unknown) =>
     apiClient.post<void>(`/api/v1/events/${eventId}/photos/move`, data),
-  downloadPhoto: (eventId: string, photoId: string) =>
-    apiClient.get<{ url: string }>(`/api/v1/events/${eventId}/photos/${photoId}/download`),
+  downloadPhoto: (eventId: string, photoId: string, context: 'photographer' | 'master' | 'guest' = 'photographer', slug?: string) => {
+    let url = `/api/v1/events/${eventId}/photos/${photoId}/download`;
+    if (context === 'master' && slug) {
+      url = `/api/v1/event/${slug}/master/photos/${photoId}/download`;
+    } else if (context === 'guest' && slug) {
+      url = `/api/v1/event/${slug}/photos/${photoId}/download`;
+    }
+    return apiClient.get<{ download_url: string }>(url);
+  },
 
   // Upload
   createUpload: (data: unknown) => apiClient.post<{ uploadUrl: string }>('/api/v1/upload/create', data),
@@ -207,7 +236,7 @@ export const api = {
   verifyGuestOtp: (slug: string, data: { name: string; phone: string; otp: string }) =>
     apiClient.post<GuestTokenResponse>(`/api/v1/event/${slug}/auth/verify`, data),
   submitSelfie: (slug: string, data: unknown, token?: string) =>
-    apiClient.post<{ matchedPhotoIds: string[]; matchCount: number }>(
+    apiClient.post<{ matched_photo_ids: string[]; matched_photo_count: number; status: string }>(
       `/api/v1/event/${slug}/selfie`,
       data,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
@@ -227,7 +256,7 @@ export const api = {
       `/api/v1/event/${slug}/master/folders`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
-  toggleFavorite: (slug: string, data: { photoId: string }, token?: string) =>
+  toggleFavorite: (slug: string, data: { photo_id: string }, token?: string) =>
     apiClient.post<{ success: boolean }>(
       `/api/v1/event/${slug}/master/favorite`,
       data,
