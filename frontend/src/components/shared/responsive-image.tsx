@@ -24,6 +24,7 @@ export function ResponsiveImage({
   ...props
 }: ResponsiveImageProps) {
   const [isLoading, setIsLoading] = useState(true);
+  const isRemoteApiImage = src.startsWith('http://localhost') || src.startsWith('http://127.0.0.1');
 
   return (
     <div
@@ -37,6 +38,7 @@ export function ResponsiveImage({
         src={src}
         alt={alt}
         fill
+        unoptimized={isRemoteApiImage}
         className={cn(
           'object-cover transition-opacity duration-300 ease-in-out',
           isLoading ? 'opacity-0' : 'opacity-100',

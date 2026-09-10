@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -26,12 +26,15 @@ import {
 } from '@/lib/auth-schemas';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
+import { maskPhone } from '@/lib/utils';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [registeredPhone, setRegisteredPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const setSession = useAuthStore((state) => state.setSession);
 
   const form = useForm<RegisterFormValues>({
@@ -100,7 +103,7 @@ export default function RegisterPage() {
         <p className="text-sm text-muted-foreground">
           {step === 1
             ? 'Start delivering photos instantly to your clients.'
-            : `We sent a 6-digit code to ${registeredPhone}`}
+            : `We sent a 6-digit code to ${maskPhone(registeredPhone)}`}
         </p>
       </div>
 
@@ -149,13 +152,27 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="••••••••"
-                        type="password"
-                        autoComplete="new-password"
-                        disabled={isLoading}
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          placeholder="••••••••"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="new-password"
+                          disabled={isLoading}
+                          className="pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -169,13 +186,27 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="••••••••"
-                        type="password"
-                        autoComplete="new-password"
-                        disabled={isLoading}
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          placeholder="••••••••"
+                          type={showConfirmPassword ? "text" : "password"}
+                          autoComplete="new-password"
+                          disabled={isLoading}
+                          className="pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

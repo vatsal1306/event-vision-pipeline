@@ -13,3 +13,15 @@ export function formatBytes(bytes: number, decimals = 1) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
+
+export function maskPhone(phone: string) {
+  if (!phone || phone.length < 8) return phone;
+  const isEmail = phone.includes('@');
+  if (isEmail) {
+    const [name, domain] = phone.split('@');
+    return `${name.slice(0, 2)}***@${domain}`;
+  }
+  const last4 = phone.slice(-4);
+  const prefix = phone.startsWith('+') ? phone.slice(0, 3) : '';
+  return `${prefix} ******${last4}`;
+}

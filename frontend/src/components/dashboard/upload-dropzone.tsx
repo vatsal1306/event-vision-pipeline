@@ -12,10 +12,15 @@ import { isValidFileType } from '@/lib/upload/file-utils';
 interface UploadDropzoneProps {
   eventId: string;
   folders: FolderNode[];
+  initialFolderId?: string | null;
 }
 
-export function UploadDropzone({ eventId, folders }: UploadDropzoneProps) {
-  const [targetFolderId, setTargetFolderId] = useState<string>('root');
+export function UploadDropzone({ eventId, folders, initialFolderId }: UploadDropzoneProps) {
+  const [targetFolderId, setTargetFolderId] = useState<string>(initialFolderId || 'root');
+
+  React.useEffect(() => {
+    setTargetFolderId(initialFolderId || 'root');
+  }, [initialFolderId]);
 
   const onDrop = useCallback((acceptedFiles: File[], fileRejections: FileRejection[]) => {
     if (fileRejections.length > 0) {

@@ -2,21 +2,49 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
+from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AuthorizationError, NotFoundError
+from app.config import get_settings
+from app.core.exceptions import (
+    AuthorizationError,
+    BadRequestError,
+    NotFoundError,
+    StorageError,
+    StorageLimitError,
+)
+from app.core.logging import get_logger
 from app.models.analytics_event import AnalyticsEvent
 from app.models.couple_session import CoupleSession
-from app.models.enums import AnalyticsAction, ProcessingStatus
+from app.models.enums import AnalyticsAction, EventStatus, ProcessingStatus
 from app.models.event import Event
 from app.models.face_embedding import FaceEmbedding
+from app.models.folder import Folder
 from app.models.guest_session import GuestSession
 from app.models.photo import Photo
+from app.models.photographer import Photographer
 from app.schemas.photo import PhotoListResponse, PhotoResponse
+from app.services.storage_service import get_storage_service
+from app.services.upload_service import ALLOWED_MIME_TYPES
+from app.utils.media_tokens import build_photo_preview_url
+
+logger = get_logger()
+
+_EXTENSION_MIME_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".heic": "image/heic",
+    ".heif": "image/heic",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".webp": "image/webp",
+}
 
 
 class PhotoService:
@@ -80,6 +108,141 @@ class PhotoService:
                 .where(Photographer.id == event.photographer_id)
                 .values(storage_used_bytes=Photographer.storage_used_bytes - total_bytes)
             )
+
+    async def ingest_direct_upload(
+        self,
+        event: Event,
+        photographer: Photographer,
+        *,
+        filename: str,
+        content_type: str | None,
+        payload: bytes,
+        folder_id: UUID | None,
+    ) -> PhotoResponse:
+        """Store an original on the object store and create a Photo row.
+
+        Used when tusd is not in front of the browser (local uvicorn). Production
+        still prefers tusd for large batches; this path is authenticated and
+        quota-checked the same way as the tusd pre-create hook.
+
+        Args:
+            event: Event owned by the calling photographer.
+            photographer: Authenticated photographer.
+            filename: Original client filename.
+            content_type: Declared MIME type, which may be empty on some browsers.
+            payload: Raw file bytes.
+            folder_id: Optional destination folder.
+
+        Returns:
+            API representation including a signed preview URL.
+
+        Raises:
+            BadRequestError: Invalid type, empty body, or file too large.
+            StorageLimitError: Photographer quota would be exceeded.
+            NotFoundError: Folder does not belong to the event.
+        """
+        safe_name = Path(filename).name or "upload.jpg"
+        mime_type = self._resolve_mime_type(safe_name, content_type)
+        if mime_type not in ALLOWED_MIME_TYPES:
+            raise BadRequestError(f"File type {mime_type} is not allowed")
+
+        if not payload:
+            raise BadRequestError("Uploaded file is empty")
+
+        settings = get_settings()
+        size = len(payload)
+        if size > settings.max_upload_size_bytes:
+            raise BadRequestError("File too large")
+
+        if photographer.storage_used_bytes + size > photographer.storage_limit_bytes:
+            raise StorageLimitError()
+
+        if folder_id is not None:
+            folder = await self.db.get(Folder, folder_id)
+            if folder is None or folder.event_id != event.id:
+                raise NotFoundError("Target folder")
+
+        photo_id = uuid.uuid4()
+        original_key = f"events/{event.id}/originals/{photo_id}/{safe_name}"
+        storage = get_storage_service()
+        await storage.put_object(
+            bucket=settings.s3_bucket_originals,
+            key=original_key,
+            data=payload,
+            content_type=mime_type,
+        )
+
+        photo = Photo(
+            id=photo_id,
+            event_id=event.id,
+            folder_id=folder_id,
+            filename=safe_name,
+            file_size_bytes=size,
+            mime_type=mime_type,
+            tus_upload_id=f"direct-{photo_id}",
+            original_s3_key=original_key,
+        )
+        self.db.add(photo)
+        photographer.storage_used_bytes += size
+        event.total_photos += 1
+        if event.status in (EventStatus.DRAFT, EventStatus.READY, EventStatus.UPLOADING):
+            event.status = EventStatus.PROCESSING
+
+        await self.db.commit()
+        await self.db.refresh(photo)
+        self._enqueue_photo_processing(photo, original_key, event.id)
+        return self.build_photo_responses([photo])[0]
+
+    async def stream_preview(self, event_id: UUID, photo_id: UUID) -> tuple[bytes, str]:
+        """Load proxy bytes when available, otherwise the original.
+
+        Args:
+            event_id: Event that must own the photo.
+            photo_id: Photo to stream.
+
+        Returns:
+            Tuple of file bytes and MIME type for the HTTP response.
+
+        Raises:
+            NotFoundError: Photo is missing or the object is not in storage.
+        """
+        photo = await self.db.get(Photo, photo_id)
+        if photo is None or photo.event_id != event_id:
+            raise NotFoundError("Photo")
+
+        settings = get_settings()
+        storage = get_storage_service()
+        try:
+            if photo.proxy_s3_key:
+                data = await storage.get_object(settings.s3_bucket_proxies, photo.proxy_s3_key)
+                return data, "image/webp"
+            data = await storage.get_object(settings.s3_bucket_originals, photo.original_s3_key)
+            return data, photo.mime_type
+        except StorageError as exc:
+            raise NotFoundError("Photo file") from exc
+
+    def _enqueue_photo_processing(self, photo: Photo, original_key: str, event_id: UUID) -> None:
+        """Dispatch Celery processing; log and continue if the broker is down."""
+        from app.tasks.photo_tasks import process_uploaded_photo
+
+        try:
+            process_uploaded_photo.delay(str(photo.id), original_key, str(event_id))
+        except Exception:
+            logger.warning(
+                "Celery unavailable; photo %s stored but not processed",
+                photo.id,
+                photo_id=str(photo.id),
+                event_id=str(event_id),
+            )
+
+    @staticmethod
+    def _resolve_mime_type(filename: str, content_type: str | None) -> str:
+        """Prefer a real image MIME type over generic browser fallbacks."""
+        declared = (content_type or "").split(";")[0].strip().lower()
+        if declared in ALLOWED_MIME_TYPES:
+            return declared
+        extension = Path(filename).suffix.lower()
+        return _EXTENSION_MIME_TYPES.get(extension, declared or "application/octet-stream")
 
     async def list_photos(
         self, event_id: UUID, folder_id: UUID | None = None, offset: int = 0, limit: int = 50
@@ -149,12 +312,12 @@ class PhotoService:
         return f"https://mock-s3.local/download/{photo.original_s3_key}?expires=3600"
 
     def build_photo_responses(self, photos: list[Photo]) -> list[PhotoResponse]:
-        """Convert Photo models to PhotoResponse, injecting mock proxy_url."""
+        """Convert Photo models to PhotoResponse with signed preview URLs."""
         items = []
         for photo in photos:
             proxy_url = None
-            if photo.processing_status == ProcessingStatus.COMPLETED and photo.proxy_s3_key:
-                proxy_url = f"https://mock-s3.local/proxy/{photo.proxy_s3_key}"
+            if photo.original_s3_key or photo.proxy_s3_key:
+                proxy_url = build_photo_preview_url(photo.event_id, photo.id)
 
             items.append(
                 PhotoResponse(

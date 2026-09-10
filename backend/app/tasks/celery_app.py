@@ -17,7 +17,6 @@ celery_app = Celery(
         "app.tasks.notification_tasks",
         "app.tasks.archival_tasks",
         "app.tasks.photo_tasks",
-        "app.tasks.face_tasks",
     ],
 )
 
@@ -30,7 +29,6 @@ celery_app.conf.update(
     task_default_queue="photo_processing",
     task_routes={
         "app.tasks.photo_tasks.*": {"queue": "photo_processing"},
-        "app.tasks.face_tasks.*": {"queue": "photo_processing"},
         "app.tasks.notification_tasks.*": {"queue": "photo_processing"},
         "app.tasks.archival_tasks.*": {"queue": "photo_processing"},
     },

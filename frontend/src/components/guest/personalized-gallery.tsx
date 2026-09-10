@@ -6,6 +6,7 @@ import { GalleryGrid } from '@/components/gallery/gallery-grid';
 import { Button } from '@/components/ui/button';
 import { Camera } from 'lucide-react';
 import { EmptyState } from '@/components/shared/empty-state';
+import { Logo } from '@/components/shared/logo';
 
 const PhotoViewer = dynamic(
   () => import('@/components/gallery/photo-viewer').then(mod => mod.PhotoViewer),
@@ -58,12 +59,15 @@ export function PersonalizedGallery({
     <div className="flex flex-col w-full h-full max-w-7xl mx-auto">
       <div className="px-6 py-8 md:py-12 border-b border-white/5">
         <div className="flex items-center gap-4 mb-6">
-          {photographerLogo && (
-            <img src={photographerLogo} alt="Logo" className="h-8 w-auto opacity-80" />
-          )}
-          {eventName && (
-            <span className="text-zinc-500 font-medium text-sm tracking-wide uppercase">{eventName}</span>
-          )}
+          <Logo size="sm" />
+          <div className="flex items-center gap-4 border-l border-white/10 pl-4">
+            {photographerLogo && (
+              <img src={photographerLogo} alt="Logo" className="h-8 w-auto opacity-80" />
+            )}
+            {eventName && (
+              <span className="text-zinc-500 font-medium text-sm tracking-wide uppercase hidden sm:inline-block">{eventName}</span>
+            )}
+          </div>
         </div>
         <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
           Hi {guestName}!
@@ -91,6 +95,17 @@ export function PersonalizedGallery({
         onChangeIndex={setViewerIndex}
         downloadEnabled={downloadEnabled}
       />
+
+      <div className="fixed bottom-6 right-6 z-40 transition-transform duration-300 hover:scale-105">
+        <Button
+          size="lg"
+          onClick={onRetakeSelfie}
+          className="rounded-pill shadow-xl flex items-center gap-2 px-6 h-14 border border-white/10 bg-ink/80 text-white backdrop-blur-md hover:bg-ink"
+        >
+          <Camera className="h-5 w-5" />
+          <span className="font-semibold text-sm">Retake Selfie</span>
+        </Button>
+      </div>
     </div>
   );
 }

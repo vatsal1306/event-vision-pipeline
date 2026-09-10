@@ -38,7 +38,7 @@ function VirtualColumn({
     estimateSize: (index) => {
       const p = photos[index].photo;
       const aspectRatio = p.width && p.height ? p.width / p.height : 1;
-      return 300 / aspectRatio + 16;
+      return 300 / aspectRatio + 2;
     },
     overscan: 5,
   });
@@ -55,20 +55,20 @@ function VirtualColumn({
             key={virtualItem.key}
             data-index={virtualItem.index}
             ref={virtualizer.measureElement}
-            className="absolute top-0 left-0 w-full pb-4"
+            className="absolute top-0 left-0 w-full pb-[2px]"
             style={{ transform: `translateY(${virtualItem.start}px)` }}
-          >
-            <motion.div
-              layoutId={`photo-container-${photo.id}`}
-              className="relative group cursor-pointer rounded-md overflow-hidden bg-muted"
-              onClick={() => onPhotoClick(originalIndex)}
             >
+              <motion.div
+                layoutId={`photo-container-${photo.id}`}
+                className="relative group cursor-pointer rounded-[2px] overflow-hidden bg-muted"
+                onClick={() => onPhotoClick(originalIndex)}
+              >
               <ResponsiveImage
                 src={photo.proxyUrl || ''}
                 alt={photo.filename}
                 blurhash={photo.blurhash}
                 aspectRatio={aspectRatio}
-                className="w-full h-auto rounded-md"
+                className="w-full h-auto rounded-[2px]"
                 imageClassName="group-hover:scale-105 transition-transform duration-500"
               />
               
@@ -176,7 +176,7 @@ export function GalleryGrid({
   }
 
   return (
-    <div className={cn('flex gap-4 px-4 pb-20 w-full', className)}>
+    <div className={cn('flex gap-[2px] px-4 pb-20 w-full', className)}>
       {columnData.map((colPhotos, i) => (
         <VirtualColumn 
           key={i} 

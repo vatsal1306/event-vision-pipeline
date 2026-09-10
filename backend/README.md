@@ -214,6 +214,7 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
   docker compose up -d db redis tusd celery-worker
   uv run uvicorn app.main:app --reload
   ```
+  tusd listens on `http://localhost:1080/files/` and calls hooks on host port 8000. Set `NEXT_PUBLIC_TUS_ENDPOINT=http://localhost:1080/files/` in `frontend/.env`.
 
 ## Upload Pipeline (BE-010)
 - Processing migrated to use OpenCV for proxies, watermarking, and HEIC ingestion.

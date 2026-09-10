@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { mapPhotoFromApi } from '@/lib/map-api';
 
 export function useGuestAuth() {
   return useMutation({
@@ -18,8 +19,8 @@ export function useGuestVerify() {
 export function useSubmitSelfie() {
   return useMutation({
     // We send FormData for selfie upload. Data is a FormData object.
-    mutationFn: ({ slug, data }: { slug: string; data: FormData }) =>
-      api.submitSelfie(slug, data),
+    mutationFn: ({ slug, data, token }: { slug: string; data: FormData; token: string }) =>
+      api.submitSelfie(slug, data, token),
   });
 }
 
@@ -30,7 +31,13 @@ export function useGuestPhotos(slug: string, token: string | null) {
     // Assuming api.getGuestPhotos takes slug. The backend might rely on cookie or we pass the token in headers.
     // Wait, the API client: getGuestPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`)
     // I need to update api-client.ts to accept token for getGuestPhotos and submitSelfie.
-    queryFn: () => api.getGuestPhotos(slug, token!),
+    queryFn: async () => {
+      const page = await api.getGuestPhotos(slug, token!);
+      return {
+        ...page,
+        items: page.items.map((item) => mapPhotoFromApi(item as unknown as Record<string, unknown>)),
+      };
+    },
     enabled: !!token,
   });
 }

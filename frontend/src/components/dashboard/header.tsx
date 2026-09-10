@@ -5,7 +5,12 @@ import Image from 'next/image';
 import { Bell, LogOut, UserCircle, Settings, ChevronDown, Menu } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useUiStore } from '@/stores/ui-store';
+import { useProfile } from '@/hooks/use-profile';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/shared/logo';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Camera, User, HardDrive } from 'lucide-react';
+import { formatBytes } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +23,8 @@ import { cn } from '@/lib/utils';
 
 export function Header() {
   const { photographer, logout } = useAuthStore();
-  const { toggleSidebar } = useUiStore();
+  const { data: profile } = useProfile();
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
   const initials = photographer?.studio_name
     ?.split(' ')
@@ -31,18 +37,49 @@ export function Header() {
     <header className="sticky top-0 z-30 h-16 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="flex h-full items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="md:hidden"
-            aria-label="Toggle navigation menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Toggle navigation menu"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0">
+              <div className="flex flex-col h-full bg-background pt-16">
+                <nav className="flex-1 px-4 py-4 space-y-2">
+                  <Link href="/dashboard/events" className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                    <Camera className="h-5 w-5" />
+                    Events
+                  </Link>
+                  <Link href="/dashboard/profile" className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                    <User className="h-5 w-5" />
+                    Profile
+                  </Link>
+                </nav>
+                {photographer && profile && (
+                  <div className="border-t px-4 py-4 mb-4">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                      <span className="font-medium">Storage Used:</span>
+                      <span className="font-mono">{formatBytes(profile.storage_used_bytes)} / {formatBytes(profile.storage_limit_bytes)}</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                      <div
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${Math.min(100, (profile.storage_used_bytes / profile.storage_limit_bytes) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
 
           <Link href="/dashboard/events" className="flex items-center gap-2 font-display font-semibold text-lg">
-            <span className="text-primary">SpotMe</span>
+            <Logo size="sm" />
           </Link>
         </div>
 

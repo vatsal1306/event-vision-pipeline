@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.event import Event, EventStatus
 from app.models.photo import Photo
 from app.models.photographer import Photographer
+from app.schemas.upload import TusHookPayload
 
 
 async def create_photographer(
@@ -42,6 +43,33 @@ async def create_event(db_session: AsyncSession, photographer_id: uuid.UUID, nam
     return e
 
 
+def test_tusd_pre_create_payload_allows_null_id_and_storage() -> None:
+    """tusd sends ID and Storage as JSON null before the upload exists."""
+    payload = TusHookPayload.model_validate(
+        {
+            "Type": "pre-create",
+            "Event": {
+                "Upload": {
+                    "ID": None,
+                    "Size": 500,
+                    "Offset": 0,
+                    "SizeIsDeferred": False,
+                    "Storage": None,
+                    "MetaData": {
+                        "event_id": str(uuid.uuid4()),
+                        "photographer_id": str(uuid.uuid4()),
+                        "filetype": "image/jpeg",
+                    },
+                },
+                "HTTPRequest": {"Method": "POST", "URI": "/files/", "Header": {}},
+            },
+        }
+    )
+    assert payload.event.upload.id == ""
+    assert payload.event.upload.storage == {}
+    assert payload.event.upload.size == 500
+
+
 @pytest.fixture
 def mock_delay():
     with patch("app.tasks.photo_tasks.process_uploaded_photo.delay") as mock:
@@ -62,10 +90,10 @@ async def test_tusd_hook_pre_create_success(
         "Type": "pre-create",
         "Event": {
             "Upload": {
-                "ID": "upload-123",
+                "ID": None,
                 "Size": 500,
                 "Offset": 0,
-                "Storage": {},
+                "Storage": None,
                 "MetaData": {
                     "event_id": str(event.id),
                     "photographer_id": str(photographer.id),
@@ -77,7 +105,8 @@ async def test_tusd_hook_pre_create_success(
 
     response = await db_client.post("/api/v1/upload/hook", json=payload)
     assert response.status_code == 200
-    assert response.json()["status"] == "accepted"
+    object_id = response.json()["ChangeFileInfo"]["ID"]
+    assert object_id.startswith(f"{event.id}-")
 
 
 @pytest.mark.asyncio

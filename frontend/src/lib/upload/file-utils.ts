@@ -1,11 +1,27 @@
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/tiff'];
 
+const EXTENSION_MIME_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heic',
+  tif: 'image/tiff',
+  tiff: 'image/tiff',
+};
+
+export function guessMimeType(file: File): string {
+  if (SUPPORTED_IMAGE_TYPES.includes(file.type)) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (ext && EXTENSION_MIME_TYPES[ext]) return EXTENSION_MIME_TYPES[ext];
+  return file.type || 'application/octet-stream';
+}
+
 export function isValidFileType(file: File): boolean {
   if (SUPPORTED_IMAGE_TYPES.includes(file.type)) return true;
-  
-  // fallback check for extension if type is empty (common for heic on some platforms)
   const ext = file.name.split('.').pop()?.toLowerCase();
-  return ext ? ['jpg', 'jpeg', 'png', 'webp', 'heic', 'tiff'].includes(ext) : false;
+  return ext ? Object.prototype.hasOwnProperty.call(EXTENSION_MIME_TYPES, ext) : false;
 }
 
 export function formatSpeed(bytesPerSecond: number): string {

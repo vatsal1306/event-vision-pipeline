@@ -20,10 +20,10 @@
     --accent-foreground: 60 3% 8%;
     --destructive: 20 100% 41%; /* Signal Orange #CF4500 */
     --destructive-foreground: 0 0% 100%;
-    --border: 60 3% 8%; /* Ink Black for crisp borders */
-    --input: 60 3% 8%;
-    --ring: 60 3% 8%;
-    --radius: 1.25rem; /* 20px default for buttons */
+    --border: 24 10% 85%; /* Warm hairline gray */
+    --input: 24 10% 85%;
+    --ring: 24 10% 85%;
+    --radius: 0.5rem; /* 8px default for inputs/cards */
   }
 
   .dark {
@@ -43,9 +43,9 @@
     --accent-foreground: 24 20% 94%;
     --destructive: 20 100% 41%;
     --destructive-foreground: 0 0% 100%;
-    --border: 24 20% 94%;
-    --input: 24 20% 94%;
-    --ring: 24 20% 94%;
+    --border: 60 3% 18%; /* Dark subtle border */
+    --input: 60 3% 18%;
+    --ring: 60 3% 25%;
   }
 }
 

@@ -1,11 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { mapPhotoFromApi } from '@/lib/map-api';
 import { Photo } from '@/types/event';
 
 export function useFavorites(slug: string, token: string | null) {
   return useQuery({
     queryKey: ['favorites', slug, token],
-    queryFn: () => api.getFavorites(slug, token!),
+    queryFn: async () => {
+      const res = await api.getFavorites(slug, token!);
+      return (res.items || []).map((item) =>
+        mapPhotoFromApi(item as unknown as Record<string, unknown>)
+      );
+    },
     enabled: !!token,
   });
 }
@@ -14,7 +20,7 @@ export function useToggleFavorite(slug: string, token: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (photoId: string) => api.toggleFavorite(slug, { photoId }, token!),
+    mutationFn: (photoId: string) => api.toggleFavorite(slug, { photo_id: photoId }, token!),
     onMutate: async (photoId: string) => {
       if (!token) return;
 

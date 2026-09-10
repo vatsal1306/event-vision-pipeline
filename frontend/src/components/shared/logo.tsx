@@ -19,7 +19,14 @@ export function Logo({ size = 'md' }: LogoProps) {
         src="/logo.png"
         alt="SpotMe Logo"
         fill
-        className="object-contain"
+        className="object-contain dark:hidden"
+        priority
+      />
+      <Image
+        src="/spotme-logo-dark.png"
+        alt="SpotMe Logo Dark"
+        fill
+        className="object-contain hidden dark:block"
         priority
       />
     </div>

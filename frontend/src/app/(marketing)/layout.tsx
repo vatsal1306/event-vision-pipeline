@@ -17,16 +17,16 @@ export default function MarketingLayout({
 
           <div className="flex items-center gap-3">
             <Link
-              href="/login"
-              className="text-sm font-medium text-ink/70 hover:text-ink transition-colors px-4 py-2"
-            >
-              Log In
-            </Link>
-            <Link
               href="/register"
               className="text-sm font-medium bg-ink text-canvas rounded-button px-5 py-2 hover:bg-ink/90 transition-colors"
             >
               Create Account
+            </Link>
+            <Link
+              href="/login"
+              className="text-sm font-medium text-ink/70 hover:text-ink transition-colors px-4 py-2"
+            >
+              Log In
             </Link>
           </div>
         </nav>
@@ -48,11 +48,11 @@ export default function MarketingLayout({
           </div>
 
           <div className="flex items-center gap-6 text-sm text-ink/50">
-            <Link href="/login" className="hover:text-ink transition-colors">
-              Log In
-            </Link>
             <Link href="/register" className="hover:text-ink transition-colors">
               Create Account
+            </Link>
+            <Link href="/login" className="hover:text-ink transition-colors">
+              Log In
             </Link>
           </div>
         </div>

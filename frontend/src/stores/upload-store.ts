@@ -29,7 +29,7 @@ interface UploadState {
   activeUploads: number;
   maxConcurrent: number;
   
-  addFiles: (eventId: string, files: { file: File; targetFolderId: string; relativePath?: string }[]) => void;
+  addFiles: (eventId: string, files: { file: File; targetFolderId: string | null; relativePath?: string }[]) => void;
   removeFile: (eventId: string, fileId: string) => void;
   retryFile: (eventId: string, fileId: string) => void;
   pauseEvent: (eventId: string) => void;
@@ -45,7 +45,7 @@ export const useUploadStore = create<UploadState>()(
       activeUploads: 0,
       maxConcurrent: 6,
 
-  addFiles: (eventId: string, newFiles: { file: File; targetFolderId: string; relativePath?: string }[]) => {
+  addFiles: (eventId: string, newFiles: { file: File; targetFolderId: string | null; relativePath?: string }[]) => {
         const uploadFiles: UploadFile[] = newFiles.map(({ file, targetFolderId, relativePath }) => ({
           id: crypto.randomUUID(),
           file, 
@@ -71,7 +71,7 @@ export const useUploadStore = create<UploadState>()(
                 files: updatedFiles,
                 totalFiles: updatedFiles.length,
                 totalBytes: evState.totalBytes + newBytes,
-                status: evState.status === 'idle' ? 'uploading' : evState.status,
+                status: 'uploading',
               }
             }
           };
@@ -189,19 +189,35 @@ export const useUploadStore = create<UploadState>()(
 
           const updatedFiles = evState.files.map((f) => {
             if (f.id === fileId) {
-              deltaUploaded = progressUpdates.uploadedBytes - f.uploadedBytes;
-              
+              const nextBytes = progressUpdates.uploadedBytes ?? f.uploadedBytes;
+              deltaUploaded = nextBytes - f.uploadedBytes;
+
               if (progressUpdates.status === 'uploading' && f.status !== 'uploading') activeDelta++;
               if (progressUpdates.status !== 'uploading' && f.status === 'uploading') activeDelta--;
 
               if (progressUpdates.status === 'complete' && f.status !== 'complete') newCompleted++;
               if (progressUpdates.status === 'failed' && f.status !== 'failed') newFailed++;
-              return { ...f, ...progressUpdates };
+              return {
+                ...f,
+                ...progressUpdates,
+                uploadedBytes: nextBytes,
+                progress: progressUpdates.progress ?? f.progress,
+              };
             }
             return f;
           });
 
           // TODO FE-012: Actually calculate uploadSpeed based on time delta instead of static 0
+          const unfinished = updatedFiles.filter(
+            (item) => item.status !== 'complete' && item.status !== 'failed'
+          );
+          let nextStatus = evState.status;
+          if (unfinished.length === 0 && updatedFiles.length > 0) {
+            nextStatus = newFailed === updatedFiles.length ? 'error' : 'complete';
+          } else if (evState.status !== 'paused') {
+            nextStatus = 'uploading';
+          }
+
           return {
             events: {
               ...state.events,
@@ -212,6 +228,7 @@ export const useUploadStore = create<UploadState>()(
                 completedFiles: newCompleted,
                 failedFiles: newFailed,
                 uploadSpeed: 0, // TODO FE-012
+                status: nextStatus,
               }
             },
             activeUploads: Math.max(0, state.activeUploads + activeDelta)

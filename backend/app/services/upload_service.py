@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,8 +36,11 @@ class UploadService:
         """Initialize with database session."""
         self.db = db
 
-    async def handle_pre_create(self, upload_info: TusUploadInfo) -> None:
+    async def handle_pre_create(self, upload_info: TusUploadInfo) -> dict[str, Any]:
         """Validate an upload before tusd accepts the first chunk.
+
+        Returns:
+            Hook body telling tusd to store the object as originals/{event_id}-{uuid}.
 
         Raises:
             BadRequestError: If metadata UUIDs are invalid or MIME type is not allowed.
@@ -44,7 +48,7 @@ class UploadService:
             StorageLimitError: If photographer quota is exceeded.
         """
         metadata = upload_info.metadata
-        event_id, photographer_id, folder_id = self._parse_metadata_uuids(metadata)
+        event_id, photographer_id, _folder_id = self._parse_metadata_uuids(metadata)
 
         filetype = metadata.get("filetype", "application/octet-stream")
         if filetype not in ALLOWED_MIME_TYPES:
@@ -68,6 +72,10 @@ class UploadService:
         if event.status in (EventStatus.DRAFT, EventStatus.READY):
             event.status = EventStatus.UPLOADING
             await self.db.commit()
+
+        # Slash-free ID so the tus URL stays a single path segment; prefix is originals/.
+        object_id = f"{event_id}-{uuid.uuid4()}"
+        return {"ChangeFileInfo": {"ID": object_id}}
 
     async def handle_post_finish(self, upload_info: TusUploadInfo) -> dict[str, str]:
         """Process a completed upload from tusd.

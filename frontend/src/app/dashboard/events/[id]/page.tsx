@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
-import { useEvent } from '@/hooks/use-events';
+import { useEvent, useUpdateEvent, useArchiveEvent, useDeleteEvent } from '@/hooks/use-events';
 import { useFolders } from '@/hooks/use-folders';
 import { Photo } from '@/types/event';
 import { StatusBadge } from '@/components/shared/status-badge';
@@ -14,7 +14,7 @@ import { LeadTable } from '@/components/dashboard/lead-table';
 import { LinkGenerator } from '@/components/dashboard/link-generator';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2 } from 'lucide-react';
+import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2, MoreHorizontal, Archive, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PhotoGrid = dynamic(() => import('@/components/dashboard/photo-grid').then(m => m.PhotoGrid), { ssr: false });
@@ -24,6 +24,9 @@ const UploadProgress = dynamic(() => import('@/components/dashboard/upload-progr
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { EmptyState } from '@/components/shared/empty-state';
 import { AlertCircle } from 'lucide-react';
+import { EventForm, type EventFormData } from '@/components/dashboard/event-form';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -36,8 +39,31 @@ export default function EventDetailPage() {
 
   const { data: event, isLoading: isEventLoading, error: eventError, refetch } = useEvent(id);
   const { data: folders = [], isLoading: isFoldersLoading } = useFolders(id);
+  const updateEventMutation = useUpdateEvent();
+  const archiveEventMutation = useArchiveEvent();
+  const deleteEventMutation = useDeleteEvent();
   
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const handleUpdateEvent = async (data: EventFormData) => {
+    await updateEventMutation.mutateAsync({ id, data });
+    setIsSettingsOpen(false);
+  };
+
+  const handleArchive = async () => {
+    if (window.confirm('Are you sure you want to archive this event? Archived events are only visible to you.')) {
+      await archiveEventMutation.mutateAsync(id);
+      router.push('/dashboard/events');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to permanently delete this event? This action cannot be undone.')) {
+      await deleteEventMutation.mutateAsync(id);
+      router.push('/dashboard/events');
+    }
+  };
 
   if (eventError) {
     return (
@@ -140,9 +166,28 @@ export default function EventDetailPage() {
               {event.totalPhotos.toLocaleString()} photos
             </p>
           </div>
-          <Button variant="outline">
-            <Settings className="mr-2 h-4 w-4" /> Event Settings
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Settings className="mr-2 h-4 w-4" /> Options
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Event Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleArchive}>
+                <Archive className="mr-2 h-4 w-4" />
+                Archive Event
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Event
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Tab Navigation */}
@@ -191,6 +236,7 @@ export default function EventDetailPage() {
                 eventId={id}
                 folderId={folderId}
                 onPhotoClick={setSelectedPhoto}
+                onUploadClick={() => handleTabChange('upload')}
               />
             </div>
           </div>
@@ -198,7 +244,7 @@ export default function EventDetailPage() {
 
         {currentTab === 'upload' && (
           <div className="p-8 max-w-4xl mx-auto mt-6">
-            <UploadDropzone eventId={id} folders={folders} />
+            <UploadDropzone eventId={id} folders={folders} initialFolderId={folderId} />
             <UploadProgress eventId={id} />
           </div>
         )}
@@ -217,11 +263,36 @@ export default function EventDetailPage() {
         )}
       </div>
 
-      <PhotoDetailViewer 
-        photo={selectedPhoto}
-        eventId={id}
-        onClose={() => setSelectedPhoto(null)}
-      />
+      {selectedPhoto && (
+        <PhotoDetailViewer
+          photo={selectedPhoto}
+          eventId={id}
+          onClose={() => setSelectedPhoto(null)}
+        />
+      )}
+
+      {event && (
+        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Event Settings</DialogTitle>
+              <DialogDescription>Update the details of your photography event</DialogDescription>
+            </DialogHeader>
+            <EventForm
+              onSubmit={handleUpdateEvent}
+              onCancel={() => setIsSettingsOpen(false)}
+              isLoading={updateEventMutation.isPending}
+              defaultValues={{
+                name: event.name,
+                eventType: event.eventType as any,
+                dateStart: event.dateStart,
+                dateEnd: event.dateEnd,
+                description: event.description || undefined,
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
     </ErrorBoundary>
   );

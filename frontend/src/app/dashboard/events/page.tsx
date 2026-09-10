@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Camera, Plus, Search, Filter, ChevronDown } from 'lucide-react';
 import { EventCard } from '@/components/dashboard/event-card';
 import { EventForm } from '@/components/dashboard/event-form';
@@ -14,6 +15,15 @@ import { EventListSkeleton } from '@/components/dashboard/event-list-skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { EmptyState } from '@/components/shared/empty-state';
 import { AlertCircle } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function EventsPage() {
   const { photographer } = useAuthStore();
@@ -21,14 +31,17 @@ export default function EventsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'uploading' | 'processing' | 'ready' | 'archived'>('all');
 
   const { data: events = [], isLoading, error, refetch } = useEvents();
   const createEventMutation = useCreateEvent();
 
   const filteredEvents = events
-    .filter((event) =>
-      event.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    .filter((event) => {
+      const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || event.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    })
     .sort((a, b) => {
       switch (sortBy) {
         case 'newest':
@@ -98,33 +111,44 @@ export default function EventsPage() {
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+          <Input
             type="text"
             placeholder="Search events..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="pl-10 bg-lifted"
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Filter className="mr-2 h-4 w-4" />
-            Filters
-          </Button>
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="flex h-10 appearance-none items-center px-3 pr-8 text-sm border border-border rounded-lg bg-background"
-            >
-              <option value="newest">Most Recent</option>
-              <option value="oldest">Oldest First</option>
-              <option value="name">By Name</option>
-              <option value="status">By Status</option>
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-10">
+                <Filter className="mr-2 h-4 w-4" />
+                Filter & Sort
+                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={sortBy} onValueChange={(val) => setSortBy(val as typeof sortBy)}>
+                <DropdownMenuRadioItem value="newest">Most Recent</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="oldest">Oldest First</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="name">By Name</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="status">By Status</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={filterStatus} onValueChange={(val) => setFilterStatus(val as typeof filterStatus)}>
+                <DropdownMenuRadioItem value="all">All Statuses</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="draft">Draft</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="uploading">Uploading</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="processing">Processing</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="ready">Ready</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="archived">Archived</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

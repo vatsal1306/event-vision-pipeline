@@ -51,14 +51,15 @@ const config: Config = {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "var(--radius)",
+        sm: "calc(var(--radius) - 2px)",
         button: "20px",
         stadium: "40px",
         pill: "999px",
       },
       fontFamily: {
-        sans: ["var(--font-sofia-sans)", "Arial", "sans-serif"],
+        sans: ["var(--font-sans)", "Arial", "sans-serif"],
+        display: ["var(--font-display)", "sans-serif"],
       },
       keyframes: {
         shimmer: {

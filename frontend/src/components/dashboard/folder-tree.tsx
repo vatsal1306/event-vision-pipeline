@@ -48,10 +48,14 @@ export function FolderTree({ eventId, folders, activeFolderId, onFolderSelect, i
       return;
     }
     try {
-      await createFolderMutation.mutateAsync({ name: newFolderName, parentId });
+      const createdFolder = await createFolderMutation.mutateAsync({ name: newFolderName, parentId });
       setCreatingParentId(undefined);
       setNewFolderName('');
       toast.success('Folder created');
+      
+      if (createdFolder && createdFolder.id) {
+        onFolderSelect(createdFolder.id);
+      }
     } catch {
       toast.error('Failed to create folder');
     }

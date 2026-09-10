@@ -26,9 +26,10 @@ interface PhotoGridProps {
   eventId: string;
   folderId: string | null;
   onPhotoClick: (photo: Photo) => void;
+  onUploadClick?: () => void;
 }
 
-export function PhotoGrid({ eventId, folderId, onPhotoClick }: PhotoGridProps) {
+export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: PhotoGridProps) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useEventPhotos({ eventId, folderId: folderId ?? undefined });
   const { data: folders = [] } = useFolders(eventId);
   
@@ -178,7 +179,7 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick }: PhotoGridProps) {
         </div>
         <h3 className="font-semibold text-foreground text-lg mb-1">No photos here</h3>
         <p className="text-sm max-w-sm mb-6">Upload photos to this folder or move them from another folder.</p>
-        <Button>Upload Photos</Button>
+        <Button onClick={onUploadClick}>Upload Photos</Button>
       </div>
     );
   }

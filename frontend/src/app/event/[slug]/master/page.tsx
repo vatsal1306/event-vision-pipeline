@@ -118,7 +118,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
       login(eventId, { token, name: authData.name, phone: authData.phone });
       toast.success('Successfully logged in');
     } catch (err) {
-      toast.error('Invalid OTP. Use 123456 for testing.');
+      toast.error('Invalid OTP. Please check the code and try again.');
     }
   };
 
@@ -161,10 +161,10 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
     return (
       <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center">
         <EmptyState
-          title="Failed to load gallery"
-          description={infoError.message}
-          icon={<AlertCircle className="h-8 w-8 text-destructive" />}
-          action={<Button onClick={() => refetchInfo()}>Try again</Button>}
+          title="Gallery Unavailable"
+          description="This gallery isn't available. Check the link from your photographer."
+          icon={<AlertCircle className="h-8 w-8" />}
+          variant="dark"
         />
       </div>
     );
@@ -184,7 +184,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   if (!infoData?.event) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
-        <EmptyState title="Event Not Found" description="The event you are looking for does not exist." />
+        <EmptyState title="Event Not Found" description="The event you are looking for does not exist." variant="dark" />
       </div>
     );
   }
@@ -198,6 +198,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           title="Link Inactive" 
           description="The master gallery link for this event is currently inactive." 
           icon={<Lock className="h-10 w-10 text-muted-foreground" />}
+          variant="dark"
         />
       </div>
     );
@@ -257,16 +258,16 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
             <Form {...otpForm}>
               <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
                 <div className="text-sm text-center text-zinc-400 mb-4">
-                  Enter the 6-digit code sent to {authData?.phone}
+                  Enter the 6-digit code sent to your phone.
                 </div>
                 <FormField
                   control={otpForm.control}
                   name="otp"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>OTP Code (Try 123456)</FormLabel>
+                      <FormLabel>OTP Code</FormLabel>
                       <FormControl>
-                        <Input placeholder="123456" className="bg-zinc-800 border-zinc-700 text-center tracking-widest text-lg" {...field} />
+                        <Input placeholder="••••••" className="bg-zinc-800 border-zinc-700 text-center tracking-widest text-lg" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -291,15 +292,20 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   return (
     <ErrorBoundary>
     <div className="dark min-h-screen bg-background text-foreground flex flex-col">
-      <GalleryHeader event={event} photographer={photographer} />
-      
-      {/* Logout button injected into header area for convenience */}
-      <div className="absolute top-3 right-16 z-20">
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-white">
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
-        </Button>
-      </div>
+      <GalleryHeader 
+        event={event} 
+        photographer={photographer} 
+        onShare={() => {
+          navigator.clipboard.writeText(window.location.href);
+          toast.success('Gallery link copied to clipboard!');
+        }}
+        rightActions={
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        }
+      />
 
       <main className="flex-1 w-full max-w-screen-2xl mx-auto flex flex-col">
         <FolderNav
@@ -315,9 +321,10 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           <div className="flex-1 flex items-center justify-center p-6">
             <EmptyState
               title="Failed to load photos"
-              description={photosError.message}
-              icon={<AlertCircle className="h-8 w-8 text-destructive" />}
-              action={<Button onClick={() => refetchPhotos()}>Try again</Button>}
+              description="There was an issue loading the photos. Please try again."
+              icon={<AlertCircle className="h-8 w-8" />}
+              action={<Button onClick={() => refetchPhotos()} variant="outline">Try again</Button>}
+              variant="dark"
             />
           </div>
         ) : foldersLoading || photosLoading ? (

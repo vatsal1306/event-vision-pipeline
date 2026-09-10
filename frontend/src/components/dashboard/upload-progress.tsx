@@ -44,15 +44,15 @@ export function UploadProgress({ eventId }: UploadProgressProps) {
 
   const handlePauseResumeAll = () => {
     if (evState.status === 'paused') {
-      store.resumeEvent(eventId);
+      uploadManager.resume(eventId);
     } else {
-      store.pauseEvent(eventId);
+      uploadManager.pause(eventId);
     }
   };
 
   const handleCancelAll = () => {
     if (confirm('Are you sure you want to cancel all uploads?')) {
-      store.cancelEvent(eventId);
+      uploadManager.cancel(eventId);
     }
   };
 
@@ -62,7 +62,7 @@ export function UploadProgress({ eventId }: UploadProgressProps) {
         <h3 className="text-lg font-semibold border-b-2 border-primary pb-1 inline-block">Upload Progress</h3>
         
         <div className="flex gap-2">
-          {evState.status !== 'complete' && evState.files.length > 0 && (
+          {evState.status !== 'complete' && evState.status !== 'error' && evState.files.length > 0 && (
             <>
               <Button variant="outline" size="sm" onClick={handlePauseResumeAll}>
                 {evState.status === 'paused' ? (
