@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { Trash2, Download, Maximize, Calendar, Hash, FolderOpen, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { DownloadButton } from '@/components/gallery/download-button';
 
 interface PhotoDetailViewerProps {
   photo: Photo | null;
@@ -99,11 +100,14 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            <Button variant="outline" className="flex-1" asChild>
-              <a href={photo.proxyUrl || '#'} target="_blank" rel="noopener noreferrer">
-                <Download className="mr-2 h-4 w-4" /> Download Proxy
-              </a>
-            </Button>
+            <DownloadButton 
+              photoId={photo.id}
+              eventId={eventId}
+              originalFilename={photo.filename}
+              variant="outline"
+              className="flex-1"
+              label="Download Original"
+            />
             <Button variant="destructive" className="flex-1" onClick={handleDelete}>
               <Trash2 className="mr-2 h-4 w-4" /> Delete Photo
             </Button>

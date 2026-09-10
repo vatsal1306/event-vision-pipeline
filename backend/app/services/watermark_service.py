@@ -21,12 +21,18 @@ class WatermarkService:
         self.settings = get_settings()
 
     async def apply_watermark(
-        self, proxy_s3_key: str, watermark_s3_key: str, interpolation: int = cv2.INTER_LANCZOS4
+        self, 
+        s3_key: str, 
+        watermark_s3_key: str, 
+        bucket: str | None = None,
+        output_format: str = ".webp",
+        output_quality: int | None = None,
+        interpolation: int = cv2.INTER_LANCZOS4
     ) -> None:
-        """Download proxy and watermark, composite, re-upload."""
-        proxy_bucket = self.settings.s3_bucket_proxies
+        """Download image and watermark, composite, re-upload."""
+        target_bucket = bucket or self.settings.s3_bucket_proxies
         assets_bucket = self.settings.s3_bucket_assets
-        proxy_bytes = await self.storage.get_object(proxy_bucket, proxy_s3_key)
+        proxy_bytes = await self.storage.get_object(target_bucket, s3_key)
         watermark_bytes = await self.storage.get_object(assets_bucket, watermark_s3_key)
 
         # Load proxy as BGR
@@ -86,19 +92,68 @@ class WatermarkService:
 
             proxy[y1:y2, x1:x2] = roi
 
-        # Encode and save as WebP
-        success, encoded_img = cv2.imencode(
-            ".webp", proxy, [int(cv2.IMWRITE_WEBP_QUALITY), self.settings.proxy_quality]
-        )
-        if not success:
-            raise ValueError("Failed to encode WebP")
+        # Encode and save
+        if output_format == ".webp":
+            quality = output_quality if output_quality is not None else self.settings.proxy_quality
+            encode_param = cv2.IMWRITE_WEBP_QUALITY
+            success, encoded_img = cv2.imencode(
+                output_format, proxy, [int(encode_param), quality]
+            )
+            if not success:
+                raise ValueError(f"Failed to encode {output_format}")
+            buffer = encoded_img.tobytes()
+        else:
+            # For JPEG originals: match the original file size to avoid bloat.
+            # Cameras typically save at quality 85-92. Re-encoding at 100
+            # inflates file size 2-3x without visible improvement.
+            original_size = len(proxy_bytes)
+            buffer = self._encode_jpeg_matching_size(proxy, original_size, output_quality)
 
-        buffer = encoded_img.tobytes()
+        content_type = "image/webp" if output_format == ".webp" else "image/jpeg"
 
         await self.storage.put_object(
-            bucket=proxy_bucket,
-            key=proxy_s3_key,
+            bucket=target_bucket,
+            key=s3_key,
             data=buffer,
-            content_type="image/webp",
+            content_type=content_type,
             storage_class="STANDARD",
         )
+
+    def _encode_jpeg_matching_size(
+        self, image: np.ndarray, target_size: int, explicit_quality: int | None = None
+    ) -> bytes:
+        """Encode JPEG at a quality that keeps file size close to the original.
+
+        If an explicit quality is provided, use it directly.  Otherwise, start
+        at quality 95 and binary-search downward until the encoded size is
+        within 10% of ``target_size``.  Never goes below quality 85 to avoid
+        visible degradation.
+        """
+        if explicit_quality is not None:
+            ok, enc = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), explicit_quality])
+            if not ok:
+                raise ValueError("Failed to encode JPEG")
+            return enc.tobytes()
+
+        # Binary search for the right quality
+        lo, hi = 85, 95
+        best_buf: bytes | None = None
+
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            ok, enc = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), mid])
+            if not ok:
+                raise ValueError("Failed to encode JPEG")
+            buf = enc.tobytes()
+            best_buf = buf
+
+            if len(buf) <= target_size * 1.1:
+                # Size is acceptable, try higher quality
+                lo = mid + 1
+            else:
+                # Too large, reduce quality
+                hi = mid - 1
+
+        if best_buf is None:
+            raise ValueError("Failed to encode JPEG")
+        return best_buf

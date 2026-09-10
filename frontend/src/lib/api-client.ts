@@ -208,7 +208,7 @@ export const api = {
     } else if (context === 'guest' && slug) {
       url = `/api/v1/event/${slug}/photos/${photoId}/download`;
     }
-    return apiClient.get<{ download_url: string }>(url);
+    return apiClient.get<{ url: string }>(url);
   },
 
   // Upload

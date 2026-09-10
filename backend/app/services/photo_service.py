@@ -307,9 +307,20 @@ class PhotoService:
         photo = await self.db.get(Photo, photo_id)
         if not photo or photo.event_id != event_id:
             raise NotFoundError("Photo not found")
-
-        # Mock download URL (BE-008 will implement proper S3 presigning)
-        return f"https://mock-s3.local/download/{photo.original_s3_key}?expires=3600"
+            
+        settings = get_settings()
+        storage = get_storage_service()
+        
+        url = await storage.generate_presigned_url(
+            bucket=settings.s3_bucket_originals,
+            key=photo.original_s3_key,
+            client_method="get_object",
+            expires_in=settings.s3_presigned_url_expiry,
+            extra_params={
+                "ResponseContentDisposition": f'attachment; filename="{photo.filename}"'
+            }
+        )
+        return url
 
     def build_photo_responses(self, photos: list[Photo]) -> list[PhotoResponse]:
         """Convert Photo models to PhotoResponse with signed preview URLs."""
