@@ -251,6 +251,7 @@ class AuthService:
 
         if verify_password(new_password, photographer.password_hash):
             from app.core.exceptions import BadRequestError
+
             raise BadRequestError("New password cannot be the same as the current password")
 
         photographer.password_hash = hash_password(new_password)
