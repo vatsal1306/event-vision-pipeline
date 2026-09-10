@@ -1,8 +1,8 @@
 export type UploadStatus = 'queued' | 'uploading' | 'paused' | 'processing' | 'complete' | 'failed';
 
 export interface FileProgress {
-  progress: number;
-  uploadedBytes: number;
+  progress?: number;
+  uploadedBytes?: number;
   status?: UploadStatus;
   tusUploadUrl?: string;
   error?: string;

@@ -1,6 +1,7 @@
 import * as tus from 'tus-js-client';
 import { UploadFile } from '@/types/upload';
 import { CHUNK_SIZE } from '@/lib/constants';
+import { guessMimeType } from '@/lib/upload/file-utils';
 
 export interface TusUploadConfig {
   endpoint: string;
@@ -9,6 +10,7 @@ export interface TusUploadConfig {
   onProgress: (bytesUploaded: number, bytesTotal: number) => void;
   onSuccess: () => void;
   onError: (error: Error) => void;
+  onUploadUrlAvailable?: (uploadUrl: string) => void;
   uploadUrl?: string;
 }
 
@@ -28,7 +30,7 @@ export function createTusUpload(file: UploadFile, config: TusUploadConfig): tus.
 
   const metadata: Record<string, string> = {
     filename: file.file.name,
-    filetype: file.file.type || 'application/octet-stream',
+    filetype: guessMimeType(file.file),
     event_id: config.eventId,
     photographer_id: config.photographerId,
   };
@@ -37,19 +39,38 @@ export function createTusUpload(file: UploadFile, config: TusUploadConfig): tus.
     metadata.folder_id = file.targetFolderId;
   }
 
+  const holder: { upload?: tus.Upload } = {};
+
   const options: tus.UploadOptions = {
     endpoint: config.endpoint,
     retryDelays: [0, 3000, 5000, 10000, 20000],
     metadata,
+    chunkSize: CHUNK_SIZE,
+    storeFingerprintForResuming: true,
+    removeFingerprintOnSuccess: true,
     onError: config.onError,
     onProgress: config.onProgress,
     onSuccess: config.onSuccess,
-    chunkSize: CHUNK_SIZE,
+    onUploadUrlAvailable: () => {
+      config.onUploadUrlAvailable?.(holder.upload?.url || '');
+    },
   };
 
   if (config.uploadUrl) {
     options.uploadUrl = config.uploadUrl;
   }
 
-  return new tus.Upload(file.file, options);
+  holder.upload = new tus.Upload(file.file, options);
+  return holder.upload;
+}
+
+/**
+ * Resume a previous tus upload for the same file when a fingerprint exists.
+ */
+export async function startOrResumeTusUpload(upload: tus.Upload): Promise<void> {
+  const previous = await upload.findPreviousUploads();
+  if (previous.length > 0) {
+    upload.resumeFromPreviousUpload(previous[0]);
+  }
+  upload.start();
 }

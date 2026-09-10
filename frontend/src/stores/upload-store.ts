@@ -189,14 +189,20 @@ export const useUploadStore = create<UploadState>()(
 
           const updatedFiles = evState.files.map((f) => {
             if (f.id === fileId) {
-              deltaUploaded = progressUpdates.uploadedBytes - f.uploadedBytes;
-              
+              const nextBytes = progressUpdates.uploadedBytes ?? f.uploadedBytes;
+              deltaUploaded = nextBytes - f.uploadedBytes;
+
               if (progressUpdates.status === 'uploading' && f.status !== 'uploading') activeDelta++;
               if (progressUpdates.status !== 'uploading' && f.status === 'uploading') activeDelta--;
 
               if (progressUpdates.status === 'complete' && f.status !== 'complete') newCompleted++;
               if (progressUpdates.status === 'failed' && f.status !== 'failed') newFailed++;
-              return { ...f, ...progressUpdates };
+              return {
+                ...f,
+                ...progressUpdates,
+                uploadedBytes: nextBytes,
+                progress: progressUpdates.progress ?? f.progress,
+              };
             }
             return f;
           });
