@@ -135,15 +135,25 @@ class SelfieMatchPipeline:
         return detector, cropper
 
     def _resolve_quality_and_embedder(self) -> tuple[QualityFilter, DualEmbedder]:
-        """Load quality + embedding models only after liveness passes."""
+        """Load blur/YPR + embeddings. Do not load age ViT for guest selfies."""
         from app.ml.embedding.dual_embedder import DualEmbedder
         from app.ml.quality.quality_filter import QualityFilter
 
         registry = self._registry_or_default()
-        quality_filter = self._quality_filter or registry.get_model("quality_filter")
+        if self._quality_filter is None:
+            quality_filter = QualityFilter(
+                blur_detector=registry.get_model("blur_detector"),
+                ypr_predictor=registry.get_model("ypr_predictor"),
+                age_detector=None,
+                sunglasses_detector=None,
+                age_detection_enabled=False,
+                sunglasses_detection_enabled=False,
+            )
+        else:
+            quality_filter = self._quality_filter
         embedder = self._embedder or registry.get_model("dual_embedder")
-        if self._quality_filter is None and not isinstance(quality_filter, QualityFilter):
-            raise TypeError("Expected QualityFilter from the model registry.")
+        if not isinstance(quality_filter, QualityFilter):
+            raise TypeError("Expected QualityFilter for selfie quality checks.")
         if self._embedder is None and not isinstance(embedder, DualEmbedder):
             raise TypeError("Expected DualEmbedder from the model registry.")
         return quality_filter, embedder

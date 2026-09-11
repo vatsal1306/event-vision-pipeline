@@ -12,6 +12,7 @@ from PIL import Image
 from transformers import ViTForImageClassification, ViTImageProcessor
 
 from app.ml.quality.types import AGE_ESTIMATION_FAILED
+from app.ml.torch_process_cache import get_or_create
 
 logger = structlog.get_logger(__name__)
 
@@ -49,12 +50,13 @@ class AgeDetector:
         self._device = resolved_device
         self._confidence_threshold = confidence_threshold
         self._model_path = path
-        self._processor = ViTImageProcessor.from_pretrained(str(path), local_files_only=True)
-        self._model = ViTForImageClassification.from_pretrained(
-            str(path),
-            local_files_only=True,
-        ).to(self._device)
-        self._model.eval()
+
+        processor, model = get_or_create(
+            f"age_vit:{path.resolve()}:{self._device}",
+            lambda: _load_age_vit(path, self._device),
+        )
+        self._processor = processor
+        self._model = model
         logger.info("age_detector_loaded", model_path=str(path), device=self._device)
 
     def estimate(self, face_crop_bgr: np.ndarray) -> tuple[int, float]:
@@ -87,8 +89,16 @@ class AgeDetector:
         return Image.fromarray(rgb)
 
     def close(self) -> None:
-        """Release model resources."""
-        del self._model
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        """Release this wrapper. Process-level ViT weights stay loaded."""
         logger.debug("age_detector_closed", model_path=str(self._model_path))
+
+
+def _load_age_vit(path: Path, device: str) -> tuple[ViTImageProcessor, ViTForImageClassification]:
+    """Load the HuggingFace ViT once per process."""
+    processor = ViTImageProcessor.from_pretrained(str(path), local_files_only=True)
+    model = ViTForImageClassification.from_pretrained(
+        str(path),
+        local_files_only=True,
+    ).to(device)
+    model.eval()
+    return processor, model

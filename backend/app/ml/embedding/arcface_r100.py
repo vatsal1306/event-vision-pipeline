@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from pathlib import Path
 from typing import Any
 
@@ -12,38 +11,22 @@ import structlog
 
 from app.ml.embedding.base import BaseEmbeddingModel, l2_normalize
 from app.ml.embedding.batch_utils import extract_batch_with_oom_retry
+from app.ml.torch_process_cache import get_or_create
 from app.ml.vendor.adaface_insightface import backbones
 
 logger = structlog.get_logger(__name__)
 
-_SHARED_NET: Any = None
-_SHARED_PATH: Path | None = None
-_SHARED_LOCK = threading.Lock()
 
-
-def _shared_r100_net(path: Path, device: Any) -> Any:
-    """Return the process-wide R100 module, loading weights once.
-
-    Reconstructing InsightFace R100 in the same process can raise
-    ``Only a single TORCH_LIBRARY can be used to register the namespace``.
-    Pytest unloads the model registry between files, so we keep the torch
-    module alive for the process lifetime.
-    """
-    global _SHARED_NET, _SHARED_PATH
+def _load_r100_net(path: Path, device: Any) -> Any:
+    """Construct InsightFace R100 and load weights."""
     import torch
 
-    with _SHARED_LOCK:
-        if _SHARED_NET is not None and _SHARED_PATH == path:
-            return _SHARED_NET
-
-        net = backbones.get_model("r100", fp16=False)
-        state_dict = torch.load(path, map_location=device, weights_only=True)
-        net.load_state_dict(state_dict)
-        net.to(device)
-        net.eval()
-        _SHARED_NET = net
-        _SHARED_PATH = path
-        return net
+    net = backbones.get_model("r100", fp16=False)
+    state_dict = torch.load(path, map_location=device, weights_only=True)
+    net.load_state_dict(state_dict)
+    net.to(device)
+    net.eval()
+    return net
 
 
 class ArcFaceR100(BaseEmbeddingModel):
@@ -66,7 +49,10 @@ class ArcFaceR100(BaseEmbeddingModel):
 
         self._device = torch.device(device)
         self._model_path = path
-        self._net = _shared_r100_net(path, self._device)
+        self._net = get_or_create(
+            f"r100:{path.resolve()}",
+            lambda: _load_r100_net(path, self._device),
+        )
         self._net.to(self._device)
         self._net.eval()
 
@@ -112,26 +98,18 @@ class ArcFaceR100(BaseEmbeddingModel):
         all_embeddings: list[np.ndarray] = []
 
         with torch.no_grad():
-            net = self._net
-            if net is None:
-                raise RuntimeError("ArcFace R100 is closed; load a new wrapper from the registry.")
             for start in range(0, len(faces), batch_size):
                 batch_faces = faces[start : start + batch_size]
                 tensors = [
                     torch.from_numpy(self.preprocess(face)).unsqueeze(0) for face in batch_faces
                 ]
                 batch_tensor = torch.cat(tensors, dim=0).to(self._device)
-                outputs = net(batch_tensor).detach().cpu().numpy()
+                outputs = self._net(batch_tensor).detach().cpu().numpy()
                 all_embeddings.append(outputs)
 
         stacked = np.concatenate(all_embeddings, axis=0)
         return l2_normalize(stacked, axis=1)
 
     def close(self) -> None:
-        """Release this wrapper. Process-level weights stay loaded.
-
-        Deleting the shared IResNet and constructing another one in the same
-        process can fail with a TORCH_LIBRARY namespace conflict.
-        """
-        self._net = None
+        """Release this wrapper. Process-level IResNet weights stay loaded."""
         logger.debug("arcface_r100_closed", model_path=str(self._model_path))

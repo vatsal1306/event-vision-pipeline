@@ -87,6 +87,7 @@ Use `ModelRegistry.resolved_device` or `resolve_device(config.device)` — both 
 - **Pattern:** Later stories call `register_model_loader("scrfd", loader_fn)` at module import time
 - **Loading:** `registry.get_model("scrfd")` lazy-loads once per process, thread-safe
 - **Teardown:** `registry.unload_all()` for tests and worker shutdown
+- **Torch process cache:** R100, AdaFace/DFA, and the age ViT cannot be built twice in one process (PyTorch `TORCH_LIBRARY` namespace). `app/ml/torch_process_cache.py` keeps those graphs alive. `unload_all()` / `reset_for_tests()` skip destroying them. Guest selfie matching loads blur+YPR only, never the age ViT.
 
 ### Worker Context Policy (ML-001 decision)
 
@@ -224,7 +225,7 @@ Run age integration test separately from SCRFD tests if you see a Torch/Triton r
 
 | Module | Purpose |
 |--------|---------|
-| `embedding/arcface_r100.py` | Primary ArcFace R100 (PicSee normalization). Weights stay loaded for the process — reconstructing IResNet after `close()` can hit a TORCH_LIBRARY namespace error. |
+| `embedding/arcface_r100.py` | Primary ArcFace R100 (PicSee normalization). IResNet is process-cached via `torch_process_cache`. |
 | `embedding/adaface_vit_kprpe.py` | Secondary AdaFace VIT-KPRPE + DFA aligner |
 | `embedding/mobilefacenet.py` | TFLite CPU fallback when GPU OOM persists |
 | `embedding/dual_embedder.py` | Orchestrator — primary + optional secondary |

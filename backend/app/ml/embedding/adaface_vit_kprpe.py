@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -12,6 +13,7 @@ from torchvision.transforms import Compose, Normalize, ToTensor
 from app.ml.embedding.base import BaseEmbeddingModel, l2_normalize
 from app.ml.embedding.batch_utils import extract_batch_with_oom_retry
 from app.ml.embedding.cvlface_loader import load_cvlface_model
+from app.ml.torch_process_cache import get_or_create
 
 logger = structlog.get_logger(__name__)
 
@@ -58,10 +60,10 @@ class AdaFaceVitKprpe(BaseEmbeddingModel):
             model_dir=str(model_path),
             aligner_dir=str(aligner_path),
         )
-        self._model = load_cvlface_model(model_path)
-        self._aligner = load_cvlface_model(aligner_path)
-        self._model.to(self._device)
-        self._aligner.to(self._device)
+        self._model, self._aligner = get_or_create(
+            f"adaface:{model_path.resolve()}:{aligner_path.resolve()}:{self._device}",
+            lambda: _load_adaface_pair(model_path, aligner_path, self._device),
+        )
 
         logger.info("adaface_vit_kprpe_loaded", device=str(self._device))
 
@@ -118,13 +120,18 @@ class AdaFaceVitKprpe(BaseEmbeddingModel):
         return l2_normalize(stacked, axis=1)
 
     def close(self) -> None:
-        """Drop model references."""
-        if hasattr(self, "_model"):
-            del self._model
-        if hasattr(self, "_aligner"):
-            del self._aligner
+        """Release this wrapper. Process-level AdaFace/DFA weights stay loaded."""
         logger.debug(
             "adaface_vit_kprpe_closed",
             model_dir=str(self._model_dir),
             aligner_dir=str(self._aligner_dir),
         )
+
+
+def _load_adaface_pair(model_path: Path, aligner_path: Path, device: Any) -> tuple[Any, Any]:
+    """Load VIT-KPRPE and DFA aligner once per process."""
+    model = load_cvlface_model(model_path)
+    aligner = load_cvlface_model(aligner_path)
+    model.to(device)
+    aligner.to(device)
+    return model, aligner
