@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Upload, ScanFace, Images, Smartphone, Zap, Shield } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -48,6 +49,29 @@ export default function MarketingPage() {
       <section className="relative overflow-hidden">
         <div className="max-w-4xl mx-auto px-6 pt-24 pb-20 md:pt-36 md:pb-32 text-center">
           <AnimatedSection variant="slideUp">
+            <div className="flex justify-center mb-8">
+              <Image
+                src="/logo.png"
+                alt="SpotMe Logo"
+                width={898}
+                height={278}
+                className="w-64 md:w-80 lg:w-96 h-auto dark:hidden"
+                priority
+                unoptimized
+              />
+              <Image
+                src="/spotme-logo-dark.png"
+                alt="SpotMe Logo"
+                width={898}
+                height={278}
+                className="w-64 md:w-80 lg:w-96 h-auto hidden dark:block"
+                priority
+                unoptimized
+              />
+            </div>
+          </AnimatedSection>
+
+          <AnimatedSection variant="slideUp" delay={0.05}>
             <span className="inline-block text-xs font-semibold tracking-widest uppercase text-signal mb-6">
               AI-Powered Photo Delivery
             </span>

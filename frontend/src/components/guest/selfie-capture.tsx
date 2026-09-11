@@ -120,9 +120,9 @@ export function SelfieCapture({ onCapture, isLoading }: SelfieCaptureProps) {
         ) : (
           <div className="flex gap-3">
             <Button 
-              variant="outline" 
+              variant="secondary" 
               size="lg" 
-              className="flex-1 h-14 rounded-full text-base font-medium border-zinc-700 hover:bg-zinc-800"
+              className="flex-1 h-14 rounded-full text-base font-medium"
               onClick={retake}
               disabled={isLoading}
             >

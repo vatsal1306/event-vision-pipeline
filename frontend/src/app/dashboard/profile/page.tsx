@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { useProfile, useUpdateProfile, useUploadLogo, useUploadWatermark } from '@/hooks/use-profile';
 import { formatBytes } from '@/lib/utils';
 import { WatermarkPreview } from '@/components/dashboard/watermark-preview';
+import { WatermarkEditorModal } from '@/components/dashboard/watermark-editor-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +33,8 @@ export default function ProfilePage() {
 
   const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
   const [localWatermarkPreview, setLocalWatermarkPreview] = useState<string | null>(null);
+  const [editorModalOpen, setEditorModalOpen] = useState(false);
+  const [selectedWatermarkFile, setSelectedWatermarkFile] = useState<File | null>(null);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +48,8 @@ export default function ProfilePage() {
     },
   });
 
+  // Sync local previews from server profile data.
+  // Only runs when the profile object itself changes (e.g., after query refetch).
   useEffect(() => {
     if (profile) {
       form.reset({
@@ -52,10 +57,11 @@ export default function ProfilePage() {
         email: profile.email,
         phone: profile.phone,
       });
-      if (profile.logo_url && !localLogoPreview) setLocalLogoPreview(profile.logo_url);
-      if (profile.watermark_url && !localWatermarkPreview) setLocalWatermarkPreview(profile.watermark_url);
+      setLocalLogoPreview(profile.logo_url ?? null);
+      setLocalWatermarkPreview(profile.watermark_url ?? null);
     }
-  }, [profile, form, localLogoPreview, localWatermarkPreview]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 
   // Cleanup object URLs to avoid memory leaks
   useEffect(() => {
@@ -116,16 +122,29 @@ export default function ProfilePage() {
       return;
     }
 
-    if (localWatermarkPreview && localWatermarkPreview.startsWith('blob:')) {
-      URL.revokeObjectURL(localWatermarkPreview);
+    setSelectedWatermarkFile(file);
+    setEditorModalOpen(true);
+    
+    // Reset the input so the same file can be selected again if needed
+    if (watermarkInputRef.current) {
+      watermarkInputRef.current.value = '';
     }
+  };
 
-    // Create local preview instantly
-    const previewUrl = URL.createObjectURL(file);
-    setLocalWatermarkPreview(previewUrl);
-
-    // Trigger upload
-    uploadWatermark.mutate(file);
+  const handleSaveWatermark = (file: File, scale: number, x: number, y: number, opacity: number) => {
+    uploadWatermark.mutate({ file, scale, x, y, opacity }, {
+      onSuccess: () => {
+        setEditorModalOpen(false);
+        setSelectedWatermarkFile(null);
+        
+        // Update local preview
+        if (localWatermarkPreview && localWatermarkPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(localWatermarkPreview);
+        }
+        const previewUrl = URL.createObjectURL(file);
+        setLocalWatermarkPreview(previewUrl);
+      }
+    });
   };
 
   const removeLocalLogo = () => {
@@ -147,6 +166,7 @@ export default function ProfilePage() {
   const storagePercentage = Math.min(100, (profile.storage_used_bytes / profile.storage_limit_bytes) * 100);
 
   return (
+    <>
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
         <h1 className="text-3xl font-display font-semibold tracking-tight text-foreground">Studio Profile</h1>
@@ -302,7 +322,13 @@ export default function ProfilePage() {
               </h3>
             </div>
             <div className="p-6 space-y-4">
-              <WatermarkPreview watermarkSrc={localWatermarkPreview} />
+              <WatermarkPreview 
+                watermarkSrc={localWatermarkPreview} 
+                scale={profile.watermark_scale}
+                x={profile.watermark_x}
+                y={profile.watermark_y}
+                opacity={profile.watermark_opacity}
+              />
               
               <div className="flex flex-col items-start gap-2">
                 <Input 
@@ -344,5 +370,14 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+    
+    <WatermarkEditorModal
+      open={editorModalOpen}
+      onOpenChange={setEditorModalOpen}
+      file={selectedWatermarkFile}
+      onSave={handleSaveWatermark}
+      isUploading={uploadWatermark.isPending}
+    />
+    </>
   );
 }

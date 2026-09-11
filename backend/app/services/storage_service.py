@@ -49,6 +49,7 @@ class StorageService(abc.ABC):
         key: str,
         client_method: str = "get_object",
         expires_in: int | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         """Generate a presigned URL for GET or PUT."""
         ...
@@ -135,15 +136,21 @@ class S3StorageService(StorageService):
         key: str,
         client_method: str = "get_object",
         expires_in: int | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         """Generate a presigned URL."""
         if expires_in is None:
             expires_in = self.default_expiry
+        
+        params = {"Bucket": bucket, "Key": key}
+        if extra_params:
+            params.update(extra_params)
+            
         try:
             async with self.session.client("s3") as s3:
                 url = await s3.generate_presigned_url(
                     ClientMethod=client_method,
-                    Params={"Bucket": bucket, "Key": key},
+                    Params=params,
                     ExpiresIn=expires_in,
                 )
                 return str(url)
@@ -219,6 +226,7 @@ class LocalStorageService(StorageService):
         key: str,
         client_method: str = "get_object",
         expires_in: int | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         """Mock presigned URL generation."""
         if expires_in is None:

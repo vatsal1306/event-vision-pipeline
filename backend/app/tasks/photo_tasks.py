@@ -10,7 +10,6 @@ from uuid import UUID
 from pillow_heif import register_heif_opener  # type: ignore[attr-defined]
 
 from app.config import get_settings
-from app.core.database import async_session_factory
 from app.core.exceptions import StorageError
 from app.core.logging import get_logger
 from app.models.enums import ProcessingStatus
@@ -23,8 +22,29 @@ from app.services.storage_service import get_storage_service
 from app.services.watermark_service import WatermarkService
 from app.tasks.celery_app import celery_app
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 logger = get_logger()
 register_heif_opener()
+
+
+def _build_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Create a fresh engine + session factory bound to the current event loop.
+
+    Celery prefork workers reuse the same process for multiple tasks, but
+    ``asyncio.run()`` creates a **new** event loop each time.  A module-level
+    engine keeps its connection pool attached to the *first* loop, causing
+    ``RuntimeError: got Future attached to a different loop`` on subsequent
+    tasks.  Building a fresh engine per invocation avoids this entirely.
+    """
+    settings = get_settings()
+    engine = create_async_engine(
+        settings.database_url,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_pre_ping=True,
+    )
+    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: str) -> None:
@@ -34,7 +54,8 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
     image_service = ImageProcessingService(storage)
     watermark_service = WatermarkService(storage)
 
-    async with async_session_factory() as db:
+    session_factory = _build_session_factory()
+    async with session_factory() as db:
         photo = await db.get(Photo, UUID(photo_id))
         if not photo:
             logger.error("Photo %s not found", photo_id, photo_id=photo_id, event_id=event_id)
@@ -45,15 +66,35 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
 
         try:
             # Step 1: Generate web-proxy
-            proxy_s3_key = await image_service.generate_web_proxy(s3_key, event_id)
+            proxy_s3_key = await image_service.generate_web_proxy(
+                s3_key, event_id, original_filename=photo.filename, mime_type=photo.mime_type
+            )
 
-            # Step 2: Apply watermark to web-proxy (if configured)
+            # Step 2: Apply watermark to web-proxy and original (if configured)
             event = await db.get(Event, UUID(event_id))
             if event:
                 photographer = await db.get(Photographer, event.photographer_id)
                 if photographer and photographer.watermark_url:
+                    # Apply to web-proxy (.webp, lower quality)
                     await watermark_service.apply_watermark(
-                        proxy_s3_key, str(photographer.watermark_url)
+                        proxy_s3_key, 
+                        str(photographer.watermark_url),
+                        watermark_scale=photographer.watermark_scale,
+                        watermark_x=photographer.watermark_x,
+                        watermark_y=photographer.watermark_y,
+                        watermark_opacity=photographer.watermark_opacity,
+                    )
+                    # Apply to original
+                    from app.config import get_settings
+                    await watermark_service.apply_watermark(
+                        s3_key, 
+                        str(photographer.watermark_url),
+                        bucket=get_settings().s3_bucket_originals,
+                        output_format=".jpg",
+                        watermark_scale=photographer.watermark_scale,
+                        watermark_x=photographer.watermark_x,
+                        watermark_y=photographer.watermark_y,
+                        watermark_opacity=photographer.watermark_opacity,
                     )
 
             # Step 3 & 4: Generate blurhash and get dimensions

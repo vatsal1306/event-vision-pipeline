@@ -107,7 +107,7 @@ export function UploadDropzone({ eventId, folders, initialFolderId }: UploadDrop
         
         <h3 className="text-xl font-semibold mb-2">Drag & drop files or folders here</h3>
         <p className="text-muted-foreground mb-8">
-          Supports: JPG, PNG, HEIC, TIFF, WebP (Max 50MB per file)
+          Supports: JPG, PNG, HEIC, TIFF, WebP
         </p>
 
         <div className="flex justify-center gap-4">

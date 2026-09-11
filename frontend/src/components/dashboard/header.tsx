@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useUiStore } from '@/stores/ui-store';
 import { useProfile } from '@/hooks/use-profile';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { Logo } from '@/components/shared/logo';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Camera, User, HardDrive } from 'lucide-react';
@@ -84,24 +85,33 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
-          <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-              3
-            </span>
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full" aria-label="User menu">
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-primary text-primary-foreground font-medium">
-                  {photographer?.logo_url ? (
-                    <Image src={photographer.logo_url} alt="" fill className="rounded-full object-cover" />
-                  ) : (
-                    initials
-                  )}
-                </div>
-                <ChevronDown className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative" 
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+                  0
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div className="py-6 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                <Bell className="h-8 w-8 text-muted-foreground/50" />
+                <p>No new notifications</p>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full" aria-label="User menu">
+                <Menu className="h-5 w-5 text-foreground" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>

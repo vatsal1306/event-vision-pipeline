@@ -141,6 +141,10 @@ class PhotographerProfile(BaseModel):
     phone_verified: bool
     logo_url: str | None
     watermark_url: str | None
+    watermark_scale: float
+    watermark_x: float
+    watermark_y: float
+    watermark_opacity: float
     storage_used_bytes: int
     storage_limit_bytes: int
     is_active: bool
@@ -153,6 +157,8 @@ class UpdateProfileRequest(BaseModel):
 
     studio_name: str | None = Field(None, min_length=2, max_length=255)
     phone: str | None = Field(None, pattern=INDIAN_PHONE_PATTERN)
+    watermark_url: str | None = None
+    logo_url: str | None = None
 
 
 class TokenResponse(BaseModel):

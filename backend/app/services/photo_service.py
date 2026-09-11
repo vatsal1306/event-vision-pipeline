@@ -87,16 +87,17 @@ class PhotoService:
         # Delete from DB
         await self.db.execute(delete(Photo).where(Photo.id.in_(photo_ids)))
 
-        # Update event counters
+        # Update event counters (total_photos and processed_photos will be handled by update_event_processing_status)
         await self.db.execute(
             update(Event)
             .where(Event.id == event_id)
             .values(
-                total_photos=Event.total_photos - photo_count,
                 total_faces=Event.total_faces - face_count,
-                processed_photos=Event.processed_photos - processed_count,
             )
         )
+        
+        from app.services.event_service import EventService
+        await EventService(self.db).update_event_processing_status(event_id)
 
         # Update photographer storage usage
         from app.models.photographer import Photographer
@@ -307,9 +308,20 @@ class PhotoService:
         photo = await self.db.get(Photo, photo_id)
         if not photo or photo.event_id != event_id:
             raise NotFoundError("Photo not found")
-
-        # Mock download URL (BE-008 will implement proper S3 presigning)
-        return f"https://mock-s3.local/download/{photo.original_s3_key}?expires=3600"
+            
+        settings = get_settings()
+        storage = get_storage_service()
+        
+        url = await storage.generate_presigned_url(
+            bucket=settings.s3_bucket_originals,
+            key=photo.original_s3_key,
+            client_method="get_object",
+            expires_in=settings.s3_presigned_url_expiry,
+            extra_params={
+                "ResponseContentDisposition": f'attachment; filename="{photo.filename}"'
+            }
+        )
+        return url
 
     def build_photo_responses(self, photos: list[Photo]) -> list[PhotoResponse]:
         """Convert Photo models to PhotoResponse with signed preview URLs."""

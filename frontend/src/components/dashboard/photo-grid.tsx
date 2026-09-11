@@ -188,6 +188,28 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
 
   return (
     <div className="relative h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              if (selectedPhotoIds.size === photos.length) {
+                setSelectedPhotoIds(new Set());
+              } else {
+                setSelectedPhotoIds(new Set(photos.map(p => p.id)));
+              }
+            }}
+          >
+            {selectedPhotoIds.size === photos.length && photos.length > 0 ? 'Deselect All' : 'Select All'}
+          </Button>
+          {isSelectionMode && (
+            <span className="text-sm text-muted-foreground ml-2">
+              {selectedPhotoIds.size} selected
+            </span>
+          )}
+        </div>
+      </div>
       <div 
         ref={parentRef} 
         className="flex-1 overflow-auto p-4"

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
-import { useEvent, useUpdateEvent, useArchiveEvent, useDeleteEvent } from '@/hooks/use-events';
+import { useEvent, useUpdateEvent, useArchiveEvent, useRestoreEvent, useDeleteEvent } from '@/hooks/use-events';
 import { useFolders } from '@/hooks/use-folders';
 import { Photo } from '@/types/event';
 import { StatusBadge } from '@/components/shared/status-badge';
@@ -14,7 +14,7 @@ import { LeadTable } from '@/components/dashboard/lead-table';
 import { LinkGenerator } from '@/components/dashboard/link-generator';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2, MoreHorizontal, Archive, Trash2 } from 'lucide-react';
+import { ArrowLeft, Settings, Image as ImageIcon, UploadCloud, BarChart3, Share2, MoreHorizontal, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PhotoGrid = dynamic(() => import('@/components/dashboard/photo-grid').then(m => m.PhotoGrid), { ssr: false });
@@ -41,6 +41,7 @@ export default function EventDetailPage() {
   const { data: folders = [], isLoading: isFoldersLoading } = useFolders(id);
   const updateEventMutation = useUpdateEvent();
   const archiveEventMutation = useArchiveEvent();
+  const restoreEventMutation = useRestoreEvent();
   const deleteEventMutation = useDeleteEvent();
   
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
@@ -54,7 +55,12 @@ export default function EventDetailPage() {
   const handleArchive = async () => {
     if (window.confirm('Are you sure you want to archive this event? Archived events are only visible to you.')) {
       await archiveEventMutation.mutateAsync(id);
-      router.push('/dashboard/events');
+    }
+  };
+
+  const handleRestore = async () => {
+    if (window.confirm('Are you sure you want to unarchive this event? Guests will be able to view it again.')) {
+      await restoreEventMutation.mutateAsync(id);
     }
   };
 
@@ -161,7 +167,13 @@ export default function EventDetailPage() {
               <StatusBadge status={event.status} />
             </h1>
             <p className="text-muted-foreground text-sm flex items-center gap-2">
-              {event.dateStart ? new Date(event.dateStart).toLocaleDateString() : 'TBD'} · 
+              {event.dateEnd ? `${
+                event.dateStart ? new Date(event.dateStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD'
+              } – ${
+                new Date(event.dateEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+              }` : (
+                event.dateStart ? new Date(event.dateStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD'
+              )} · 
               <span className="capitalize">{event.eventType}</span> · 
               {event.totalPhotos.toLocaleString()} photos
             </p>
@@ -178,10 +190,17 @@ export default function EventDetailPage() {
                 Event Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleArchive}>
-                <Archive className="mr-2 h-4 w-4" />
-                Archive Event
-              </DropdownMenuItem>
+              {event.status === 'archived' ? (
+                <DropdownMenuItem onClick={handleRestore}>
+                  <ArchiveRestore className="mr-2 h-4 w-4" />
+                  Unarchive Event
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={handleArchive}>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive Event
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Event
@@ -285,8 +304,8 @@ export default function EventDetailPage() {
               defaultValues={{
                 name: event.name,
                 eventType: event.eventType as any,
-                dateStart: event.dateStart,
-                dateEnd: event.dateEnd,
+                dateStart: event.dateStart || undefined,
+                dateEnd: event.dateEnd || undefined,
                 description: event.description || undefined,
               }}
             />

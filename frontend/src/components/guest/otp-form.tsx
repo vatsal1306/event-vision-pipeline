@@ -25,6 +25,7 @@ interface OtpFormProps {
 
 export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
   const [step, setStep] = useState<'auth' | 'otp'>('auth');
+  const [countryCode, setCountryCode] = useState('+91');
 
   const authForm = useForm<z.infer<typeof authSchema>>({
     resolver: zodResolver(authSchema),
@@ -38,7 +39,8 @@ export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
 
   const handleAuthSubmit = async (values: z.infer<typeof authSchema>) => {
     try {
-      await onSendOtp(values);
+      const fullPhone = values.phone.startsWith('+') ? values.phone : `${countryCode}${values.phone}`;
+      await onSendOtp({ ...values, phone: fullPhone });
       setStep('otp');
     } catch (error) {
       // Error is handled by onSendOtp (toast shown)
@@ -77,12 +79,17 @@ export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
               <FormItem>
                 <FormLabel className="text-zinc-400">Mobile</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="Enter your mobile number" 
-                    type="tel"
-                    className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 h-12" 
-                    {...field} 
-                  />
+                  <div className="flex gap-2">
+                    <div className="bg-zinc-800/50 border border-zinc-700 rounded-md px-4 flex items-center justify-center text-sm font-medium text-zinc-300 w-[70px] h-12">
+                      +91
+                    </div>
+                    <Input 
+                      placeholder="98765 43210" 
+                      type="tel"
+                      className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 h-12 flex-1" 
+                      {...field} 
+                    />
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -121,20 +128,23 @@ export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
             </FormItem>
           )}
         />
-        <Button 
-          type="submit" 
-          className="w-full h-12 text-base mt-2" 
-          disabled={isLoading}
-        >
-          {isLoading ? 'Verifying...' : 'Verify OTP'}
-        </Button>
-        <button
-          type="button"
-          onClick={() => setStep('auth')}
-          className="w-full text-sm text-zinc-400 hover:text-white mt-4"
-        >
-          Change phone number
-        </button>
+        <div className="flex gap-3 mt-4">
+          <Button 
+            type="button"
+            variant="secondary"
+            onClick={() => setStep('auth')}
+            className="flex-1 h-12 text-base"
+          >
+            Back
+          </Button>
+          <Button 
+            type="submit" 
+            className="flex-1 h-12 text-base" 
+            disabled={isLoading}
+          >
+            {isLoading ? 'Verifying...' : 'Verify OTP'}
+          </Button>
+        </div>
       </form>
     </Form>
   );

@@ -26,15 +26,16 @@ class ImageProcessingService:
         self.settings = get_settings()
 
     async def generate_web_proxy(
-        self, original_s3_key: str, event_id: str, interpolation: int = cv2.INTER_LANCZOS4
+        self, original_s3_key: str, event_id: str, interpolation: int = cv2.INTER_LANCZOS4, original_filename: str | None = None, mime_type: str | None = None
     ) -> str:
         """Download original, generate optimized proxy, upload to hot storage."""
         original_bucket = self.settings.s3_bucket_originals
         proxy_bucket = self.settings.s3_bucket_proxies
         image_bytes = await self.storage.get_object(original_bucket, original_s3_key)
 
+        filename_to_check = original_filename or original_s3_key
         # Handle HEIC or standard decoding
-        if original_s3_key.lower().endswith((".heic", ".heif")):
+        if filename_to_check.lower().endswith((".heic", ".heif")):
             heif_file = read_heif(image_bytes)
             image_np: Any = np.asarray(heif_file)
             image: Any = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)

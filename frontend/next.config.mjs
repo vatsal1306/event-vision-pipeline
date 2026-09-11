@@ -60,6 +60,18 @@ const nextConfig = {
         port: '8000',
         pathname: '/api/**',
       },
+      {
+        protocol: 'https',
+        hostname: 's3.ap-south-1.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'platform-proxies-702872201750.s3.ap-south-1.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'platform-originals-702872201750.s3.ap-south-1.amazonaws.com',
+      },
     ],
   },
 };

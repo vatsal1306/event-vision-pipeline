@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, Index, String, text
+from sqlalchemy import BigInteger, Boolean, Float, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, CreatedAtMixin, UpdatedAtMixin, UUIDPrimaryKeyMixin
@@ -32,6 +32,13 @@ class Photographer(Base, UUIDPrimaryKeyMixin, CreatedAtMixin, UpdatedAtMixin):
     )
     logo_url: Mapped[str | None] = mapped_column(String(500))
     watermark_url: Mapped[str | None] = mapped_column(String(500))
+
+    # Watermark UI settings
+    watermark_scale: Mapped[float] = mapped_column(Float, default=0.20, server_default="0.20")
+    watermark_x: Mapped[float] = mapped_column(Float, default=0.98, server_default="0.98")
+    watermark_y: Mapped[float] = mapped_column(Float, default=0.98, server_default="0.98")
+    watermark_opacity: Mapped[float] = mapped_column(Float, default=0.70, server_default="0.70")
+
     storage_used_bytes: Mapped[int] = mapped_column(
         BigInteger,
         server_default=text("0"),

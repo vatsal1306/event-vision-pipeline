@@ -156,14 +156,21 @@ export function PhotoViewer({
             }
           }}
         >
-          <Image
-            src={currentPhoto.proxyUrl || ''}
-            alt={currentPhoto.filename}
-            fill
-            sizes="100vw"
-            className="object-contain"
-            priority
-          />
+          {currentPhoto.proxyUrl ? (
+            <Image
+              src={currentPhoto.proxyUrl}
+              alt={currentPhoto.filename}
+              fill
+              sizes="100vw"
+              className="object-contain"
+              priority
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-white/50">
+              <span className="text-lg">Image Processing...</span>
+              <span className="text-sm mt-2">Please check back later</span>
+            </div>
+          )}
           </motion.div>
         </motion.div>
       )}

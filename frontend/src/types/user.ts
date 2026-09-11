@@ -6,6 +6,10 @@ export interface Photographer {
   phone_verified: boolean;
   logo_url: string | null;
   watermark_url: string | null;
+  watermark_scale: number;
+  watermark_x: number;
+  watermark_y: number;
+  watermark_opacity: number;
   storage_used_bytes: number;
   storage_limit_bytes: number;
   is_active: boolean;

@@ -59,7 +59,6 @@ services:
       - -hooks-enabled-events=pre-create,post-finish,post-terminate
       - -hooks-http-retry=3
       - -base-path=/files/
-      - -max-size=52428800
     environment:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
