@@ -27,6 +27,10 @@ class WatermarkService:
         bucket: str | None = None,
         output_format: str = ".webp",
         output_quality: int | None = None,
+        watermark_scale: float = 0.20,
+        watermark_x: float = 0.98,
+        watermark_y: float = 0.98,
+        watermark_opacity: float = 0.70,
         interpolation: int = cv2.INTER_LANCZOS4
     ) -> None:
         """Download image and watermark, composite, re-upload."""
@@ -50,23 +54,27 @@ class WatermarkService:
         if len(watermark.shape) < 3 or watermark.shape[2] != 4:
             watermark = cv2.cvtColor(watermark, cv2.COLOR_BGR2BGRA)
 
-        # Scale watermark proportionally
-        max_wm_width = int(proxy.shape[1] * self.WATERMARK_MAX_WIDTH_RATIO)
-        wm_ratio = max_wm_width / watermark.shape[1]
-        new_wm_width = max_wm_width
+        # Scale watermark proportionally based on user settings
+        # The watermark_scale represents the width of the watermark relative to the image width
+        target_wm_width = int(proxy.shape[1] * watermark_scale)
+        wm_ratio = target_wm_width / watermark.shape[1]
+        new_wm_width = target_wm_width
         new_wm_height = int(watermark.shape[0] * wm_ratio)
         watermark = cv2.resize(
             watermark, (new_wm_width, new_wm_height), interpolation=interpolation
         )
 
         # Apply global opacity
-        opacity = self.settings.watermark_opacity
-        watermark[:, :, 3] = (watermark[:, :, 3] * opacity).astype(np.uint8)
+        watermark[:, :, 3] = (watermark[:, :, 3] * watermark_opacity).astype(np.uint8)
 
-        # Position: bottom-right with padding
-        padding = int(proxy.shape[1] * self.WATERMARK_PADDING_RATIO)
-        x_offset = proxy.shape[1] - watermark.shape[1] - padding
-        y_offset = proxy.shape[0] - watermark.shape[0] - padding
+        # Position: Calculate offset based on x/y percentages (0.0 to 1.0)
+        # We need to bound the offset so the watermark doesn't draw outside the image if x=1.0 or y=1.0
+        # By default x=0.98, y=0.98 means the bottom-right corner of the watermark is near the bottom-right corner of the image.
+        # It's more intuitive to have x/y represent the bounding box's top-left corner ratio relative to the image.
+        # But wait, earlier I said x,y is the top-left offset ratio. Let's use it as top-left offset.
+        # For a top-left offset ratio (x,y):
+        x_offset = int(proxy.shape[1] * watermark_x)
+        y_offset = int(proxy.shape[0] * watermark_y)
 
         # Ensure ROI is within bounds
         y1, y2 = max(0, y_offset), min(proxy.shape[0], y_offset + watermark.shape[0])

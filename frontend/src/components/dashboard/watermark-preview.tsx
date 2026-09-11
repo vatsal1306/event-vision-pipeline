@@ -2,14 +2,24 @@ import Image from 'next/image';
 
 interface WatermarkPreviewProps {
   watermarkSrc: string | null;
+  scale?: number;
+  x?: number;
+  y?: number;
+  opacity?: number;
 }
 
-export function WatermarkPreview({ watermarkSrc }: WatermarkPreviewProps) {
+export function WatermarkPreview({ 
+  watermarkSrc, 
+  scale = 0.2, 
+  x = 0.98, 
+  y = 0.98, 
+  opacity = 0.7 
+}: WatermarkPreviewProps) {
   return (
-    <div className="relative w-full aspect-[3/2] rounded-lg overflow-hidden bg-muted border">
+    <div className="relative w-full aspect-[3/2] rounded-lg overflow-hidden bg-muted border select-none pointer-events-none">
       {/* Sample Photo */}
       <Image
-        src="https://picsum.photos/seed/samplephoto/1200/800"
+        src="https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop"
         alt="Sample event photo"
         fill
         className="object-cover"
@@ -18,13 +28,19 @@ export function WatermarkPreview({ watermarkSrc }: WatermarkPreviewProps) {
       
       {/* Watermark Overlay */}
       {watermarkSrc ? (
-        <div className="absolute bottom-4 right-4 w-1/4 max-w-[200px] aspect-[2/1]">
-          <Image
+        <div 
+          className="absolute z-10"
+          style={{
+            width: `${scale * 100}%`,
+            left: `${x * 100}%`,
+            top: `${y * 100}%`,
+            opacity: opacity
+          }}
+        >
+          <img
             src={watermarkSrc}
             alt="Watermark preview"
-            fill
-            className="object-contain opacity-40"
-            unoptimized
+            className="w-full h-auto object-contain pointer-events-none"
           />
         </div>
       ) : (

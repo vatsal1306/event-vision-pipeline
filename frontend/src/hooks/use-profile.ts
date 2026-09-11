@@ -18,6 +18,8 @@ export function useUpdateProfile() {
       api.updateProfile({
         studio_name: data.studio_name ?? data.studioName,
         phone: data.phone,
+        watermark_url: data.watermark_url,
+        logo_url: data.logo_url,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
@@ -52,9 +54,13 @@ export function useUploadWatermark() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: ({ file, scale, x, y, opacity }: { file: File, scale: number, x: number, y: number, opacity: number }) => {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('scale', scale.toString());
+      formData.append('x', x.toString());
+      formData.append('y', y.toString());
+      formData.append('opacity', opacity.toString());
       return api.uploadWatermark(formData);
     },
     onSuccess: () => {

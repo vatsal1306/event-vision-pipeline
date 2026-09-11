@@ -9,7 +9,7 @@ export default function MarketingLayout({
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navigation */}
-      <header className="w-full border-b border-ink/10">
+      <header className="w-full border-b border-ink/10 sticky top-0 z-50 bg-canvas/80 backdrop-blur-md">
         <nav className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
           <Link href="/" aria-label="SpotMe home">
             <Logo size="md" />
@@ -45,15 +45,6 @@ export default function MarketingLayout({
             <span className="text-sm text-ink/40">
               ©️ {new Date().getFullYear()} HPK AI Labs. All rights reserved
             </span>
-          </div>
-
-          <div className="flex items-center gap-6 text-sm text-ink/50">
-            <Link href="/register" className="hover:text-ink transition-colors">
-              Create Account
-            </Link>
-            <Link href="/login" className="hover:text-ink transition-colors">
-              Log In
-            </Link>
           </div>
         </div>
       </footer>

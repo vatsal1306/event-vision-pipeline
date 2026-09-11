@@ -234,7 +234,7 @@ export const api = {
     apiClient.post<{ token: string }>(`/api/v1/event/${slug}/master/verify`, data),
   sendGuestOtp: (slug: string, data: unknown) => apiClient.post<void>(`/api/v1/event/${slug}/auth`, data),
   verifyGuestOtp: (slug: string, data: { name: string; phone: string; otp: string }) =>
-    apiClient.post<GuestTokenResponse>(`/api/v1/event/${slug}/auth/verify`, data),
+    apiClient.post<TokenResponse>(`/api/v1/event/${slug}/auth/verify`, data),
   submitSelfie: (slug: string, data: unknown, token?: string) =>
     apiClient.post<{ matched_photo_ids: string[]; matched_photo_count: number; status: string }>(
       `/api/v1/event/${slug}/selfie`,

@@ -285,8 +285,8 @@ export default function EventDetailPage() {
               defaultValues={{
                 name: event.name,
                 eventType: event.eventType as any,
-                dateStart: event.dateStart,
-                dateEnd: event.dateEnd,
+                dateStart: event.dateStart || undefined,
+                dateEnd: event.dateEnd || undefined,
                 description: event.description || undefined,
               }}
             />

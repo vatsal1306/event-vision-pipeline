@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_photographer
@@ -51,12 +51,19 @@ async def update_profile(
     photographer: Photographer = Depends(get_current_photographer),
     db: AsyncSession = Depends(get_db),
 ) -> PhotographerProfile:
-    """Update studio name or phone."""
-    if request.studio_name is not None:
-        photographer.studio_name = request.studio_name
-    if request.phone is not None and request.phone != photographer.phone:
-        photographer.phone = request.phone
+    """Update studio name, phone, logo, or watermark."""
+    update_data = request.model_dump(exclude_unset=True)
+    
+    if "studio_name" in update_data:
+        photographer.studio_name = update_data["studio_name"]
+    if "phone" in update_data and update_data["phone"] != photographer.phone:
+        photographer.phone = update_data["phone"]
         photographer.phone_verified = False
+    if "logo_url" in update_data:
+        photographer.logo_url = update_data["logo_url"]
+    if "watermark_url" in update_data:
+        photographer.watermark_url = update_data["watermark_url"]
+        
     await db.commit()
     await db.refresh(photographer)
 
@@ -124,6 +131,10 @@ async def upload_logo(
 @router.post("/watermark")
 async def upload_watermark(
     file: UploadFile = File(...),
+    scale: float | None = Form(None),
+    x: float | None = Form(None),
+    y: float | None = Form(None),
+    opacity: float | None = Form(None),
     photographer: Photographer = Depends(get_current_photographer),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
@@ -156,6 +167,15 @@ async def upload_watermark(
         await storage.delete_object(settings.s3_bucket_assets, old_key)
 
     photographer.watermark_url = key
+    if scale is not None:
+        photographer.watermark_scale = scale
+    if x is not None:
+        photographer.watermark_x = x
+    if y is not None:
+        photographer.watermark_y = y
+    if opacity is not None:
+        photographer.watermark_opacity = opacity
+        
     await db.commit()
 
     url = await storage.generate_presigned_url(settings.s3_bucket_assets, key)

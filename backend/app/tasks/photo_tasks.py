@@ -75,7 +75,12 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
                 if photographer and photographer.watermark_url:
                     # Apply to web-proxy (.webp, lower quality)
                     await watermark_service.apply_watermark(
-                        proxy_s3_key, str(photographer.watermark_url)
+                        proxy_s3_key, 
+                        str(photographer.watermark_url),
+                        watermark_scale=photographer.watermark_scale,
+                        watermark_x=photographer.watermark_x,
+                        watermark_y=photographer.watermark_y,
+                        watermark_opacity=photographer.watermark_opacity,
                     )
                     # Apply to original (.jpg, size-matched quality)
                     from app.config import get_settings
@@ -84,6 +89,10 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
                         str(photographer.watermark_url),
                         bucket=get_settings().s3_bucket_originals,
                         output_format=".jpg",
+                        watermark_scale=photographer.watermark_scale,
+                        watermark_x=photographer.watermark_x,
+                        watermark_y=photographer.watermark_y,
+                        watermark_opacity=photographer.watermark_opacity,
                     )
 
             # Step 3 & 4: Generate blurhash and get dimensions
