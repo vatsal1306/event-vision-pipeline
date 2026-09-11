@@ -49,6 +49,7 @@ class StorageService(abc.ABC):
         key: str,
         client_method: str = "get_object",
         expires_in: int | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         """Generate a presigned URL for GET or PUT."""
         ...
@@ -225,6 +226,7 @@ class LocalStorageService(StorageService):
         key: str,
         client_method: str = "get_object",
         expires_in: int | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         """Mock presigned URL generation."""
         if expires_in is None:
