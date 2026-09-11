@@ -152,8 +152,8 @@ class SelfieMatchPipeline:
         else:
             quality_filter = self._quality_filter
         embedder = self._embedder or registry.get_model("dual_embedder")
-        if not isinstance(quality_filter, QualityFilter):
-            raise TypeError("Expected QualityFilter for selfie quality checks.")
+        if self._quality_filter is None and not isinstance(quality_filter, QualityFilter):
+            raise TypeError("Expected QualityFilter from blur/YPR registry models.")
         if self._embedder is None and not isinstance(embedder, DualEmbedder):
             raise TypeError("Expected DualEmbedder from the model registry.")
         return quality_filter, embedder
