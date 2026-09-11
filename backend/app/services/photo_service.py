@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import case, delete, func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -21,7 +21,7 @@ from app.core.exceptions import (
 from app.core.logging import get_logger
 from app.models.analytics_event import AnalyticsEvent
 from app.models.couple_session import CoupleSession
-from app.models.enums import AnalyticsAction, EventStatus, ProcessingStatus
+from app.models.enums import AnalyticsAction, EventStatus
 from app.models.event import Event
 from app.models.face_embedding import FaceEmbedding
 from app.models.folder import Folder
@@ -62,9 +62,6 @@ class PhotoService:
         stmt = select(
             func.count(Photo.id).label("photo_count"),
             func.coalesce(func.sum(Photo.face_count), 0).label("face_count"),
-            func.sum(
-                case((Photo.processing_status == ProcessingStatus.COMPLETED, 1), else_=0)
-            ).label("processed_count"),
             func.coalesce(func.sum(Photo.file_size_bytes), 0).label("total_bytes"),
         ).where(Photo.id.in_(photo_ids), Photo.event_id == event_id)
 
@@ -77,9 +74,7 @@ class PhotoService:
                 raise NotFoundError("Photo not found")
             return
 
-        photo_count = row.photo_count
         face_count = row.face_count
-        processed_count = row.processed_count or 0
         total_bytes = row.total_bytes
 
         # TODO(BE-008): Delete physical files from S3 here or enqueue a Celery task
@@ -87,7 +82,7 @@ class PhotoService:
         # Delete from DB
         await self.db.execute(delete(Photo).where(Photo.id.in_(photo_ids)))
 
-        # Update event counters (total_photos and processed_photos will be handled by update_event_processing_status)
+        # Event photo counters are refreshed by update_event_processing_status.
         await self.db.execute(
             update(Event)
             .where(Event.id == event_id)
@@ -95,8 +90,9 @@ class PhotoService:
                 total_faces=Event.total_faces - face_count,
             )
         )
-        
+
         from app.services.event_service import EventService
+
         await EventService(self.db).update_event_processing_status(event_id)
 
         # Update photographer storage usage
@@ -308,18 +304,16 @@ class PhotoService:
         photo = await self.db.get(Photo, photo_id)
         if not photo or photo.event_id != event_id:
             raise NotFoundError("Photo not found")
-            
+
         settings = get_settings()
         storage = get_storage_service()
-        
+
         url = await storage.generate_presigned_url(
             bucket=settings.s3_bucket_originals,
             key=photo.original_s3_key,
             client_method="get_object",
             expires_in=settings.s3_presigned_url_expiry,
-            extra_params={
-                "ResponseContentDisposition": f'attachment; filename="{photo.filename}"'
-            }
+            extra_params={"ResponseContentDisposition": f'attachment; filename="{photo.filename}"'},
         )
         return url
 

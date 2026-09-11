@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from pillow_heif import register_heif_opener  # type: ignore[attr-defined]
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import get_settings
 from app.core.exceptions import StorageError
@@ -21,8 +22,6 @@ from app.services.image_processing_service import ImageProcessingService
 from app.services.storage_service import get_storage_service
 from app.services.watermark_service import WatermarkService
 from app.tasks.celery_app import celery_app
-
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 logger = get_logger()
 register_heif_opener()
@@ -77,17 +76,15 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
                 if photographer and photographer.watermark_url:
                     # Apply to web-proxy (.webp, lower quality)
                     await watermark_service.apply_watermark(
-                        proxy_s3_key, 
+                        proxy_s3_key,
                         str(photographer.watermark_url),
                         watermark_scale=photographer.watermark_scale,
                         watermark_x=photographer.watermark_x,
                         watermark_y=photographer.watermark_y,
                         watermark_opacity=photographer.watermark_opacity,
                     )
-                    # Apply to original
-                    from app.config import get_settings
                     await watermark_service.apply_watermark(
-                        s3_key, 
+                        s3_key,
                         str(photographer.watermark_url),
                         bucket=get_settings().s3_bucket_originals,
                         output_format=".jpg",

@@ -26,7 +26,12 @@ class ImageProcessingService:
         self.settings = get_settings()
 
     async def generate_web_proxy(
-        self, original_s3_key: str, event_id: str, interpolation: int = cv2.INTER_LANCZOS4, original_filename: str | None = None, mime_type: str | None = None
+        self,
+        original_s3_key: str,
+        event_id: str,
+        interpolation: int = cv2.INTER_LANCZOS4,
+        original_filename: str | None = None,
+        mime_type: str | None = None,
     ) -> str:
         """Download original, generate optimized proxy, upload to hot storage."""
         original_bucket = self.settings.s3_bucket_originals

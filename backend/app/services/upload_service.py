@@ -8,7 +8,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.core.exceptions import AuthorizationError, BadRequestError, StorageLimitError
 from app.core.logging import get_logger
 from app.models.enums import EventStatus
