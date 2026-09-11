@@ -41,6 +41,10 @@ backend/app/ml/
 │   ├── incremental_clusterer.py  # DBSCAN + Agglomerative (done)
 │   ├── clustering_config.py      # Cluster vs Sweeper configs (done)
 │   ├── types.py                  # Input/output dataclasses (done)
+│   ├── cluster_manager.py        # Load + lock + batched pass (ML-006)
+│   ├── cluster_persistence.py    # Transactional DB writes (ML-006)
+│   ├── vector_utils.py           # pgvector numpy helpers (ML-006)
+│   ├── locks.py                  # Redis event clustering lock (ML-006)
 │   └── recovery/                 # ML-007
 ├── matching/           # ML-008
 └── vendor/             # PicSee / pix-workers code copies
@@ -121,7 +125,7 @@ uv sync --extra dev --extra ml
 | Quality filters | ML-003 (done) |
 | Embeddings (R100, AdaFace, MBF) | ML-004 (done) |
 | Clustering algorithm | ML-005 (done) |
-| Cluster persistence (pgvector) | ML-006 |
+| Cluster persistence (pgvector) | ML-006 (done) |
 | FaceService + Celery tasks | ML-009 |
 
 ## ML-003 — Quality Filters
@@ -382,6 +386,63 @@ uv run pytest tests/ml/test_clustering_unit.py -v --no-cov
 ```
 
 Synthetic embeddings only — no model weights or GPU required.
+
+## ML-006 — Cluster Persistence (pgvector)
+
+`ClusterManager` loads event clusters and unclustered embeddings from Postgres,
+runs `IncrementalClusterer` in batches of `ML_CLUSTERING_BATCH_SIZE` (default 5000),
+and writes results in **one DB transaction per batch**.
+
+| Module | Purpose |
+|--------|---------|
+| `clustering/cluster_manager.py` | Load + PYR filter + Redis lock + batch loop |
+| `clustering/cluster_persistence.py` | New / expand / merge writes + AdaFace centroid refresh |
+| `clustering/locks.py` | Per-event Redis lock (`clustering_lock:{event_id}`) |
+
+### Schema (migration `add_clustering_persistence`)
+
+`face_embeddings`: `yaw`, `pitch`, `roll`, `quality_passed` (default false).
+`face_clusters`: `pyr_centroid`, `secondary_centroid`, **`pyr_size`** (not in the original story; required for weighted sweeper centroid updates, matching PicSee `pyr_centroid_crop_count`).
+
+Partial index `idx_face_embeddings_event_unclustered` on `event_id` where `cluster_id IS NULL AND quality_passed IS TRUE`.
+
+`secondary_embedding` was already added by ML-004.
+
+### Behaviour vs original story / component doc
+
+| Topic | What we shipped |
+|-------|-----------------|
+| Merge | Keep the **largest surviving cluster** (ML-005). Do **not** insert a new cluster and delete all sources (old `component_ai_ml.md` sketch). Reassign members **before** deleting absorbed rows (`ON DELETE SET NULL`). |
+| PYR cluster pass | All of `abs(yaw/pitch/roll)` in `[0, 47)` — 47° is sweeper, not cluster. |
+| PYR sweeper pass | All angles `<= 120` and **at least one** `>= 47`. Angles `> 120` or missing YPR are skipped. |
+| Quality | Only `quality_passed = true`. |
+| Sweeper leftovers | Each face is tried **once per pass** (`exclude_ids`). Unassigned rows stay `cluster_id NULL` for ML-007. |
+| Secondary centroid | Recomputed after each batch from members that have AdaFace vectors (L2-normalised mean). Clustering still uses R100 only. |
+| Lock | Token-based SET NX (works with `decode_responses=True`). TTL **900s**, extended after every batch (10–20k wedding photos). Story's 300s is too short. Retry with exponential backoff then `ClusteringLockBusyError`. |
+| Celery | Not in this story (ML-009). Call `run_clustering_pass` from a worker later. |
+
+### Usage
+
+```python
+from app.core.redis_client import create_redis_client
+from app.ml.clustering import CLUSTER_TYPE, SWEEPER_TYPE, ClusterManager
+
+manager = ClusterManager(db_session, redis_client=create_redis_client())
+await manager.run_clustering_pass(event_id, CLUSTER_TYPE)
+await manager.run_clustering_pass(event_id, SWEEPER_TYPE)
+```
+
+### Testing
+
+Needs local Postgres (pgvector) **and** Redis. Pytest migrates **`photoshare_test` only** — it does not stamp the developer `photoshare` database.
+
+```bash
+cd backend
+docker compose up -d db redis
+uv run pytest tests/ml/test_cluster_manager.py tests/ml/test_clustering_unit.py -v --no-cov
+```
+
+To migrate the developer database after this story, the Alembic head is `add_clustering_persistence`. If `alembic_version` points at a revision file that is not in git, stamp to `add_secondary_embedding` then `alembic upgrade head`. The clustering migration skips columns that already exist (an old deleted revision may have added `pyr_centroid` already).
 
 ## Testing
 

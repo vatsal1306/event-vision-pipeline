@@ -1,7 +1,9 @@
-"""Incremental face clustering (ML-005)."""
+"""Incremental face clustering (ML-005 / ML-006)."""
 
+from app.ml.clustering.cluster_manager import ClusterManager
 from app.ml.clustering.clustering_config import CLUSTER_TYPE, SWEEPER_TYPE, sweeper_type_config
 from app.ml.clustering.incremental_clusterer import IncrementalClusterer
+from app.ml.clustering.locks import CLUSTERING_LOCK_KEY_TEMPLATE, EventClusteringLock
 from app.ml.clustering.types import (
     ClusteringInput,
     ClusteringResult,
@@ -13,7 +15,10 @@ from app.ml.clustering.types import (
 )
 
 __all__ = [
+    "CLUSTERING_LOCK_KEY_TEMPLATE",
     "CLUSTER_TYPE",
+    "ClusterManager",
+    "EventClusteringLock",
     "SWEEPER_TYPE",
     "ClusteringInput",
     "ClusteringResult",

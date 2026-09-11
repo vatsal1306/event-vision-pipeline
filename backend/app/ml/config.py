@@ -67,6 +67,9 @@ class MLConfig(BaseSettings):
     clustering_batch_size: int = 5000
     sweeper_pyr_min: float = 47.0
     sweeper_pyr_max: float = 120.0
+    clustering_lock_ttl_seconds: int = 900
+    clustering_lock_retry_attempts: int = 6
+    clustering_lock_retry_base_delay_seconds: float = 0.25
 
     # Selfie matching
     selfie_match_threshold: float = 0.55

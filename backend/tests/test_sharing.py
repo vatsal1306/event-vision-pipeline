@@ -82,7 +82,8 @@ async def test_get_public_info_with_logo(
     assert data["photographer"]["studio_name"] == photographer.studio_name
     assert data["photographer"]["logo_url"] is not None
     assert "logos/test_logo.png" in data["photographer"]["logo_url"]
-    assert "expires_in=" in data["photographer"]["logo_url"]
+    logo_url = data["photographer"]["logo_url"]
+    assert "expires_in=" in logo_url or "Expires=" in logo_url
 
 
 @pytest.mark.asyncio

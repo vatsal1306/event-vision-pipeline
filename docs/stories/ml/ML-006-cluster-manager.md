@@ -156,10 +156,28 @@ If lock acquisition fails, the task retries with exponential backoff.
 
 ## Acceptance
 
-- [ ] Integration test: insert 10 embeddings, run clustering, verify `cluster_id` set on all
-- [ ] Second batch of 5 embeddings near existing clusters → `expanded_clusters`, centroid updated
-- [ ] After merge: absorbed cluster row deleted, crops reassigned, no orphan cluster rows
-- [ ] PYR filter: cluster pass only loads faces with angles < 47°
-- [ ] PYR filter: sweeper pass only loads faces with angles 47°–120°
-- [ ] Concurrent clustering for same event → Redis lock prevents race condition
-- [ ] Transaction rollback on error → no partial cluster state
+- [x] Integration test: insert 10 embeddings, run clustering, verify `cluster_id` set on all
+- [x] Second batch of 5 embeddings near existing clusters → `expanded_clusters`, centroid updated
+- [x] After merge: absorbed cluster row deleted, crops reassigned, no orphan cluster rows
+- [x] PYR filter: cluster pass only loads faces with angles < 47°
+- [x] PYR filter: sweeper pass only loads faces with angles 47°–120°
+- [x] Concurrent clustering for same event → Redis lock prevents race condition
+- [x] Transaction rollback on error → no partial cluster state
+
+## Implementation Notes (ML-006 — completed)
+
+**Shipped:**
+- `cluster_manager.py` — load, PYR SQL filters, Redis lock, batched `run_clustering_pass`
+- `cluster_persistence.py` — transactional new/expand/merge writes
+- `locks.py` — token SET NX lock (compatible with `decode_responses=True`)
+- Alembic `add_clustering_persistence` — YPR, `quality_passed`, `pyr_centroid`, `secondary_centroid`, **`pyr_size`**
+- Integration tests against local Postgres + Redis (`tests/ml/test_cluster_manager.py`)
+
+**Decisions vs original story:**
+- Cluster PYR uses `[0, 47)` so 47° is sweeper-only (no overlap).
+- Sweeper leftovers are attempted once per pass (no infinite loop).
+- Merge keeps the ML-005 survivor ID (not a newly inserted cluster).
+- Lock TTL is 900s with per-batch extend (story's 300s is too short for 10–20k photos).
+- `pyr_size` added for weighted PYR centroid updates (PicSee `pyr_centroid_crop_count`).
+- Secondary centroids are recomputed from AdaFace member vectors after each batch.
+- Celery task deferred to ML-009.

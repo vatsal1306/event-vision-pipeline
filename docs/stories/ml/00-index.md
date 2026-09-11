@@ -70,8 +70,8 @@ ML-001 (Foundation)
 | **ML-002** | SCRFD Detection + ArcFace 112×112 Crop | Done | P0 | M |
 | **ML-003** | Quality Filters (Blur, 3DDFA_V2 YPR, Age, Sunglasses) | Pending | P0 | L |
 | **ML-004** | Dual-Model Embeddings (R100 + AdaFace VIT-KPRPE) | Pending | P0 | L |
-| **ML-005** | Incremental Clustering + Sweeper Config | Pending | P0 | M |
-| **ML-006** | Cluster Persistence (pgvector) | Pending | P0 | M |
+| **ML-005** | Incremental Clustering + Sweeper Config | Done | P0 | M |
+| **ML-006** | Cluster Persistence (pgvector) | Done | P0 | M |
 | **ML-007** | Advanced Clustering Recovery (Orphan Crops + Clusters) | Pending | P1 | M |
 | **ML-008** | Selfie Matching + Basic Liveness | Pending | P0 | M |
 | **ML-009** | FaceService Orchestration + Celery Tasks | Pending | P0 | M |

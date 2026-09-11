@@ -6,7 +6,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Float, ForeignKey, Index
+from sqlalchemy import Boolean, Float, ForeignKey, Index, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,11 @@ class FaceEmbedding(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
         Index("idx_face_embeddings_photo", "photo_id"),
         Index("idx_face_embeddings_event", "event_id"),
         Index("idx_face_embeddings_cluster", "cluster_id"),
+        Index(
+            "idx_face_embeddings_event_unclustered",
+            "event_id",
+            postgresql_where=text("cluster_id IS NULL AND quality_passed IS TRUE"),
+        ),
     )
 
     photo_id: Mapped[uuid.UUID] = mapped_column(
@@ -54,6 +59,14 @@ class FaceEmbedding(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     bbox_h: Mapped[float] = mapped_column(Float, nullable=False)
     detection_score: Mapped[float | None] = mapped_column(Float)
     blur_score: Mapped[float | None] = mapped_column(Float)
+    yaw: Mapped[float | None] = mapped_column(Float)
+    pitch: Mapped[float | None] = mapped_column(Float)
+    roll: Mapped[float | None] = mapped_column(Float)
+    quality_passed: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=text("false"),
+        nullable=False,
+    )
 
     photo: Mapped[Photo] = relationship("Photo", back_populates="face_embeddings", lazy="selectin")
     event: Mapped[Event] = relationship(

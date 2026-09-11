@@ -51,6 +51,9 @@ def test_ml_config_defaults_match_story_spec() -> None:
     assert config.clustering_batch_size == 5000
     assert config.sweeper_pyr_min == 47.0
     assert config.sweeper_pyr_max == 120.0
+    assert config.clustering_lock_ttl_seconds == 900
+    assert config.clustering_lock_retry_attempts == 6
+    assert config.clustering_lock_retry_base_delay_seconds == 0.25
     assert config.selfie_match_threshold == 0.55
     assert config.max_cluster_matches == 5
     assert config.liveness_face_ratio_min == 0.15

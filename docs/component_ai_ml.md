@@ -909,115 +909,30 @@ class IncrementalClusterer:
 
 ### 7.2 Cluster Manager (pgvector Integration)
 
-```python
-class ClusterManager:
-    """Manages face clusters in PostgreSQL + pgvector.
-    
-    Bridges the IncrementalClusterer algorithm with persistent storage.
-    """
+`ClusterManager` (`backend/app/ml/clustering/cluster_manager.py`) is the persistence
+layer for ML-005. It does **not** reimplement clustering.
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+**API (ML-006):**
 
-    async def get_event_clusters(self, event_id: UUID) -> list[ClusterRecord]:
-        """Load all clusters for an event from the database."""
-        results = await self.db.execute(
-            select(FaceCluster).where(FaceCluster.event_id == event_id)
-        )
-        return [
-            ClusterRecord(
-                id=c.id, centroid=np.array(c.centroid),
-                size=c.cluster_size,
-            )
-            for c in results.scalars()
-        ]
+- `load_event_clusters(event_id)` → `dict[str, ExistingCluster]` (centroids + sizes + pyr)
+- `load_unclustered_embeddings(event_id, clustering_type, limit=..., exclude_ids=...)` → primary embeddings
+- `apply_clustering_result(event_id, result)` — one transaction: insert new clusters, expand, merge
+- `run_clustering_pass(event_id, clustering_type)` — Redis lock, batched loop, lock TTL refresh
 
-    async def get_unprocessed_embeddings(
-        self, event_id: UUID, batch_size: int = 5000
-    ) -> list[EmbeddingRecord]:
-        """Get embeddings not yet assigned to a cluster."""
-        results = await self.db.execute(
-            select(FaceEmbedding)
-            .where(
-                FaceEmbedding.event_id == event_id,
-                FaceEmbedding.cluster_id.is_(None),
-            )
-            .limit(batch_size)
-        )
-        return [
-            EmbeddingRecord(
-                id=e.id, embedding=np.array(e.embedding),
-            )
-            for e in results.scalars()
-        ]
+**Merge semantics (differs from the earlier sketch in this file):** keep the
+**surviving** cluster ID from `IncrementalClusterer` (largest size, then smaller id).
+Reassign embeddings from absorbed clusters, then **DELETE** absorbed rows. Do not
+create a brand-new cluster for a merge — stable IDs matter for later guest matching.
 
-    async def apply_clustering_result(
-        self, event_id: UUID, result: ClusteringResult
-    ) -> None:
-        """Apply clustering results to the database."""
-        # New clusters
-        for nc in result.new_clusters:
-            cluster = FaceCluster(
-                event_id=event_id,
-                centroid=nc.centroid.tolist(),
-                cluster_size=nc.size,
-            )
-            self.db.add(cluster)
-            await self.db.flush()
+**PYR load filters:** cluster pass requires all `|yaw|,|pitch|,|roll|` in `[0, 47)`.
+Sweeper requires all angles `<= 120` and at least one `>= 47`. Only `quality_passed`
+rows with non-null YPR are loaded.
 
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.id.in_(nc.embedding_ids))
-                .values(cluster_id=cluster.id)
-            )
+**Concurrency:** Redis key `clustering_lock:{event_id}` (SET NX token lock). Default TTL
+900 seconds, extended after each batch.
 
-        # Expanded clusters
-        for ec in result.expanded_clusters:
-            await self.db.execute(
-                update(FaceCluster)
-                .where(FaceCluster.id == ec.cluster_id)
-                .values(
-                    centroid=ec.updated_centroid.tolist(),
-                    cluster_size=ec.new_size,
-                )
-            )
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.id.in_(ec.new_embedding_ids))
-                .values(cluster_id=ec.cluster_id)
-            )
-
-        # Merged clusters
-        for mc in result.merged_clusters:
-            # Create new merged cluster
-            merged = FaceCluster(
-                event_id=event_id,
-                centroid=mc.merged_centroid.tolist(),
-                cluster_size=mc.merged_size,
-            )
-            self.db.add(merged)
-            await self.db.flush()
-
-            # Reassign all embeddings from source clusters to merged
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.cluster_id.in_(mc.source_cluster_ids))
-                .values(cluster_id=merged.id)
-            )
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.id.in_(mc.new_embedding_ids))
-                .values(cluster_id=merged.id)
-            )
-
-            # Delete old source clusters
-            await self.db.execute(
-                delete(FaceCluster)
-                .where(FaceCluster.id.in_(mc.source_cluster_ids))
-            )
-
-        await self.db.commit()
-```
+Writes live in `cluster_persistence.py`. AdaFace `secondary_centroid` is recomputed from
+member `secondary_embedding` values after assignments.
 
 ---
 
@@ -1542,6 +1457,7 @@ class MLConfig(BaseModel):
     dbscan_eps: float = 0.45
     agglo_threshold: float = 0.45
     clustering_batch_size: int = 5000
+    clustering_lock_ttl_seconds: int = 900  # extended after each batch (ML-006)
 
     # Matching
     selfie_match_threshold: float = 0.55
