@@ -180,3 +180,40 @@ def test_blur_error_passes_on_error() -> None:
 
     assert result.passed is True
     assert result.metadata["blur_error"] == "tflite failed"
+
+
+def test_selfie_skips_age_and_uses_stricter_ypr() -> None:
+    """Guest selfies skip age reject and apply 30° pose limits."""
+    blur_detector = Mock()
+    blur_detector.is_blurry.return_value = (False, 0.1)
+
+    ypr_predictor = Mock()
+    ypr_predictor.backend = "3ddfa"
+    ypr_predictor.estimate.return_value = ((32.0, 5.0, 2.0), False, False)
+
+    age_detector = Mock()
+    age_detector.estimate.return_value = (3, 0.99)
+
+    quality_filter = QualityFilter(
+        blur_detector=blur_detector,
+        ypr_predictor=ypr_predictor,
+        age_detector=age_detector,
+        sunglasses_detector=None,
+        age_min_threshold=5,
+    )
+
+    skipped_age = quality_filter.filter(_make_crop(), skip_age=True)
+    assert skipped_age.passed is True
+    age_detector.estimate.assert_not_called()
+
+    selfie_result = quality_filter.filter(
+        _make_crop(),
+        skip_age=True,
+        skip_sunglasses=True,
+        yaw_threshold=30.0,
+        pitch_threshold=30.0,
+        roll_threshold=30.0,
+    )
+    assert selfie_result.passed is False
+    assert selfie_result.reject_reason == "ypr"
+    assert selfie_result.metadata["ypr_threshold_override"] is True

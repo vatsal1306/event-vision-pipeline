@@ -241,13 +241,11 @@ backend/
 │   │   │   ├── incremental_clusterer.py  # DBSCAN + Agglo (from PicSee)
 │   │   │   └── cluster_manager.py        # pgvector-backed cluster ops
 │   │   │
-│   │   ├── matching/                     # Guest selfie matching
+│   │   ├── matching/                     # Guest selfie matching (ML-008)
 │   │   │   ├── __init__.py
-│   │   │   └── selfie_matcher.py         # Centroid-based matching
-│   │   │
-│   │   ├── liveness/                     # Liveness detection
-│   │   │   ├── __init__.py
-│   │   │   └── basic_liveness.py         # Basic liveness checks
+│   │   │   ├── liveness.py               # Phase 1 heuristic liveness
+│   │   │   ├── selfie_matcher.py         # Centroid cosine + pgvector
+│   │   │   └── pipeline.py               # Detect-once orchestrator
 │   │   │
 │   │   ├── pipeline.py                   # High-level pipeline orchestrator
 │   │   └── model_registry.py             # Singleton model loader + cache
@@ -960,6 +958,8 @@ out of scope.
 
 ### 8.1 Selfie Match Pipeline
 
+> **ML-008 implementation notes (differs from the sketch below):** detect **once** and reuse that face for liveness + crop. Selfie quality is **stricter pose (30°)** but **skips age and sunglasses**. Gallery membership is **R100-only**; AdaFace only sets `high`/`low` confidence. Photo IDs are resolved after cluster match. Large events query `face_clusters.centroid` with pgvector cosine distance (the HNSW index from BE-003 is on `face_embeddings.embedding`, not centroids). Enable locally with `ML_FACE_PROCESSING_ENABLED=true`.
+
 When a guest takes a selfie, the match pipeline runs synchronously (it's fast because event photos are pre-indexed):
 
 ```python
@@ -1114,6 +1114,8 @@ async def match_selfie_pgvector(
 ## 9. Liveness Detection
 
 ### 9.1 Basic Server-Side Checks
+
+> **ML-008:** `BasicLivenessDetector` lives in `app/ml/matching/liveness.py`. It requires an already-detected face (`check(image, detected_face)`). Blank images are `no_face_detected`, not `liveness_failed`. Thresholds come from `MLConfig` (`ML_LIVENESS_*`), not class constants.
 
 The goal is to ensure the selfie is a real face captured live, not a photo of a photo. Phase 1 implements basic checks; advanced liveness (depth, head-turn challenges) is Phase 2.
 

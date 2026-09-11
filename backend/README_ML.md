@@ -50,7 +50,11 @@ backend/app/ml/
 │       ├── orphan_clusters.py
 │       ├── similarity.py
 │       └── types.py
-├── matching/           # ML-008
+├── matching/           # ML-008 — selfie liveness + cosine match (done)
+│   ├── types.py
+│   ├── liveness.py
+│   ├── selfie_matcher.py
+│   └── pipeline.py
 └── vendor/             # PicSee / pix-workers code copies
     └── ypr_3ddfa_v2/   # 3DDFA FaceBoxes + TDDFA ONNX (ML-003)
 ```
@@ -131,7 +135,7 @@ uv sync --extra dev --extra ml
 | Clustering algorithm | ML-005 (done) |
 | Cluster persistence (pgvector) | ML-006 (done) |
 | Orphan crop/cluster recovery | ML-007 (done) |
-| FaceService + Celery tasks | ML-009 |
+| FaceService selfie match | ML-008 (done) — Celery upload pipeline still ML-009 |
 
 ## ML-003 — Quality Filters
 
@@ -494,6 +498,49 @@ cd backend
 docker compose up -d db redis
 uv run pytest tests/ml/test_orphan_recovery_unit.py tests/ml/test_orphan_recovery.py -v --no-cov
 ```
+
+## ML-008 — Selfie Matching and Phase 1 Liveness
+
+Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/ml/matching/` (not a separate `liveness/` package). `FaceService.match_selfie` calls this path when `ML_FACE_PROCESSING_ENABLED=true`.
+
+| Module | Purpose |
+|--------|---------|
+| `matching/liveness.py` | Heuristics: face area 15–85%, det score ≥ 0.7, Laplacian ≥ 50, HSV saturation > 20 |
+| `matching/selfie_matcher.py` | Cosine vs centroids; pgvector when cluster count ≥ `ML_SELFIE_PGVECTOR_MIN_CLUSTERS` (500) |
+| `matching/pipeline.py` | Detect once → liveness → crop → quality → embed → match → photo IDs |
+
+### Behaviour vs original story / component doc
+
+| Topic | What we shipped |
+|-------|-----------------|
+| Detect | **Once**. Same primary face (image-centre / nose) is used for liveness and crop. |
+| Age / sunglasses | **Skipped** on selfies. Age reject is for clustering toddlers, not guest galleries. |
+| Selfie YPR | **30°** yaw/pitch/roll via `QualityFilter.filter(..., yaw_threshold=30, ...)`. Event photos stay 45/35/45. |
+| Dual model | **R100 decides membership**. AdaFace agreement → `confidence=high`, primary-only → `low`. AdaFace-only dropped. PicSee search is primary-only; this tagging is extra. |
+| Photo IDs | Matcher returns clusters. Pipeline/FaceService loads distinct `face_embeddings.photo_id`. |
+| HNSW | BE-003 index is on `face_embeddings.embedding`, **not** `face_clusters.centroid`. Large events still use `centroid.cosine_distance` (exact for the candidate LIMIT). |
+| App EC2 | `ML_FACE_PROCESSING_ENABLED` defaults **false** so the guest API does not load PyTorch. Set **true** locally. |
+| Layout | `matching/liveness.py`, not `app/ml/liveness/basic_liveness.py`. |
+
+### Local guest selfie
+
+```bash
+# backend/.env
+ML_FACE_PROCESSING_ENABLED=true
+ML_DEVICE=cpu
+```
+
+```bash
+cd backend
+docker compose up -d db redis
+uv sync --extra dev --extra ml
+uv run pytest tests/ml/test_liveness_unit.py tests/ml/test_selfie_matcher_unit.py \
+  tests/ml/test_selfie_pipeline_unit.py tests/ml/test_selfie_matcher.py \
+  tests/ml/test_selfie_pipeline_integration.py tests/ml/test_quality_filter_unit.py \
+  tests/test_guest_photos.py -v --no-cov
+```
+
+Live pipeline test needs SCRFD + blur/YPR + R100 weights and a face that passes 15% area + colour checks.
 
 ## Testing
 

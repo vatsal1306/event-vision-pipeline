@@ -18,6 +18,18 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
+def _pose_exceeds_thresholds(
+    ypr: tuple[float, float, float],
+    *,
+    yaw_threshold: float,
+    pitch_threshold: float,
+    roll_threshold: float,
+) -> bool:
+    """Return True when any absolute YPR angle exceeds its threshold."""
+    yaw, pitch, roll = ypr
+    return abs(yaw) > yaw_threshold or abs(pitch) > pitch_threshold or abs(roll) > roll_threshold
+
+
 class QualityFilter:
     """Runs blur, YPR, age, and sunglasses gates on ArcFace-aligned crops."""
 
@@ -41,11 +53,28 @@ class QualityFilter:
         self._sunglasses_detection_enabled = sunglasses_detection_enabled
         self._age_min_threshold = age_min_threshold
 
-    def filter(self, face_crop: FaceCrop) -> QualityResult:
+    def filter(
+        self,
+        face_crop: FaceCrop,
+        *,
+        skip_age: bool = False,
+        skip_sunglasses: bool = False,
+        yaw_threshold: float | None = None,
+        pitch_threshold: float | None = None,
+        roll_threshold: float | None = None,
+    ) -> QualityResult:
         """Run quality gates with early exit on hard rejects.
 
         Model inference failures use pass-on-error semantics: the crop is treated
         as passed and a warning is logged.
+
+        Args:
+            face_crop: Aligned 112×112 crop to score.
+            skip_age: When True, do not run the age hard-reject (selfie path).
+            skip_sunglasses: When True, do not run sunglasses detection.
+            yaw_threshold: Optional override for extreme-pose yaw (selfie 30°).
+            pitch_threshold: Optional override for extreme-pose pitch.
+            roll_threshold: Optional override for extreme-pose roll.
         """
         metadata: dict[str, object] = {}
         crop = face_crop.aligned_face
@@ -84,6 +113,22 @@ class QualityFilter:
 
         metadata["ypr"] = ypr
         metadata["ypr_backend"] = self._ypr_predictor.backend
+        if (
+            yaw_threshold is not None or pitch_threshold is not None or roll_threshold is not None
+        ) and ypr is not None:
+            is_extreme = _pose_exceeds_thresholds(
+                ypr,
+                yaw_threshold=yaw_threshold
+                if yaw_threshold is not None
+                else getattr(self._ypr_predictor, "yaw_threshold", 45.0),
+                pitch_threshold=pitch_threshold
+                if pitch_threshold is not None
+                else getattr(self._ypr_predictor, "pitch_threshold", 35.0),
+                roll_threshold=roll_threshold
+                if roll_threshold is not None
+                else getattr(self._ypr_predictor, "roll_threshold", 45.0),
+            )
+            metadata["ypr_threshold_override"] = True
         if ypr_error:
             metadata["ypr_pass_on_error"] = True
         elif is_extreme and ypr is not None:
@@ -97,7 +142,7 @@ class QualityFilter:
                 metadata=metadata,
             )
 
-        if self._age_detection_enabled and self._age_detector is not None:
+        if not skip_age and self._age_detection_enabled and self._age_detector is not None:
             try:
                 estimated_age, age_confidence = self._age_detector.estimate(crop)
                 metadata["age_confidence"] = age_confidence
@@ -121,7 +166,11 @@ class QualityFilter:
                 metadata["age_error"] = str(exc)
                 metadata["age_pass_on_error"] = True
 
-        if self._sunglasses_detection_enabled and self._sunglasses_detector is not None:
+        if (
+            not skip_sunglasses
+            and self._sunglasses_detection_enabled
+            and self._sunglasses_detector is not None
+        ):
             try:
                 has_sunglasses, sunglasses_probability = self._sunglasses_detector.detect(crop)
                 metadata["sunglasses_probability"] = sunglasses_probability
