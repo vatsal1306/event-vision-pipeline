@@ -194,7 +194,11 @@ class EventService:
             select(
                 func.count(Photo.id).label("total"),
                 func.count(Photo.id)
-                .filter(Photo.processing_status.in_([ProcessingStatus.COMPLETED, ProcessingStatus.FAILED]))
+                .filter(
+                    Photo.processing_status.in_(
+                        [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED]
+                    )
+                )
                 .label("processed"),
             ).where(Photo.event_id == event_id)
         )
