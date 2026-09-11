@@ -31,7 +31,7 @@ def l2_normalize_rows(matrix: np.ndarray) -> np.ndarray:
         raise ValueError(f"Expected a 2-D matrix, got shape {stacked.shape}.")
     norms = np.linalg.norm(stacked, axis=1, keepdims=True)
     safe_norms = np.where(norms == 0.0, 1.0, norms)
-    return stacked / safe_norms
+    return np.asarray(stacked / safe_norms, dtype=np.float32)
 
 
 def pairwise_cosine_similarity(left: np.ndarray, right: np.ndarray) -> np.ndarray:
@@ -47,8 +47,9 @@ def pairwise_cosine_similarity(left: np.ndarray, right: np.ndarray) -> np.ndarra
     if left.size == 0 or right.size == 0:
         n = 0 if left.size == 0 else int(left.shape[0])
         m = 0 if right.size == 0 else int(right.shape[0])
-        return np.zeros((n, m), dtype=np.float32)
-    return l2_normalize_rows(left) @ l2_normalize_rows(right).T
+        return np.asarray(np.zeros((n, m)), dtype=np.float32)
+    product = l2_normalize_rows(left) @ l2_normalize_rows(right).T
+    return np.asarray(product, dtype=np.float32)
 
 
 def weighted_l2_centroid(vectors: list[np.ndarray], weights: list[int]) -> np.ndarray:
@@ -73,8 +74,8 @@ def weighted_l2_centroid(vectors: list[np.ndarray], weights: list[int]) -> np.nd
     weighted = np.average(stacked, axis=0, weights=np.asarray(weights, dtype=np.float64))
     norm = float(np.linalg.norm(weighted))
     if norm == 0.0:
-        return weighted.astype(np.float32)
-    return (weighted / norm).astype(np.float32)
+        return np.asarray(weighted, dtype=np.float32)
+    return np.asarray(weighted / norm, dtype=np.float32)
 
 
 def update_pyr_centroid(

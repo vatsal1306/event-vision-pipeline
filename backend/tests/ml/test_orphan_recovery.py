@@ -492,9 +492,7 @@ async def test_recovery_disabled_by_flag_makes_no_writes(
 
 
 @pytest.mark.asyncio
-async def test_recovery_after_sweeper_pass(
-    db_session: AsyncSession, redis_client
-) -> None:
+async def test_recovery_after_sweeper_pass(db_session: AsyncSession, redis_client) -> None:
     """Cluster → sweeper → recovery assigns a leftover sweeper did not take."""
     event, photo = await _seed_event(db_session)
     main = _axis(0)
@@ -545,9 +543,7 @@ async def test_recovery_after_sweeper_pass(
 
 
 @pytest.mark.asyncio
-async def test_recovery_rolls_back_failed_batch(
-    db_session: AsyncSession, redis_client
-) -> None:
+async def test_recovery_rolls_back_failed_batch(db_session: AsyncSession, redis_client) -> None:
     """A persistence failure during crop assignment leaves the leftover unassigned."""
     event, photo = await _seed_event(db_session)
     pyr = _axis(1)
