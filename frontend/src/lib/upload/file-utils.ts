@@ -1,4 +1,4 @@
-export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/tiff', 'image/x-sony-arw'];
+export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/tiff'];
 
 const EXTENSION_MIME_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -9,7 +9,6 @@ const EXTENSION_MIME_TYPES: Record<string, string> = {
   heif: 'image/heic',
   tif: 'image/tiff',
   tiff: 'image/tiff',
-  arw: 'image/x-sony-arw',
 };
 
 export function guessMimeType(file: File): string {

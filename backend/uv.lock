@@ -1674,21 +1674,6 @@ wheels = [
 ]
 
 [[package]]
-name = "rawpy"
-version = "0.27.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/ae/c1c7816ed3f3cbf7ca284a37371243500f4eb39b6a32f7368b585c4ef5c4/rawpy-0.27.1.tar.gz", hash = "sha256:3194d64ff690ac945e1a43237edae8a18f1f493751924de1ae2bcef473c0fb79", size = 561347, upload-time = "2026-08-30T04:54:07.956Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/2a/fd252b930f2e64992e51ceffca16cf13124e8bf4e8751437b8c0556adcdf/rawpy-0.27.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:0cdc8025cec3ac35fb594942a5882067e2ff31fff5107d60ec4b94f4f33e7bd6", size = 2052890, upload-time = "2026-08-30T04:53:17.015Z" },
-    { url = "https://files.pythonhosted.org/packages/17/70/6594b16fd572fc709a1333ed872de687e71d0200f92dde6dd8725e17a8f3/rawpy-0.27.1-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:018f7ff6c9c11ba8c50d331db2c130535123386b03a5f231107b6f0febe4f5f8", size = 2963281, upload-time = "2026-08-30T04:53:19.073Z" },
-    { url = "https://files.pythonhosted.org/packages/5e/da/b710559406da10ebd0c1e81946a9d605e15a37c193df5ed153ba636d8e69/rawpy-0.27.1-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:38c36c9756d2b0853e14f14adf2871193e081d5c6666fca31f4d1d2b1f9bf2b0", size = 2959964, upload-time = "2026-08-30T04:53:20.883Z" },
-    { url = "https://files.pythonhosted.org/packages/60/40/8ce1c31f719ffadf06921264cb336d5eeab2d55f3684c05962b54cad5c36/rawpy-0.27.1-cp310-cp310-win_amd64.whl", hash = "sha256:578f597f0dbdb1ba8b5a9405f45e73c95a69793d0c57504f1a7a6498ff980ab7", size = 927262, upload-time = "2026-08-30T04:53:22.827Z" },
-]
-
-[[package]]
 name = "redis"
 version = "5.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1961,7 +1946,6 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-jose", extra = ["cryptography"] },
     { name = "python-multipart" },
-    { name = "rawpy" },
     { name = "redis" },
     { name = "sentry-sdk", extra = ["fastapi"] },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -2033,7 +2017,6 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6,<7" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3,<4" },
     { name = "python-multipart", specifier = ">=0.0.9,<1" },
-    { name = "rawpy", specifier = ">=0.24,<1" },
     { name = "redis", specifier = ">=5.2,<6" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8,<1" },
     { name = "safetensors", marker = "extra == 'ml'", specifier = ">=0.8.0" },

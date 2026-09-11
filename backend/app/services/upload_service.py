@@ -26,7 +26,6 @@ ALLOWED_MIME_TYPES = {
     "image/heic",
     "image/tiff",
     "image/webp",
-    "image/x-sony-arw",
 }
 
 

@@ -44,7 +44,6 @@ _EXTENSION_MIME_TYPES = {
     ".tif": "image/tiff",
     ".tiff": "image/tiff",
     ".webp": "image/webp",
-    ".arw": "image/x-sony-arw",
 }
 
 

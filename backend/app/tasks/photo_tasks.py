@@ -84,22 +84,18 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
                         watermark_y=photographer.watermark_y,
                         watermark_opacity=photographer.watermark_opacity,
                     )
-                    # Apply to original — skip for RAW formats that OpenCV can't decode
-                    _raw_extensions = (".arw", ".cr2", ".nef", ".dng", ".raf", ".orf")
-                    is_raw = (photo.filename or "").lower().endswith(_raw_extensions) or \
-                             (photo.mime_type or "").lower() in ("image/x-sony-arw",)
-                    if not is_raw:
-                        from app.config import get_settings
-                        await watermark_service.apply_watermark(
-                            s3_key, 
-                            str(photographer.watermark_url),
-                            bucket=get_settings().s3_bucket_originals,
-                            output_format=".jpg",
-                            watermark_scale=photographer.watermark_scale,
-                            watermark_x=photographer.watermark_x,
-                            watermark_y=photographer.watermark_y,
-                            watermark_opacity=photographer.watermark_opacity,
-                        )
+                    # Apply to original
+                    from app.config import get_settings
+                    await watermark_service.apply_watermark(
+                        s3_key, 
+                        str(photographer.watermark_url),
+                        bucket=get_settings().s3_bucket_originals,
+                        output_format=".jpg",
+                        watermark_scale=photographer.watermark_scale,
+                        watermark_x=photographer.watermark_x,
+                        watermark_y=photographer.watermark_y,
+                        watermark_opacity=photographer.watermark_opacity,
+                    )
 
             # Step 3 & 4: Generate blurhash and get dimensions
             blurhash, width, height = await image_service.generate_blurhash_and_dimensions(
