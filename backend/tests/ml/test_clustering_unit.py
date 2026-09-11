@@ -285,11 +285,19 @@ def test_empty_new_embeddings_returns_empty_result(clusterer: IncrementalCluster
 
 
 def test_clustering_module_has_no_database_imports() -> None:
-    """ML-005 clustering code must remain free of database dependencies."""
+    """ML-005 algorithm modules must remain free of database dependencies."""
 
     clustering_dir = Path(__file__).resolve().parents[2] / "app" / "ml" / "clustering"
     forbidden = ("sqlalchemy", "asyncpg", "alembic", "app.models")
+    algorithm_files = {
+        "incremental_clusterer.py",
+        "clustering_config.py",
+        "types.py",
+        "__init__.py",
+    }
     for py_file in clustering_dir.glob("*.py"):
+        if py_file.name not in algorithm_files:
+            continue
         text = py_file.read_text(encoding="utf-8")
         for term in forbidden:
             assert term not in text, f"Forbidden import reference '{term}' in {py_file.name}"

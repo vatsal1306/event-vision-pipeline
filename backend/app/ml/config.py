@@ -67,10 +67,20 @@ class MLConfig(BaseSettings):
     clustering_batch_size: int = 5000
     sweeper_pyr_min: float = 47.0
     sweeper_pyr_max: float = 120.0
+    clustering_lock_ttl_seconds: int = 900
+    clustering_lock_retry_attempts: int = 6
+    clustering_lock_retry_base_delay_seconds: float = 0.25
+    orphan_crop_similarity_threshold: float = 0.55
+    orphan_cluster_merge_threshold: float = 0.55
+    orphan_cluster_max_size: int = 3
 
     # Selfie matching
     selfie_match_threshold: float = 0.55
     max_cluster_matches: int = 5
+    selfie_pgvector_min_clusters: int = 500
+    selfie_yaw_threshold: float = 30.0
+    selfie_pitch_threshold: float = 30.0
+    selfie_roll_threshold: float = 30.0
 
     # Liveness
     liveness_face_ratio_min: float = 0.15

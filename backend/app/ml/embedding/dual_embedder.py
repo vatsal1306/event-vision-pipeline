@@ -110,6 +110,20 @@ class DualEmbedder:
 
         return results
 
+    def embed_single(self, face: np.ndarray) -> EmbeddingResult:
+        """Generate embeddings for one 112×112 BGR face crop.
+
+        Args:
+            face: Aligned BGR crop from ``FaceCropper``.
+
+        Returns:
+            Primary embedding and optional secondary embedding.
+        """
+        results = self.embed_batch([face])
+        if not results:
+            raise ValueError("DualEmbedder.embed_single received an empty embedding result.")
+        return results[0]
+
     def close(self) -> None:
         """Release all underlying models."""
         for model in (self.primary, self.secondary, self.fallback):

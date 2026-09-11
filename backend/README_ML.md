@@ -41,8 +41,20 @@ backend/app/ml/
 │   ├── incremental_clusterer.py  # DBSCAN + Agglomerative (done)
 │   ├── clustering_config.py      # Cluster vs Sweeper configs (done)
 │   ├── types.py                  # Input/output dataclasses (done)
-│   └── recovery/                 # ML-007
-├── matching/           # ML-008
+│   ├── cluster_manager.py        # Load + lock + batched pass (ML-006)
+│   ├── cluster_persistence.py    # Transactional DB writes (ML-006)
+│   ├── vector_utils.py           # pgvector numpy helpers (ML-006)
+│   ├── locks.py                  # Redis event clustering lock (ML-006)
+│   └── recovery/                 # ML-007 (done)
+│       ├── orphan_crops.py
+│       ├── orphan_clusters.py
+│       ├── similarity.py
+│       └── types.py
+├── matching/           # ML-008 — selfie liveness + cosine match (done)
+│   ├── types.py
+│   ├── liveness.py
+│   ├── selfie_matcher.py
+│   └── pipeline.py
 └── vendor/             # PicSee / pix-workers code copies
     └── ypr_3ddfa_v2/   # 3DDFA FaceBoxes + TDDFA ONNX (ML-003)
 ```
@@ -75,6 +87,7 @@ Use `ModelRegistry.resolved_device` or `resolve_device(config.device)` — both 
 - **Pattern:** Later stories call `register_model_loader("scrfd", loader_fn)` at module import time
 - **Loading:** `registry.get_model("scrfd")` lazy-loads once per process, thread-safe
 - **Teardown:** `registry.unload_all()` for tests and worker shutdown
+- **Torch process cache:** R100, AdaFace/DFA, and the age ViT cannot be built twice in one process (PyTorch `TORCH_LIBRARY` namespace). `app/ml/torch_process_cache.py` keeps those graphs alive. `unload_all()` / `reset_for_tests()` skip destroying them. Guest selfie matching loads blur+YPR only, never the age ViT.
 
 ### Worker Context Policy (ML-001 decision)
 
@@ -121,8 +134,9 @@ uv sync --extra dev --extra ml
 | Quality filters | ML-003 (done) |
 | Embeddings (R100, AdaFace, MBF) | ML-004 (done) |
 | Clustering algorithm | ML-005 (done) |
-| Cluster persistence (pgvector) | ML-006 |
-| FaceService + Celery tasks | ML-009 |
+| Cluster persistence (pgvector) | ML-006 (done) |
+| Orphan crop/cluster recovery | ML-007 (done) |
+| FaceService selfie match | ML-008 (done) — Celery upload pipeline still ML-009 |
 
 ## ML-003 — Quality Filters
 
@@ -211,7 +225,7 @@ Run age integration test separately from SCRFD tests if you see a Torch/Triton r
 
 | Module | Purpose |
 |--------|---------|
-| `embedding/arcface_r100.py` | Primary ArcFace R100 (PicSee normalization) |
+| `embedding/arcface_r100.py` | Primary ArcFace R100 (PicSee normalization). IResNet is process-cached via `torch_process_cache`. |
 | `embedding/adaface_vit_kprpe.py` | Secondary AdaFace VIT-KPRPE + DFA aligner |
 | `embedding/mobilefacenet.py` | TFLite CPU fallback when GPU OOM persists |
 | `embedding/dual_embedder.py` | Orchestrator — primary + optional secondary |
@@ -382,6 +396,152 @@ uv run pytest tests/ml/test_clustering_unit.py -v --no-cov
 ```
 
 Synthetic embeddings only — no model weights or GPU required.
+
+## ML-006 — Cluster Persistence (pgvector)
+
+`ClusterManager` loads event clusters and unclustered embeddings from Postgres,
+runs `IncrementalClusterer` in batches of `ML_CLUSTERING_BATCH_SIZE` (default 5000),
+and writes results in **one DB transaction per batch**.
+
+| Module | Purpose |
+|--------|---------|
+| `clustering/cluster_manager.py` | Load + PYR filter + Redis lock + batch loop |
+| `clustering/cluster_persistence.py` | New / expand / merge writes + AdaFace centroid refresh |
+| `clustering/locks.py` | Per-event Redis lock (`clustering_lock:{event_id}`) |
+
+### Schema (migration `add_clustering_persistence`)
+
+`face_embeddings`: `yaw`, `pitch`, `roll`, `quality_passed` (default false).
+`face_clusters`: `pyr_centroid`, `secondary_centroid`, **`pyr_size`** (not in the original story; required for weighted sweeper centroid updates, matching PicSee `pyr_centroid_crop_count`).
+
+Partial index `idx_face_embeddings_event_unclustered` on `event_id` where `cluster_id IS NULL AND quality_passed IS TRUE`.
+
+`secondary_embedding` was already added by ML-004.
+
+### Behaviour vs original story / component doc
+
+| Topic | What we shipped |
+|-------|-----------------|
+| Merge | Keep the **largest surviving cluster** (ML-005). Do **not** insert a new cluster and delete all sources (old `component_ai_ml.md` sketch). Reassign members **before** deleting absorbed rows (`ON DELETE SET NULL`). |
+| PYR cluster pass | All of `abs(yaw/pitch/roll)` in `[0, 47)` — 47° is sweeper, not cluster. |
+| PYR sweeper pass | All angles `<= 120` and **at least one** `>= 47`. Angles `> 120` or missing YPR are skipped. |
+| Quality | Only `quality_passed = true`. |
+| Sweeper leftovers | Each face is tried **once per pass** (`exclude_ids`). Unassigned rows stay `cluster_id NULL` for ML-007. |
+| Secondary centroid | Recomputed after each batch from members that have AdaFace vectors (L2-normalised mean). Clustering still uses R100 only. |
+| Lock | Token-based SET NX (works with `decode_responses=True`). TTL **900s**, extended after every batch (10–20k wedding photos). Story's 300s is too short. Retry with exponential backoff then `ClusteringLockBusyError`. |
+| Celery | Not in this story (ML-009). Call `run_clustering_pass` from a worker later. |
+
+### Usage
+
+```python
+from app.core.redis_client import create_redis_client
+from app.ml.clustering import CLUSTER_TYPE, SWEEPER_TYPE, ClusterManager
+
+manager = ClusterManager(db_session, redis_client=create_redis_client())
+await manager.run_clustering_pass(event_id, CLUSTER_TYPE)
+await manager.run_clustering_pass(event_id, SWEEPER_TYPE)
+```
+
+### Testing
+
+Needs local Postgres (pgvector) **and** Redis. Pytest migrates **`photoshare_test` only** — it does not stamp the developer `photoshare` database.
+
+```bash
+cd backend
+docker compose up -d db redis
+uv run pytest tests/ml/test_cluster_manager.py tests/ml/test_clustering_unit.py -v --no-cov
+```
+
+To migrate the developer database after this story, the Alembic head is `add_clustering_persistence`. If `alembic_version` points at a revision file that is not in git, stamp to `add_secondary_embedding` then `alembic upgrade head`. The clustering migration skips columns that already exist (an old deleted revision may have added `pyr_centroid` already).
+
+## ML-007 — Orphan Crop Recovery and Orphan Cluster Merge
+
+After cluster + sweeper, leftover high-angle faces and tiny same-person clusters are recovered in two sequential steps. **Missing Friends** (timestamp proximity) is not implemented.
+
+| Module | Purpose |
+|--------|---------|
+| `clustering/recovery/orphan_crops.py` | Match unclustered sweeper-range faces to `pyr_centroid` |
+| `clustering/recovery/orphan_clusters.py` | Merge clusters with size ≤ `ML_ORPHAN_CLUSTER_MAX_SIZE` |
+| `clustering/recovery/similarity.py` | Bulk cosine + three-channel dual-centroid max |
+| `ClusterManager.run_recovery()` | Redis lock, crop recovery, then cluster merge |
+
+### Behaviour vs original story
+
+| Topic | What we shipped |
+|-------|-----------------|
+| Orphan crop targets | **Only clusters with `pyr_centroid`** (pix-workers). No main-centroid fallback — sweeper already tried that. |
+| Leftover definition | Same sweeper PYR SQL filter as ML-006 (`quality_passed`, `cluster_id` NULL). |
+| Dual centroid | Max of (1) centroid vs centroid (2) orphan centroid vs established PYR (3) PYR vs PYR. **Skip** orphan PYR vs established main centroid. |
+| Tiny cluster | `cluster_size <= 3` (no `face_rec_id`, no age delay). |
+| On crop assign | Grow `cluster_size`, update `pyr_centroid`/`pyr_size`, **do not** move the main centroid. Several matches to one cluster → one PYR update per batch. |
+| Thresholds | Inclusive cosine similarity ≥ 0.55 via `ML_ORPHAN_CROP_SIMILARITY_THRESHOLD` / `ML_ORPHAN_CLUSTER_MERGE_THRESHOLD`. |
+| Flag | `ML_ORPHAN_RECOVERY_ENABLED` (default true). `run_recovery` no-ops when false. |
+| Celery | Not in this story (ML-009). |
+
+### Usage
+
+```python
+from app.core.redis_client import create_redis_client
+from app.ml.clustering import CLUSTER_TYPE, SWEEPER_TYPE, ClusterManager
+
+manager = ClusterManager(db_session, redis_client=create_redis_client())
+await manager.run_clustering_pass(event_id, CLUSTER_TYPE)
+await manager.run_clustering_pass(event_id, SWEEPER_TYPE)
+recovery = await manager.run_recovery(event_id)
+```
+
+### Testing
+
+Needs local Postgres (pgvector) **and** Redis for integration tests. Unit tests are numpy-only.
+
+```bash
+cd backend
+docker compose up -d db redis
+uv run pytest tests/ml/test_orphan_recovery_unit.py tests/ml/test_orphan_recovery.py -v --no-cov
+```
+
+## ML-008 — Selfie Matching and Phase 1 Liveness
+
+Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/ml/matching/` (not a separate `liveness/` package). `FaceService.match_selfie` calls this path when `ML_FACE_PROCESSING_ENABLED=true`.
+
+| Module | Purpose |
+|--------|---------|
+| `matching/liveness.py` | Heuristics: face area 15–85%, det score ≥ 0.7, Laplacian ≥ 50, HSV saturation > 20 |
+| `matching/selfie_matcher.py` | Cosine vs centroids; pgvector when cluster count ≥ `ML_SELFIE_PGVECTOR_MIN_CLUSTERS` (500) |
+| `matching/pipeline.py` | Detect once → liveness → crop → quality → embed → match → photo IDs |
+
+### Behaviour vs original story / component doc
+
+| Topic | What we shipped |
+|-------|-----------------|
+| Detect | **Once**. Same primary face (image-centre / nose) is used for liveness and crop. |
+| Age / sunglasses | **Skipped** on selfies. Age reject is for clustering toddlers, not guest galleries. |
+| Selfie YPR | **30°** yaw/pitch/roll via `QualityFilter.filter(..., yaw_threshold=30, ...)`. Event photos stay 45/35/45. |
+| Dual model | **R100 decides membership**. AdaFace agreement → `confidence=high`, primary-only → `low`. AdaFace-only dropped. PicSee search is primary-only; this tagging is extra. |
+| Photo IDs | Matcher returns clusters. Pipeline/FaceService loads distinct `face_embeddings.photo_id`. |
+| HNSW | BE-003 index is on `face_embeddings.embedding`, **not** `face_clusters.centroid`. Large events still use `centroid.cosine_distance` (exact for the candidate LIMIT). |
+| App EC2 | `ML_FACE_PROCESSING_ENABLED` defaults **false** so the guest API does not load PyTorch. Set **true** locally. |
+| Layout | `matching/liveness.py`, not `app/ml/liveness/basic_liveness.py`. |
+
+### Local guest selfie
+
+```bash
+# backend/.env
+ML_FACE_PROCESSING_ENABLED=true
+ML_DEVICE=cpu
+```
+
+```bash
+cd backend
+docker compose up -d db redis
+uv sync --extra dev --extra ml
+uv run pytest tests/ml/test_liveness_unit.py tests/ml/test_selfie_matcher_unit.py \
+  tests/ml/test_selfie_pipeline_unit.py tests/ml/test_selfie_matcher.py \
+  tests/ml/test_selfie_pipeline_integration.py tests/ml/test_quality_filter_unit.py \
+  tests/test_guest_photos.py -v --no-cov
+```
+
+Live pipeline test needs SCRFD + blur/YPR + R100 weights and a face that passes 15% area + colour checks.
 
 ## Testing
 

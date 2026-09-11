@@ -241,13 +241,11 @@ backend/
 │   │   │   ├── incremental_clusterer.py  # DBSCAN + Agglo (from PicSee)
 │   │   │   └── cluster_manager.py        # pgvector-backed cluster ops
 │   │   │
-│   │   ├── matching/                     # Guest selfie matching
+│   │   ├── matching/                     # Guest selfie matching (ML-008)
 │   │   │   ├── __init__.py
-│   │   │   └── selfie_matcher.py         # Centroid-based matching
-│   │   │
-│   │   ├── liveness/                     # Liveness detection
-│   │   │   ├── __init__.py
-│   │   │   └── basic_liveness.py         # Basic liveness checks
+│   │   │   ├── liveness.py               # Phase 1 heuristic liveness
+│   │   │   ├── selfie_matcher.py         # Centroid cosine + pgvector
+│   │   │   └── pipeline.py               # Detect-once orchestrator
 │   │   │
 │   │   ├── pipeline.py                   # High-level pipeline orchestrator
 │   │   └── model_registry.py             # Singleton model loader + cache
@@ -909,121 +907,58 @@ class IncrementalClusterer:
 
 ### 7.2 Cluster Manager (pgvector Integration)
 
-```python
-class ClusterManager:
-    """Manages face clusters in PostgreSQL + pgvector.
-    
-    Bridges the IncrementalClusterer algorithm with persistent storage.
-    """
+`ClusterManager` (`backend/app/ml/clustering/cluster_manager.py`) is the persistence
+layer for ML-005. It does **not** reimplement clustering.
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+**API (ML-006):**
 
-    async def get_event_clusters(self, event_id: UUID) -> list[ClusterRecord]:
-        """Load all clusters for an event from the database."""
-        results = await self.db.execute(
-            select(FaceCluster).where(FaceCluster.event_id == event_id)
-        )
-        return [
-            ClusterRecord(
-                id=c.id, centroid=np.array(c.centroid),
-                size=c.cluster_size,
-            )
-            for c in results.scalars()
-        ]
+- `load_event_clusters(event_id)` → `dict[str, ExistingCluster]` (centroids + sizes + pyr)
+- `load_unclustered_embeddings(event_id, clustering_type, limit=..., exclude_ids=...)` → primary embeddings
+- `apply_clustering_result(event_id, result)` — one transaction: insert new clusters, expand, merge
+- `run_clustering_pass(event_id, clustering_type)` — Redis lock, batched loop, lock TTL refresh
 
-    async def get_unprocessed_embeddings(
-        self, event_id: UUID, batch_size: int = 5000
-    ) -> list[EmbeddingRecord]:
-        """Get embeddings not yet assigned to a cluster."""
-        results = await self.db.execute(
-            select(FaceEmbedding)
-            .where(
-                FaceEmbedding.event_id == event_id,
-                FaceEmbedding.cluster_id.is_(None),
-            )
-            .limit(batch_size)
-        )
-        return [
-            EmbeddingRecord(
-                id=e.id, embedding=np.array(e.embedding),
-            )
-            for e in results.scalars()
-        ]
+**Merge semantics (differs from the earlier sketch in this file):** keep the
+**surviving** cluster ID from `IncrementalClusterer` (largest size, then smaller id).
+Reassign embeddings from absorbed clusters, then **DELETE** absorbed rows. Do not
+create a brand-new cluster for a merge — stable IDs matter for later guest matching.
 
-    async def apply_clustering_result(
-        self, event_id: UUID, result: ClusteringResult
-    ) -> None:
-        """Apply clustering results to the database."""
-        # New clusters
-        for nc in result.new_clusters:
-            cluster = FaceCluster(
-                event_id=event_id,
-                centroid=nc.centroid.tolist(),
-                cluster_size=nc.size,
-            )
-            self.db.add(cluster)
-            await self.db.flush()
+**PYR load filters:** cluster pass requires all `|yaw|,|pitch|,|roll|` in `[0, 47)`.
+Sweeper requires all angles `<= 120` and at least one `>= 47`. Only `quality_passed`
+rows with non-null YPR are loaded.
 
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.id.in_(nc.embedding_ids))
-                .values(cluster_id=cluster.id)
-            )
+**Concurrency:** Redis key `clustering_lock:{event_id}` (SET NX token lock). Default TTL
+900 seconds, extended after each batch.
 
-        # Expanded clusters
-        for ec in result.expanded_clusters:
-            await self.db.execute(
-                update(FaceCluster)
-                .where(FaceCluster.id == ec.cluster_id)
-                .values(
-                    centroid=ec.updated_centroid.tolist(),
-                    cluster_size=ec.new_size,
-                )
-            )
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.id.in_(ec.new_embedding_ids))
-                .values(cluster_id=ec.cluster_id)
-            )
+Writes live in `cluster_persistence.py`. AdaFace `secondary_centroid` is recomputed from
+member `secondary_embedding` values after assignments.
 
-        # Merged clusters
-        for mc in result.merged_clusters:
-            # Create new merged cluster
-            merged = FaceCluster(
-                event_id=event_id,
-                centroid=mc.merged_centroid.tolist(),
-                cluster_size=mc.merged_size,
-            )
-            self.db.add(merged)
-            await self.db.flush()
+### 7.3 Orphan Recovery (ML-007)
 
-            # Reassign all embeddings from source clusters to merged
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.cluster_id.in_(mc.source_cluster_ids))
-                .values(cluster_id=merged.id)
-            )
-            await self.db.execute(
-                update(FaceEmbedding)
-                .where(FaceEmbedding.id.in_(mc.new_embedding_ids))
-                .values(cluster_id=merged.id)
-            )
+After the cluster pass and sweeper pass, two recovery steps improve recall:
 
-            # Delete old source clusters
-            await self.db.execute(
-                delete(FaceCluster)
-                .where(FaceCluster.id.in_(mc.source_cluster_ids))
-            )
+1. **Orphan crop recovery** — unclustered sweeper-range faces (`quality_passed`,
+   `cluster_id IS NULL`, same PYR filter as sweeper) are matched with bulk cosine
+   similarity against clusters that **already have** `pyr_centroid`. There is **no**
+   fallback to the main centroid (pix-workers behaviour). Assignments grow
+   `cluster_size` and update `pyr_centroid` / `pyr_size`; the main centroid is unchanged.
+2. **Orphan cluster merge** — clusters with `cluster_size <= ML_ORPHAN_CLUSTER_MAX_SIZE`
+   (default 3) are compared to larger clusters. Similarity is the **max** of:
+   centroid vs centroid, orphan centroid vs established PYR, and PYR vs PYR.
+   Orphan PYR vs established main centroid is not used.
 
-        await self.db.commit()
-```
+Call `ClusterManager.run_recovery(event_id)` after sweeper. It uses the same Redis
+event lock. Gated by `ML_ORPHAN_RECOVERY_ENABLED`. Thresholds:
+`ML_ORPHAN_CROP_SIMILARITY_THRESHOLD` and `ML_ORPHAN_CLUSTER_MERGE_THRESHOLD`
+(default 0.55 inclusive). Celery/FaceService wiring is ML-009. Missing Friends is
+out of scope.
 
 ---
 
 ## 8. Guest Selfie Matching
 
 ### 8.1 Selfie Match Pipeline
+
+> **ML-008 implementation notes (differs from the sketch below):** detect **once** and reuse that face for liveness + crop. Selfie quality is **stricter pose (30°)** but **skips age and sunglasses**. Gallery membership is **R100-only**; AdaFace only sets `high`/`low` confidence. Photo IDs are resolved after cluster match. Large events query `face_clusters.centroid` with pgvector cosine distance (the HNSW index from BE-003 is on `face_embeddings.embedding`, not centroids). Enable locally with `ML_FACE_PROCESSING_ENABLED=true`.
 
 When a guest takes a selfie, the match pipeline runs synchronously (it's fast because event photos are pre-indexed):
 
@@ -1179,6 +1114,8 @@ async def match_selfie_pgvector(
 ## 9. Liveness Detection
 
 ### 9.1 Basic Server-Side Checks
+
+> **ML-008:** `BasicLivenessDetector` lives in `app/ml/matching/liveness.py`. It requires an already-detected face (`check(image, detected_face)`). Blank images are `no_face_detected`, not `liveness_failed`. Thresholds come from `MLConfig` (`ML_LIVENESS_*`), not class constants.
 
 The goal is to ensure the selfie is a real face captured live, not a photo of a photo. Phase 1 implements basic checks; advanced liveness (depth, head-turn challenges) is Phase 2.
 
@@ -1542,6 +1479,7 @@ class MLConfig(BaseModel):
     dbscan_eps: float = 0.45
     agglo_threshold: float = 0.45
     clustering_batch_size: int = 5000
+    clustering_lock_ttl_seconds: int = 900  # extended after each batch (ML-006)
 
     # Matching
     selfie_match_threshold: float = 0.55

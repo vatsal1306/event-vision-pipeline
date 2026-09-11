@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -10,9 +11,22 @@ import structlog
 
 from app.ml.embedding.base import BaseEmbeddingModel, l2_normalize
 from app.ml.embedding.batch_utils import extract_batch_with_oom_retry
+from app.ml.torch_process_cache import get_or_create
 from app.ml.vendor.adaface_insightface import backbones
 
 logger = structlog.get_logger(__name__)
+
+
+def _load_r100_net(path: Path, device: Any) -> Any:
+    """Construct InsightFace R100 and load weights."""
+    import torch
+
+    net = backbones.get_model("r100", fp16=False)
+    state_dict = torch.load(path, map_location=device, weights_only=True)
+    net.load_state_dict(state_dict)
+    net.to(device)
+    net.eval()
+    return net
 
 
 class ArcFaceR100(BaseEmbeddingModel):
@@ -35,9 +49,10 @@ class ArcFaceR100(BaseEmbeddingModel):
 
         self._device = torch.device(device)
         self._model_path = path
-        self._net = backbones.get_model("r100", fp16=False)
-        state_dict = torch.load(path, map_location=self._device, weights_only=True)
-        self._net.load_state_dict(state_dict)
+        self._net = get_or_create(
+            f"r100:{path.resolve()}",
+            lambda: _load_r100_net(path, self._device),
+        )
         self._net.to(self._device)
         self._net.eval()
 
@@ -96,7 +111,5 @@ class ArcFaceR100(BaseEmbeddingModel):
         return l2_normalize(stacked, axis=1)
 
     def close(self) -> None:
-        """Drop the torch model reference."""
-        if hasattr(self, "_net"):
-            del self._net
+        """Release this wrapper. Process-level IResNet weights stay loaded."""
         logger.debug("arcface_r100_closed", model_path=str(self._model_path))

@@ -177,11 +177,28 @@ clusters. This requires EXIF timestamp data and is complex to adapt.
 
 ## Acceptance
 
-- [ ] Orphan crop with high cosine similarity to a PYR centroid → assigned to that cluster
-- [ ] Orphan crop with low similarity to all centroids → remains unassigned
-- [ ] Small cluster (size 2) matching a large cluster (size 50) → merged into large cluster
-- [ ] Orphan cluster NOT matching any established cluster → remains independent
-- [ ] Dual-centroid comparison uses max of regular and PYR similarity
-- [ ] Recovery runs after sweeper pass without errors
-- [ ] No database state corruption — all operations are transactional
-- [ ] Feature gated by `ML_ORPHAN_RECOVERY_ENABLED` config flag
+- [x] Orphan crop with high cosine similarity to a PYR centroid → assigned to that cluster
+- [x] Orphan crop with low similarity to all centroids → remains unassigned
+- [x] Small cluster (size 2) matching a large cluster (size 50) → merged into large cluster
+- [x] Orphan cluster NOT matching any established cluster → remains independent
+- [x] Dual-centroid comparison uses max of regular and PYR similarity
+- [x] Recovery runs after sweeper pass without errors
+- [x] No database state corruption — all operations are transactional
+- [x] Feature gated by `ML_ORPHAN_RECOVERY_ENABLED` config flag
+
+## Implementation Notes (ML-007 — completed)
+
+**Shipped:**
+- `clustering/recovery/orphan_crops.py` — bulk cosine vs **PYR centroids only**
+- `clustering/recovery/orphan_clusters.py` — size ≤ 3 merged into larger clusters
+- `clustering/recovery/similarity.py` — vectorised cosine + three-channel dual compare
+- `ClusterManager.run_recovery()` — same Redis event lock as clustering; callable from tests / later FaceService
+- Unit tests (numpy) + integration tests (Postgres + Redis)
+
+**Decisions vs original story:**
+- Orphan crops match **only** clusters that already have `pyr_centroid`. No fallback to the main centroid (story sketch). Sweeper already tried the main centroid.
+- Dual-centroid channels: centroid vs centroid, **orphan centroid vs established PYR**, and PYR vs PYR. Take the max. Do **not** compare orphan PYR vs established main centroid.
+- Leftover face definition uses the **sweeper PYR SQL filter** (all angles ≤ 120, at least one ≥ 47), not a loose “YPR > 47”.
+- Thresholds live in `MLConfig` (`ML_ORPHAN_CROP_SIMILARITY_THRESHOLD`, `ML_ORPHAN_CLUSTER_MERGE_THRESHOLD`, `ML_ORPHAN_CLUSTER_MAX_SIZE`). Inclusive similarity ≥ 0.55.
+- Several leftovers matching one cluster: one transactional expand, PYR recomputed once for that batch.
+- FaceService/Celery wiring deferred to ML-009. Missing Friends still out of scope.

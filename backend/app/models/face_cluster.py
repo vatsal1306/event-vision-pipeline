@@ -31,7 +31,16 @@ class FaceCluster(Base, UUIDPrimaryKeyMixin, CreatedAtMixin, UpdatedAtMixin):
         nullable=False,
     )
     centroid: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSIONS), nullable=False)
+    pyr_centroid: Mapped[list[float] | None] = mapped_column(
+        Vector(EMBEDDING_DIMENSIONS),
+        nullable=True,
+    )
+    secondary_centroid: Mapped[list[float] | None] = mapped_column(
+        Vector(EMBEDDING_DIMENSIONS),
+        nullable=True,
+    )
     cluster_size: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    pyr_size: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
 
     event: Mapped[Event] = relationship(
         "Event",

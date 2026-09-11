@@ -85,3 +85,18 @@ async def reset_test_database(engine: AsyncEngine) -> None:
         await connection.execute(text("CREATE SCHEMA public"))
         await connection.execute(text("GRANT ALL ON SCHEMA public TO postgres"))
         await connection.execute(text("GRANT ALL ON SCHEMA public TO public"))
+
+
+async def prepare_test_database(database_url: str) -> None:
+    """Create the test database, wipe schema, and apply Alembic migrations.
+
+    The developer database is left untouched. A stale or unknown
+    ``alembic_version`` on ``photoshare`` must not block pytest.
+    """
+    await ensure_test_database_exists()
+    engine = create_async_engine(database_url, pool_pre_ping=True)
+    try:
+        await reset_test_database(engine)
+    finally:
+        await engine.dispose()
+    await run_migrations_async(database_url)

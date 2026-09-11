@@ -10,6 +10,7 @@ import pytest
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.enums import EventStatus, ProcessingStatus
 from app.models.event import Event
 from app.models.photo import Photo
@@ -149,10 +150,11 @@ async def test_process_uploaded_photo_success(
     photo = await create_photo(db_session, event.id, s3_key)
 
     img_bytes = create_test_image_bytes()
-    await storage.put_object("platform-originals", s3_key, img_bytes, "image/jpeg")
+    await storage.put_object(get_settings().s3_bucket_originals, s3_key, img_bytes, "image/jpeg")
 
     # Process
     with (
+        patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
         patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
     ):
@@ -191,13 +193,15 @@ async def test_process_uploaded_photo_with_watermark(
 
     img_bytes = create_test_image_bytes()
     wm_bytes = create_test_watermark_bytes()
-    await storage.put_object("platform-originals", s3_key, img_bytes, "image/jpeg")
+    settings = get_settings()
+    await storage.put_object(settings.s3_bucket_originals, s3_key, img_bytes, "image/jpeg")
     await storage.put_object(
-        "platform-assets", str(photographer.watermark_url), wm_bytes, "image/png"
+        settings.s3_bucket_assets, str(photographer.watermark_url), wm_bytes, "image/png"
     )
 
     # Process
     with (
+        patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
         patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
     ):
@@ -225,9 +229,12 @@ async def test_process_uploaded_photo_failure(
     photo = await create_photo(db_session, event.id, s3_key)
 
     # Put invalid image data to cause cv2.imdecode to fail (which raises ValueError -> FAILED)
-    await storage.put_object("platform-originals", s3_key, b"not an image", "image/jpeg")
+    await storage.put_object(
+        get_settings().s3_bucket_originals, s3_key, b"not an image", "image/jpeg"
+    )
 
     with (
+        patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
         patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
     ):

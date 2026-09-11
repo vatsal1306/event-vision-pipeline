@@ -13,6 +13,11 @@ import structlog
 from app.ml.config import MLConfig, get_ml_config
 from app.ml.device import resolve_device
 from app.ml.exceptions import ModelLoadError, ModelNotRegisteredError
+from app.ml.torch_process_cache import (
+    get_pinned_registry_model,
+    is_pinned_registry_name,
+    pin_registry_model,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -131,6 +136,11 @@ class ModelRegistry:
             if name in self._models:
                 return self._models[name]
 
+            pinned = get_pinned_registry_model(name)
+            if pinned is not None:
+                self._models[name] = pinned
+                return pinned
+
             loader = _LOADERS.get(name)
             if loader is None:
                 raise ModelNotRegisteredError(name)
@@ -141,6 +151,7 @@ class ModelRegistry:
                 raise ModelLoadError(name, str(exc)) from exc
 
             self._models[name] = model
+            pin_registry_model(name, model)
             logger.info(
                 "ml_model_loaded",
                 model_name=name,
@@ -149,9 +160,11 @@ class ModelRegistry:
             return model
 
     def unload_all(self) -> None:
-        """Drop cached models and call ``close``/``unload`` hooks when present."""
+        """Drop instance cache. Torch models that cannot be rebuilt stay alive."""
         with self._model_lock:
             for model_name, model in self._models.items():
+                if is_pinned_registry_name(model_name):
+                    continue
                 for method_name in ("unload", "close"):
                     cleanup = getattr(model, method_name, None)
                     if callable(cleanup):

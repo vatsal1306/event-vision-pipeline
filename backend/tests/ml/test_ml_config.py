@@ -51,8 +51,18 @@ def test_ml_config_defaults_match_story_spec() -> None:
     assert config.clustering_batch_size == 5000
     assert config.sweeper_pyr_min == 47.0
     assert config.sweeper_pyr_max == 120.0
+    assert config.clustering_lock_ttl_seconds == 900
+    assert config.clustering_lock_retry_attempts == 6
+    assert config.clustering_lock_retry_base_delay_seconds == 0.25
+    assert config.orphan_crop_similarity_threshold == 0.55
+    assert config.orphan_cluster_merge_threshold == 0.55
+    assert config.orphan_cluster_max_size == 3
     assert config.selfie_match_threshold == 0.55
     assert config.max_cluster_matches == 5
+    assert config.selfie_pgvector_min_clusters == 500
+    assert config.selfie_yaw_threshold == 30.0
+    assert config.selfie_pitch_threshold == 30.0
+    assert config.selfie_roll_threshold == 30.0
     assert config.liveness_face_ratio_min == 0.15
     assert config.liveness_face_ratio_max == 0.85
     assert config.liveness_det_score_min == 0.7

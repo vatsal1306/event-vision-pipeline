@@ -91,9 +91,13 @@ async def test_upload_selfie_matched(
 ) -> None:
     token, event, guest, photo, cluster = guest_token
 
-    from app.services.face_service import MatchResult
+    from app.services.face_service import MatchResult, MatchStatus
 
-    mock_result = MatchResult(status="matched", clusters=[cluster.id], photo_ids=[photo.id])
+    mock_result = MatchResult(
+        status=MatchStatus.MATCHED,
+        matched_cluster_ids=[cluster.id],
+        photo_ids=[photo.id],
+    )
 
     async def mock_match_selfie(*args: Any, **kwargs: Any) -> MatchResult:
         return mock_result

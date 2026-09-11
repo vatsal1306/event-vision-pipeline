@@ -76,13 +76,32 @@ class FaceCropper:
         Returns:
             Primary aligned crop, or ``None`` when no faces are provided.
         """
+        primary = self.select_primary(image_bgr, detected_faces)
+        if primary is None:
+            return None
+        return self._crop_single(image_bgr, primary, source_photo_id=source_photo_id)
+
+    def select_primary(
+        self,
+        image_bgr: np.ndarray,
+        detected_faces: list[DetectedFace],
+    ) -> DetectedFace | None:
+        """Choose the face whose nose (or bbox centre) is closest to image centre.
+
+        Args:
+            image_bgr: Source BGR image.
+            detected_faces: Faces from ``SCRFDDetector.detect``.
+
+        Returns:
+            The primary detection, or ``None`` when ``detected_faces`` is empty.
+        """
         if not detected_faces:
             return None
 
         image_center = (image_bgr.shape[1] / 2.0, image_bgr.shape[0] / 2.0)
-        best_index = 0
+        best_face = detected_faces[0]
         best_distance = float("inf")
-        for index, face in enumerate(detected_faces):
+        for face in detected_faces:
             if face.landmarks.shape == (5, 2) and np.any(face.landmarks):
                 nose_x, nose_y = face.landmarks[2]
                 distance = float(
@@ -97,13 +116,8 @@ class FaceCropper:
                 )
             if distance < best_distance:
                 best_distance = distance
-                best_index = index
-
-        return self._crop_single(
-            image_bgr,
-            detected_faces[best_index],
-            source_photo_id=source_photo_id,
-        )
+                best_face = face
+        return best_face
 
     def detect_and_crop_all(
         self,
