@@ -45,7 +45,11 @@ backend/app/ml/
 │   ├── cluster_persistence.py    # Transactional DB writes (ML-006)
 │   ├── vector_utils.py           # pgvector numpy helpers (ML-006)
 │   ├── locks.py                  # Redis event clustering lock (ML-006)
-│   └── recovery/                 # ML-007
+│   └── recovery/                 # ML-007 (done)
+│       ├── orphan_crops.py
+│       ├── orphan_clusters.py
+│       ├── similarity.py
+│       └── types.py
 ├── matching/           # ML-008
 └── vendor/             # PicSee / pix-workers code copies
     └── ypr_3ddfa_v2/   # 3DDFA FaceBoxes + TDDFA ONNX (ML-003)
@@ -126,6 +130,7 @@ uv sync --extra dev --extra ml
 | Embeddings (R100, AdaFace, MBF) | ML-004 (done) |
 | Clustering algorithm | ML-005 (done) |
 | Cluster persistence (pgvector) | ML-006 (done) |
+| Orphan crop/cluster recovery | ML-007 (done) |
 | FaceService + Celery tasks | ML-009 |
 
 ## ML-003 — Quality Filters
@@ -443,6 +448,52 @@ uv run pytest tests/ml/test_cluster_manager.py tests/ml/test_clustering_unit.py 
 ```
 
 To migrate the developer database after this story, the Alembic head is `add_clustering_persistence`. If `alembic_version` points at a revision file that is not in git, stamp to `add_secondary_embedding` then `alembic upgrade head`. The clustering migration skips columns that already exist (an old deleted revision may have added `pyr_centroid` already).
+
+## ML-007 — Orphan Crop Recovery and Orphan Cluster Merge
+
+After cluster + sweeper, leftover high-angle faces and tiny same-person clusters are recovered in two sequential steps. **Missing Friends** (timestamp proximity) is not implemented.
+
+| Module | Purpose |
+|--------|---------|
+| `clustering/recovery/orphan_crops.py` | Match unclustered sweeper-range faces to `pyr_centroid` |
+| `clustering/recovery/orphan_clusters.py` | Merge clusters with size ≤ `ML_ORPHAN_CLUSTER_MAX_SIZE` |
+| `clustering/recovery/similarity.py` | Bulk cosine + three-channel dual-centroid max |
+| `ClusterManager.run_recovery()` | Redis lock, crop recovery, then cluster merge |
+
+### Behaviour vs original story
+
+| Topic | What we shipped |
+|-------|-----------------|
+| Orphan crop targets | **Only clusters with `pyr_centroid`** (pix-workers). No main-centroid fallback — sweeper already tried that. |
+| Leftover definition | Same sweeper PYR SQL filter as ML-006 (`quality_passed`, `cluster_id` NULL). |
+| Dual centroid | Max of (1) centroid vs centroid (2) orphan centroid vs established PYR (3) PYR vs PYR. **Skip** orphan PYR vs established main centroid. |
+| Tiny cluster | `cluster_size <= 3` (no `face_rec_id`, no age delay). |
+| On crop assign | Grow `cluster_size`, update `pyr_centroid`/`pyr_size`, **do not** move the main centroid. Several matches to one cluster → one PYR update per batch. |
+| Thresholds | Inclusive cosine similarity ≥ 0.55 via `ML_ORPHAN_CROP_SIMILARITY_THRESHOLD` / `ML_ORPHAN_CLUSTER_MERGE_THRESHOLD`. |
+| Flag | `ML_ORPHAN_RECOVERY_ENABLED` (default true). `run_recovery` no-ops when false. |
+| Celery | Not in this story (ML-009). |
+
+### Usage
+
+```python
+from app.core.redis_client import create_redis_client
+from app.ml.clustering import CLUSTER_TYPE, SWEEPER_TYPE, ClusterManager
+
+manager = ClusterManager(db_session, redis_client=create_redis_client())
+await manager.run_clustering_pass(event_id, CLUSTER_TYPE)
+await manager.run_clustering_pass(event_id, SWEEPER_TYPE)
+recovery = await manager.run_recovery(event_id)
+```
+
+### Testing
+
+Needs local Postgres (pgvector) **and** Redis for integration tests. Unit tests are numpy-only.
+
+```bash
+cd backend
+docker compose up -d db redis
+uv run pytest tests/ml/test_orphan_recovery_unit.py tests/ml/test_orphan_recovery.py -v --no-cov
+```
 
 ## Testing
 

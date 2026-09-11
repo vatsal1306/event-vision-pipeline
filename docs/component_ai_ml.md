@@ -934,6 +934,26 @@ rows with non-null YPR are loaded.
 Writes live in `cluster_persistence.py`. AdaFace `secondary_centroid` is recomputed from
 member `secondary_embedding` values after assignments.
 
+### 7.3 Orphan Recovery (ML-007)
+
+After the cluster pass and sweeper pass, two recovery steps improve recall:
+
+1. **Orphan crop recovery** — unclustered sweeper-range faces (`quality_passed`,
+   `cluster_id IS NULL`, same PYR filter as sweeper) are matched with bulk cosine
+   similarity against clusters that **already have** `pyr_centroid`. There is **no**
+   fallback to the main centroid (pix-workers behaviour). Assignments grow
+   `cluster_size` and update `pyr_centroid` / `pyr_size`; the main centroid is unchanged.
+2. **Orphan cluster merge** — clusters with `cluster_size <= ML_ORPHAN_CLUSTER_MAX_SIZE`
+   (default 3) are compared to larger clusters. Similarity is the **max** of:
+   centroid vs centroid, orphan centroid vs established PYR, and PYR vs PYR.
+   Orphan PYR vs established main centroid is not used.
+
+Call `ClusterManager.run_recovery(event_id)` after sweeper. It uses the same Redis
+event lock. Gated by `ML_ORPHAN_RECOVERY_ENABLED`. Thresholds:
+`ML_ORPHAN_CROP_SIMILARITY_THRESHOLD` and `ML_ORPHAN_CLUSTER_MERGE_THRESHOLD`
+(default 0.55 inclusive). Celery/FaceService wiring is ML-009. Missing Friends is
+out of scope.
+
 ---
 
 ## 8. Guest Selfie Matching

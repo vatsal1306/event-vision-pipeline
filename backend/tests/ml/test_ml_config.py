@@ -54,6 +54,9 @@ def test_ml_config_defaults_match_story_spec() -> None:
     assert config.clustering_lock_ttl_seconds == 900
     assert config.clustering_lock_retry_attempts == 6
     assert config.clustering_lock_retry_base_delay_seconds == 0.25
+    assert config.orphan_crop_similarity_threshold == 0.55
+    assert config.orphan_cluster_merge_threshold == 0.55
+    assert config.orphan_cluster_max_size == 3
     assert config.selfie_match_threshold == 0.55
     assert config.max_cluster_matches == 5
     assert config.liveness_face_ratio_min == 0.15

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 
 import numpy as np
 import redis.asyncio as redis
@@ -15,6 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ml.clustering.cluster_persistence import ClusterPersistence
 from app.ml.clustering.incremental_clusterer import IncrementalClusterer
 from app.ml.clustering.locks import EventClusteringLock
+from app.ml.clustering.recovery.orphan_clusters import OrphanClusterMerge
+from app.ml.clustering.recovery.orphan_crops import (
+    OrphanCropRecovery,
+    expanded_result_from_assignments,
+)
+from app.ml.clustering.recovery.types import CropAssignment, RecoveryPipelineResult
 from app.ml.clustering.types import (
     ClusteringInput,
     ClusteringResult,
@@ -64,6 +70,11 @@ class ClusterManager:
         self._config = ml_config or get_ml_config()
         self._clusterer = clusterer or IncrementalClusterer(ml_config=self._config)
         self._persistence = ClusterPersistence(db)
+
+    @property
+    def ml_config(self) -> MLConfig:
+        """ML settings used by clustering and recovery."""
+        return self._config
 
     async def load_event_clusters(self, event_id: uuid.UUID) -> dict[str, ExistingCluster]:
         """Load all clusters for an event as algorithm input snapshots.
@@ -125,6 +136,138 @@ class ClusterManager:
         for row in result.scalars().all():
             embeddings[str(row.id)] = as_float32_vector(row.embedding)
         return embeddings
+
+    async def load_orphan_crops(
+        self,
+        event_id: uuid.UUID,
+        *,
+        limit: int | None = None,
+        exclude_ids: Collection[uuid.UUID] | None = None,
+    ) -> dict[str, np.ndarray]:
+        """Load unclustered quality-passed faces in the sweeper PYR range.
+
+        Args:
+            event_id: Event to load leftover high-angle faces from.
+            limit: Optional batch size.
+            exclude_ids: Faces already considered in this recovery pass.
+
+        Returns:
+            Mapping of embedding UUID string to primary embedding.
+        """
+        return await self.load_unclustered_embeddings(
+            event_id,
+            self._sweeper_type(),
+            limit=limit,
+            exclude_ids=exclude_ids,
+        )
+
+    async def load_pyr_clusters(self, event_id: uuid.UUID) -> dict[str, ExistingCluster]:
+        """Load clusters that already have a high-angle (PYR) centroid.
+
+        Args:
+            event_id: Event whose clusters should be filtered.
+
+        Returns:
+            Mapping of cluster UUID string to snapshots with ``pyr_centroid``.
+        """
+        clusters = await self.load_event_clusters(event_id)
+        return {
+            cluster_id: cluster
+            for cluster_id, cluster in clusters.items()
+            if cluster.pyr_centroid is not None
+        }
+
+    async def count_orphan_crops(self, event_id: uuid.UUID) -> int:
+        """Count leftover sweeper-range faces that still have no cluster.
+
+        Args:
+            event_id: Event to count.
+
+        Returns:
+            Number of unclustered quality-passed sweeper-range embeddings.
+        """
+        stmt = self._unclustered_statement(event_id, self._sweeper_type())
+        result = await self._db.scalar(select(func.count()).select_from(stmt.subquery()))
+        return int(result or 0)
+
+    async def count_orphan_clusters(self, event_id: uuid.UUID, max_orphan_size: int) -> int:
+        """Count clusters at or below the orphan size cap.
+
+        Args:
+            event_id: Event to count.
+            max_orphan_size: Inclusive size treated as an orphan cluster.
+
+        Returns:
+            Number of small clusters remaining for the event.
+        """
+        result = await self._db.scalar(
+            select(func.count()).where(
+                FaceCluster.event_id == event_id,
+                FaceCluster.cluster_size <= max_orphan_size,
+            )
+        )
+        return int(result or 0)
+
+    async def apply_orphan_crop_assignments(
+        self,
+        event_id: uuid.UUID,
+        orphans: dict[str, np.ndarray],
+        pyr_clusters: dict[str, ExistingCluster],
+        assignments: Sequence[CropAssignment],
+    ) -> None:
+        """Persist orphan-crop matches in one transaction.
+
+        Grows ``cluster_size`` and updates PYR centroid/size. The main centroid
+        is left unchanged (same as the sweeper pass).
+
+        Args:
+            event_id: Event the assignments belong to.
+            orphans: Crop embeddings used for the PYR update.
+            pyr_clusters: Pre-write cluster snapshots.
+            assignments: Matches to apply.
+        """
+        result = expanded_result_from_assignments(orphans, pyr_clusters, list(assignments))
+        await self.apply_clustering_result(event_id, result)
+
+    async def run_recovery(self, event_id: uuid.UUID) -> RecoveryPipelineResult:
+        """Run orphan-crop recovery then orphan-cluster merge under the event lock.
+
+        No-ops when ``ML_ORPHAN_RECOVERY_ENABLED`` is false. Celery wiring is
+        deferred to ML-009; call this after cluster + sweeper passes.
+
+        Args:
+            event_id: Event to recover.
+
+        Returns:
+            Combined crop and merge results.
+
+        Raises:
+            ClusteringLockError: If Redis is missing.
+            ClusteringLockBusyError: If the event lock cannot be acquired.
+            ClusterPersistenceError: If a recovery write cannot be persisted.
+        """
+        if not self._config.orphan_recovery_enabled:
+            logger.info("orphan_recovery_disabled", event_id=str(event_id))
+            return RecoveryPipelineResult.disabled()
+
+        lock = await self._acquire_event_lock(event_id)
+        try:
+            crop_result = await OrphanCropRecovery(self).recover(event_id)
+            await lock.extend()
+            merge_result = await OrphanClusterMerge(self).merge(event_id)
+            await lock.extend()
+        finally:
+            await lock.release()
+
+        logger.info(
+            "orphan_recovery_complete",
+            event_id=str(event_id),
+            recovered_crops=crop_result.recovered,
+            still_orphaned_crops=crop_result.still_orphaned,
+            merged_clusters=merge_result.merged_count,
+            remaining_orphan_clusters=merge_result.remaining_orphans,
+        )
+        return RecoveryPipelineResult(crop_result=crop_result, merge_result=merge_result)
 
     async def apply_clustering_result(self, event_id: uuid.UUID, result: ClusteringResult) -> None:
         """Write one clustering batch inside a single database transaction.
@@ -277,3 +420,14 @@ class ClusterManager:
                 delay = min(delay * 2, 8.0)
 
         raise ClusteringLockBusyError(str(event_id))
+
+    def _sweeper_type(self) -> ClusteringTypeConfig:
+        """Sweeper PYR bounds from this manager's ML config."""
+        return ClusteringTypeConfig(
+            name=_SWEEPER_PASS_NAME,
+            creates_new_clusters=False,
+            expands_existing=True,
+            allows_merge_clusters=False,
+            centroid_field="centroid",
+            pyr_range=(self._config.sweeper_pyr_min, self._config.sweeper_pyr_max),
+        )

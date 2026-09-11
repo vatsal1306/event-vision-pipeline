@@ -70,6 +70,9 @@ class MLConfig(BaseSettings):
     clustering_lock_ttl_seconds: int = 900
     clustering_lock_retry_attempts: int = 6
     clustering_lock_retry_base_delay_seconds: float = 0.25
+    orphan_crop_similarity_threshold: float = 0.55
+    orphan_cluster_merge_threshold: float = 0.55
+    orphan_cluster_max_size: int = 3
 
     # Selfie matching
     selfie_match_threshold: float = 0.55
