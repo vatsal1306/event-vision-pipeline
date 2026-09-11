@@ -44,6 +44,7 @@ _EXTENSION_MIME_TYPES = {
     ".tif": "image/tiff",
     ".tiff": "image/tiff",
     ".webp": "image/webp",
+    ".arw": "image/x-sony-arw",
 }
 
 
@@ -87,16 +88,17 @@ class PhotoService:
         # Delete from DB
         await self.db.execute(delete(Photo).where(Photo.id.in_(photo_ids)))
 
-        # Update event counters
+        # Update event counters (total_photos and processed_photos will be handled by update_event_processing_status)
         await self.db.execute(
             update(Event)
             .where(Event.id == event_id)
             .values(
-                total_photos=Event.total_photos - photo_count,
                 total_faces=Event.total_faces - face_count,
-                processed_photos=Event.processed_photos - processed_count,
             )
         )
+        
+        from app.services.event_service import EventService
+        await EventService(self.db).update_event_processing_status(event_id)
 
         # Update photographer storage usage
         from app.models.photographer import Photographer

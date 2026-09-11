@@ -26,6 +26,7 @@ ALLOWED_MIME_TYPES = {
     "image/heic",
     "image/tiff",
     "image/webp",
+    "image/x-sony-arw",
 }
 
 
@@ -64,10 +65,6 @@ class UploadService:
 
         if photographer.storage_used_bytes + upload_info.size > photographer.storage_limit_bytes:
             raise StorageLimitError()
-
-        settings = get_settings()
-        if upload_info.size > settings.max_upload_size_bytes:
-            raise BadRequestError("File too large")
 
         if event.status in (EventStatus.DRAFT, EventStatus.READY):
             event.status = EventStatus.UPLOADING

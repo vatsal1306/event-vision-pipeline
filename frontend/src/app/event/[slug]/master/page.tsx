@@ -58,6 +58,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   const { isAuthenticated, getToken, login, logout } = useMasterAuthStore();
   const [step, setStep] = useState<'auth' | 'otp' | 'gallery'>('auth');
   const [authData, setAuthData] = useState<{ name: string; phone: string } | null>(null);
+  const [countryCode, setCountryCode] = useState('+91');
   
   // Gallery state
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -102,8 +103,10 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   const onAuthSubmit = async (values: z.infer<typeof authSchema>) => {
     try {
-      await authMutation.mutateAsync({ slug, data: values });
-      setAuthData(values);
+      const fullPhone = values.phone.startsWith('+') ? values.phone : `${countryCode}${values.phone}`;
+      const submitData = { ...values, phone: fullPhone };
+      await authMutation.mutateAsync({ slug, data: submitData });
+      setAuthData(submitData);
       setStep('otp');
       toast.success('OTP sent to your phone');
     } catch (err) {
@@ -243,7 +246,12 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
                     <FormItem>
                       <FormLabel>Phone Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="+1 234 567 8900" className="bg-zinc-800 border-zinc-700" {...field} />
+                        <div className="flex gap-2">
+                          <div className="bg-zinc-800 border border-zinc-700 rounded-md px-4 flex items-center justify-center text-sm font-medium text-zinc-300 w-[70px]">
+                            +91
+                          </div>
+                          <Input placeholder="98765 43210" className="bg-zinc-800 border-zinc-700 flex-1" {...field} />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -274,7 +282,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
                   )}
                 />
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" className="w-full" onClick={() => setStep('auth')} disabled={verifyMutation.isPending}>
+                  <Button type="button" variant="secondary" className="w-full" onClick={() => setStep('auth')} disabled={verifyMutation.isPending}>
                     Back
                   </Button>
                   <Button type="submit" className="w-full" disabled={verifyMutation.isPending}>

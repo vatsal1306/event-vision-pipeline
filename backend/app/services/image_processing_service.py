@@ -26,18 +26,25 @@ class ImageProcessingService:
         self.settings = get_settings()
 
     async def generate_web_proxy(
-        self, original_s3_key: str, event_id: str, interpolation: int = cv2.INTER_LANCZOS4
+        self, original_s3_key: str, event_id: str, interpolation: int = cv2.INTER_LANCZOS4, original_filename: str | None = None, mime_type: str | None = None
     ) -> str:
         """Download original, generate optimized proxy, upload to hot storage."""
         original_bucket = self.settings.s3_bucket_originals
         proxy_bucket = self.settings.s3_bucket_proxies
         image_bytes = await self.storage.get_object(original_bucket, original_s3_key)
 
-        # Handle HEIC or standard decoding
-        if original_s3_key.lower().endswith((".heic", ".heif")):
+        filename_to_check = original_filename or original_s3_key
+        # Handle HEIC, ARW, or standard decoding
+        if filename_to_check.lower().endswith((".heic", ".heif")):
             heif_file = read_heif(image_bytes)
             image_np: Any = np.asarray(heif_file)
             image: Any = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+        elif filename_to_check.lower().endswith(".arw") or (mime_type and mime_type.lower() == "image/x-sony-arw"):
+            import rawpy
+            import io
+            with rawpy.imread(io.BytesIO(image_bytes)) as raw:
+                image_np: Any = raw.postprocess()
+                image: Any = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
         else:
             image_array = np.frombuffer(image_bytes, np.uint8)
             image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)

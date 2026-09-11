@@ -66,7 +66,9 @@ class OTPService:
             OTPCooldownError: When another OTP was sent too recently.
         """
         cooldown_key = f"{OTP_COOLDOWN_PREFIX}{phone}:{purpose}"
-        if await self.redis.exists(cooldown_key):
+        
+        count = await self.redis.get(cooldown_key)
+        if count and int(count) >= 2:
             raise OTPCooldownError()
 
         otp = self._generate_otp()
@@ -74,7 +76,11 @@ class OTPService:
         attempts_key = f"{OTP_ATTEMPTS_PREFIX}{phone}:{purpose}"
 
         await self.redis.setex(otp_key, self.otp_expiry_seconds, otp)
-        await self.redis.setex(cooldown_key, self.cooldown_seconds, "1")
+        
+        new_count = await self.redis.incr(cooldown_key)
+        if new_count == 1:
+            await self.redis.expire(cooldown_key, self.cooldown_seconds)
+            
         await self.redis.delete(attempts_key)
 
         await self.sms_service.send(phone, f"Your verification code is: {otp}")

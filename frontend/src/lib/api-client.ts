@@ -178,6 +178,7 @@ export const api = {
     apiClient.put<Record<string, unknown>>(`/api/v1/events/${id}`, data),
   deleteEvent: (id: string) => apiClient.delete<void>(`/api/v1/events/${id}`),
   archiveEvent: (id: string) => apiClient.post<void>(`/api/v1/events/${id}/archive`, {}),
+  restoreEvent: (id: string) => apiClient.post<void>(`/api/v1/events/${id}/restore`, {}),
 
   // Folders
   getFolders: (eventId: string) =>

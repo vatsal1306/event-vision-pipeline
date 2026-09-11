@@ -34,6 +34,16 @@ export function UploadProgress({ eventId }: UploadProgressProps) {
     return () => clearInterval(interval);
   }, [evState?.status, lastBytes, eventId]);
 
+  // Auto-dismiss on completion
+  useEffect(() => {
+    if (evState?.status === 'complete') {
+      const timer = setTimeout(() => {
+        useUploadStore.getState().cancelEvent(eventId);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [evState?.status, eventId]);
+
   if (!evState || evState.files.length === 0) {
     return null;
   }
@@ -55,6 +65,8 @@ export function UploadProgress({ eventId }: UploadProgressProps) {
       uploadManager.cancel(eventId);
     }
   };
+
+  const failedFiles = evState.files.filter(f => f.status === 'failed');
 
   return (
     <div className="mt-8">
@@ -80,54 +92,44 @@ export function UploadProgress({ eventId }: UploadProgressProps) {
       </div>
 
       <div className="bg-card border rounded-xl p-6 shadow-sm mb-6">
-        <div className="flex justify-between text-sm mb-2 font-medium">
-          <span>Overall Progress: {Math.round(overallProgress)}%</span>
-          <span>{evState.completedFiles} / {evState.totalFiles} Files</span>
-        </div>
-        <Progress value={overallProgress} className="h-2 mb-3" />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>{formatSpeed(speed)}</span>
-          <span>ETA: {evState.status === 'uploading' ? formatTime(eta) : '--'}</span>
-        </div>
+        {evState.status === 'complete' ? (
+          <div className="flex flex-col items-center justify-center py-4 text-green-600">
+            <CheckCircle2 className="h-10 w-10 mb-2" />
+            <span className="font-semibold text-lg">Upload Complete!</span>
+            <span className="text-sm text-muted-foreground mt-1">Uploaded {evState.completedFiles} photos</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-between text-sm mb-2 font-medium">
+              <span>Uploading {evState.completedFiles} / {evState.totalFiles} photos...</span>
+              <span>{Math.round(overallProgress)}%</span>
+            </div>
+            <Progress value={overallProgress} className="h-2 mb-3" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{formatSpeed(speed)}</span>
+              <span>ETA: {evState.status === 'uploading' ? formatTime(eta) : '--'}</span>
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-        {evState.files.map((file) => {
-          const fileProgress = (file.uploadedBytes / file.totalBytes) * 100;
-          
-          return (
-            <div key={file.id} className="flex items-center gap-4 bg-muted/30 p-3 rounded-lg border">
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium truncate pr-4">{file.relativePath || file.file?.name || 'Unknown file'}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {(file.totalBytes / (1024 * 1024)).toFixed(1)} MB
-                  </span>
+      {failedFiles.length > 0 && (
+        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+          <h4 className="text-sm font-medium text-destructive mb-2">Failed Uploads ({failedFiles.length})</h4>
+          {failedFiles.map((file) => {
+            const fileProgress = (file.uploadedBytes / file.totalBytes) * 100;
+            return (
+              <div key={file.id} className="flex items-center gap-4 bg-destructive/5 p-3 rounded-lg border border-destructive/20">
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm font-medium truncate pr-4">{file.relativePath || file.file?.name || 'Unknown file'}</span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {(file.totalBytes / (1024 * 1024)).toFixed(1)} MB
+                    </span>
+                  </div>
+                  <Progress value={fileProgress} className="h-1.5 bg-destructive/20 [&>div]:bg-destructive" />
                 </div>
-                <Progress 
-                  value={fileProgress} 
-                  className={cn(
-                    "h-1.5", 
-                    file.status === 'failed' && "bg-destructive/20 [&>div]:bg-destructive"
-                  )} 
-                />
-              </div>
-
-              <div className="w-24 flex items-center justify-end flex-shrink-0">
-                {file.status === 'complete' && (
-                  <span className="text-green-500 flex items-center text-sm font-medium">
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> Done
-                  </span>
-                )}
-                {file.status === 'uploading' && (
-                  <span className="text-primary flex items-center text-sm font-medium">
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" /> {Math.round(fileProgress)}%
-                  </span>
-                )}
-                {file.status === 'queued' && (
-                  <span className="text-muted-foreground text-sm">Queued</span>
-                )}
-                {file.status === 'failed' && (
+                <div className="w-24 flex items-center justify-end flex-shrink-0">
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -136,12 +138,12 @@ export function UploadProgress({ eventId }: UploadProgressProps) {
                   >
                     <AlertCircle className="h-4 w-4 mr-1" /> Retry
                   </Button>
-                )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

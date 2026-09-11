@@ -19,6 +19,9 @@ export function useEvents() {
       const res = await api.getEvents();
       return (res.events || []).map((item) => mapEventFromApi(item));
     },
+    refetchInterval: (query) => {
+      return query.state.data?.some(e => e.status === 'processing' || e.status === 'uploading') ? 5000 : false;
+    }
   });
 }
 
@@ -70,9 +73,45 @@ export function useArchiveEvent() {
     mutationFn: async (id: string) => {
       await api.archiveEvent(id);
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['event', id] });
+      const previousEvent = queryClient.getQueryData(['event', id]);
+      queryClient.setQueryData(['event', id], (old: any) => ({ ...old, status: 'archived' }));
+      return { previousEvent };
+    },
+    onError: (err, id, context) => {
+      if (context?.previousEvent) {
+        queryClient.setQueryData(['event', id], context.previousEvent);
+      }
+    },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['event', id] });
+      toast.success('Event archived successfully');
+    },
+  });
+}
+
+export function useRestoreEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.restoreEvent(id);
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['event', id] });
+      const previousEvent = queryClient.getQueryData(['event', id]);
+      queryClient.setQueryData(['event', id], (old: any) => ({ ...old, status: 'ready' }));
+      return { previousEvent };
+    },
+    onError: (err, id, context) => {
+      if (context?.previousEvent) {
+        queryClient.setQueryData(['event', id], context.previousEvent);
+      }
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      toast.success('Event unarchived successfully');
     },
   });
 }
@@ -95,6 +134,10 @@ export function useEvent(id: string) {
     queryKey: ['event', id],
     queryFn: async () => mapEventFromApi(await api.getEventDetails(id)),
     enabled: !!id,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'processing' || status === 'uploading' ? 5000 : false;
+    }
   });
 }
 

@@ -23,7 +23,7 @@ export function WatermarkEditorModal({
   file,
   onSave,
   isUploading,
-  defaultOpacity = 1,
+  defaultOpacity = 0.7,
   defaultX,
   defaultY,
   defaultScale = 0.2,
@@ -46,8 +46,8 @@ export function WatermarkEditorModal({
       const targetWidth = clientWidth * defaultScale;
       const targetHeight = targetWidth / 2; // Rough assumption
 
-      let initialX = clientWidth - targetWidth - (clientWidth * 0.02);
-      let initialY = clientHeight - targetHeight - (clientHeight * 0.02);
+      let initialX = clientWidth - targetWidth - (clientWidth * 0.05);
+      let initialY = clientHeight - targetHeight - (clientHeight * 0.05);
 
       if (defaultX !== undefined) initialX = defaultX * clientWidth;
       if (defaultY !== undefined) initialY = defaultY * clientHeight;
@@ -71,7 +71,7 @@ export function WatermarkEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Edit Watermark</DialogTitle>
           <DialogDescription>
@@ -79,8 +79,8 @@ export function WatermarkEditorModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          <div className="space-y-4">
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium">Opacity: {Math.round(opacity * 100)}%</label>
             </div>
@@ -96,7 +96,7 @@ export function WatermarkEditorModal({
           <div
             ref={containerRef}
             className="relative w-full aspect-[3/2] bg-muted rounded-md overflow-hidden select-none"
-            style={{ touchAction: 'none' }}
+            style={{ touchAction: 'none', maxHeight: '320px' }}
           >
             <Image
               src="https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop"
