@@ -10,11 +10,11 @@ import numpy as np
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ml.config import MLConfig, get_ml_config
+from app.ml.config import MLConfig
 from app.ml.matching.liveness import BasicLivenessDetector
 from app.ml.matching.pipeline import SelfieMatchPipeline
 from app.ml.matching.types import MatchStatus
-from app.ml.model_registry import ModelRegistry, get_model_registry
+from app.ml.model_registry import get_model_registry
 from app.ml.registry_bootstrap import register_default_model_loaders
 from app.models.event import Event
 from app.models.face_cluster import FaceCluster
@@ -87,14 +87,15 @@ async def test_full_pipeline_self_match_under_two_seconds(
         pytest.skip("SCRFD/quality/R100 weights missing or RUN_ML_TESTS!=1")
 
     monkeypatch.setenv("ML_DEVICE", "cpu")
-    monkeypatch.setenv("ML_DUAL_MODEL_ENABLED", "false")
-    monkeypatch.setenv("ML_EMBEDDING_MODEL", "r100")
     monkeypatch.setenv("ML_AGE_DETECTION_ENABLED", "false")
     monkeypatch.setenv("ML_SUNGLASSES_DETECTION_ENABLED", "false")
-    get_ml_config.cache_clear()
-    ModelRegistry.reset_for_tests()
     register_default_model_loaders()
     registry = get_model_registry()
+    config = MLConfig(
+        device="cpu",
+        age_detection_enabled=False,
+        sunglasses_detection_enabled=False,
+    )
 
     photographer = Photographer(
         email=f"ml008-live-{uuid.uuid4().hex[:8]}@example.com",
@@ -123,7 +124,6 @@ async def test_full_pipeline_self_match_under_two_seconds(
     await db_session.commit()
 
     image = load_bgr_image("single_face.jpg")
-    config = get_ml_config()
     pipeline = SelfieMatchPipeline(db_session, config=config, registry=registry)
 
     first = await pipeline.run(image, event.id)
@@ -162,7 +162,3 @@ async def test_full_pipeline_self_match_under_two_seconds(
     assert cluster.id in matched.matched_cluster_ids
     assert photo.id in matched.photo_ids
     assert elapsed < 2.0
-
-    get_ml_config.cache_clear()
-    registry.unload_all()
-    ModelRegistry.reset_for_tests()

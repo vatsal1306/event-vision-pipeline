@@ -255,11 +255,14 @@ def _l2_normalize(vector: np.ndarray) -> np.ndarray:
     return values / np.float32(norm)
 
 
-def _row_to_centroid(row: object) -> ClusterCentroid:
+def _row_to_centroid(row: Sequence[object]) -> ClusterCentroid:
     """Convert a SQLAlchemy row into a ``ClusterCentroid``."""
     cluster_id = row[0]
+    if not isinstance(cluster_id, uuid.UUID):
+        cluster_id = uuid.UUID(str(cluster_id))
     centroid = as_float32_vector(row[1])
-    secondary = as_float32_vector(row[2]) if row[2] is not None else None
+    secondary_raw = row[2]
+    secondary = as_float32_vector(secondary_raw) if secondary_raw is not None else None
     return ClusterCentroid(
         cluster_id=cluster_id,
         centroid=centroid,

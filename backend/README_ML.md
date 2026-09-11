@@ -224,7 +224,7 @@ Run age integration test separately from SCRFD tests if you see a Torch/Triton r
 
 | Module | Purpose |
 |--------|---------|
-| `embedding/arcface_r100.py` | Primary ArcFace R100 (PicSee normalization) |
+| `embedding/arcface_r100.py` | Primary ArcFace R100 (PicSee normalization). Weights stay loaded for the process — reconstructing IResNet after `close()` can hit a TORCH_LIBRARY namespace error. |
 | `embedding/adaface_vit_kprpe.py` | Secondary AdaFace VIT-KPRPE + DFA aligner |
 | `embedding/mobilefacenet.py` | TFLite CPU fallback when GPU OOM persists |
 | `embedding/dual_embedder.py` | Orchestrator — primary + optional secondary |
