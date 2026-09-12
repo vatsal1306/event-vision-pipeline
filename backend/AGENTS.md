@@ -153,7 +153,7 @@ class EventService:
 - Tasks are **thin** — they deserialize input, call a service method, and return a result.
 - Use `bind=True` and `self.retry()` for transient failures (network, S3 timeout). Set `max_retries`.
 - Use separate queues for different workload types: `photo_processing`, `face_processing`, `notifications`.
-- Do **not** run `face_processing` on the production app EC2. That host is CPU-only (`m6i.xlarge`): queues `photo_processing` and `notifications` only, Celery concurrency **2–3**. Face/ML workers are a later host.
+- Do **not** run `face_processing` on the production app EC2. That host is CPU-only (`m6i.xlarge`): queues `photo_processing` and `notifications` only, Celery concurrency **2–3**. Face/ML workers run on the on-demand GPU host (INF-009). GPU start/stop tasks stay on `photo_processing`.
 - Use Redis distributed locks (`redis.lock()`) for operations that must not run concurrently (e.g., clustering for the same event).
 
 ---

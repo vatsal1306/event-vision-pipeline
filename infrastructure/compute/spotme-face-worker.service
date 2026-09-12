@@ -1,0 +1,16 @@
+[Unit]
+Description=SpotMe face_processing Celery worker (GPU host)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/event-vision-pipeline/backend
+EnvironmentFile=/home/ubuntu/event-vision-pipeline/backend/.env
+ExecStart=/home/ubuntu/event-vision-pipeline/backend/.venv/bin/celery -A app.tasks.celery_app worker -Q face_processing -c 2 --loglevel=info
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

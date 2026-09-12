@@ -571,6 +571,11 @@ Wires detection, quality, embeddings, clustering, and selfie matching behind
 GPU EC2 start/stop is **INF-009**, not this story. Guests do not need GPU.
 Guest auth/selfie/gallery return `EVENT_NOT_READY` until Ready.
 
+### INF-009 (production GPU host)
+
+Console recipe: `infrastructure/compute/gpu-host.md`. App EC2 starts/stops
+`g4dn.xlarge` via `GpuHostService`. Laptop: leave `GPU_INSTANCE_ID` empty.
+
 Local worker (from `backend/`, with ML extra):
 
 ```bash

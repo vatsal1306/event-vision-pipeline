@@ -30,6 +30,9 @@ class FaceProcessingService:
     async def start_face_processing(self, event: Event) -> StartFaceProcessingResponse:
         """Mark the event processing and enqueue ``process_event_photos``.
 
+        Also kicks a CPU-queue task that starts the GPU EC2 when configured.
+        The HTTP caller does not wait for the instance to boot.
+
         Args:
             event: Photographer-owned event.
 
@@ -69,6 +72,9 @@ class FaceProcessingService:
         from app.tasks.face_tasks import process_event_photos
 
         process_event_photos.delay(str(event.id))
+        from app.tasks.gpu_host_tasks import ensure_gpu_host_running
+
+        ensure_gpu_host_running.delay()
         return StartFaceProcessingResponse(
             event_id=event.id,
             status=EventStatus.PROCESSING,

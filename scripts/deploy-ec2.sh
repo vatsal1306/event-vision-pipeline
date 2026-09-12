@@ -25,7 +25,7 @@ if docker compose -f docker-compose.prod.yml exec -T backend test -f alembic.ini
   echo "Running Alembic migrations..."
   docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
 else
-  echo "No alembic.ini yet (BE-003); skipping migrations."
+  echo "No alembic.ini yet; skipping migrations."
 fi
 
 docker image prune -f

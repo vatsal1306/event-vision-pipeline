@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from celery import Celery
 from celery.schedules import crontab
 
@@ -23,6 +25,7 @@ celery_app = Celery(
         "app.tasks.archival_tasks",
         "app.tasks.photo_tasks",
         "app.tasks.face_tasks",
+        "app.tasks.gpu_host_tasks",
     ],
 )
 
@@ -38,6 +41,7 @@ celery_app.conf.update(
         "app.tasks.notification_tasks.*": {"queue": "photo_processing"},
         "app.tasks.archival_tasks.*": {"queue": "photo_processing"},
         "app.tasks.face_tasks.*": {"queue": "face_processing"},
+        "app.tasks.gpu_host_tasks.*": {"queue": "photo_processing"},
     },
     beat_schedule={
         "check-archival": {
@@ -47,6 +51,10 @@ celery_app.conf.update(
         "send-archival-warnings": {
             "task": "app.tasks.archival_tasks.send_archival_warnings",
             "schedule": crontab(hour=10, minute=0),  # Daily at 10 AM IST
+        },
+        "stop-idle-gpu-host": {
+            "task": "app.tasks.gpu_host_tasks.stop_idle_gpu_host",
+            "schedule": timedelta(minutes=1),
         },
     },
 )

@@ -71,6 +71,7 @@ Work **backend** before **ML**. **Infra v2:** S3 + IAM in the cheap account; one
 | INF-006 | GH tests + SSH deploy                   | INF-005          | Done   |
 | INF-007 | Postgres dump to S3                     | INF-002, INF-005 |
 | INF-008 | Disk/SSH/S3 spend checks                | INF-005          |
+| INF-009 | On-demand GPU ML host start/stop        | INF-004, ML-009  |
 
 ## Suggested batches
 

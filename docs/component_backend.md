@@ -939,7 +939,7 @@ class EventDetail(BaseModel):
 
 **GET `/api/v1/events/{event_id}`** → Returns `EventDetail`
 
-**POST `/api/v1/events/{event_id}/start-face-processing`** → Photographer trigger (ML-009). Enqueues `face_processing`. Does not start on each tus upload.
+**POST `/api/v1/events/{event_id}/start-face-processing`** → Photographer trigger (ML-009). Enqueues `face_processing` and, in production, a CPU task that starts the GPU EC2 (INF-009). Does not wait for the GPU to boot. Does not start on each tus upload.
 
 **GET `/api/v1/events/{event_id}/face-processing-progress`** → Redis-backed bulk ML progress (ML-010): `pipeline_status`, photo/face counts, `eta_seconds`. Poll while `event.status` is `processing`.
 

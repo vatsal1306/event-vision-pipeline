@@ -19,6 +19,9 @@ Manual console setup for the **compute AWS account**. S3 lives in the **storage 
 
 Use separate AWS CLI profiles locally, e.g. `platform` (storage) and `compute` (this account).
 
+**GPU ML host:** separate instance in this same account. Console steps:
+`infrastructure/compute/gpu-host.md` (INF-009).
+
 ---
 
 ## 1. Security group
@@ -184,9 +187,9 @@ You should see the storage-account IAM user ARN and an empty bucket listing.
 | Avoid | Why |
 |-------|-----|
 | `t3.xlarge` / `t4g` | Burstable credits collapse during 15k-file uploads |
-| GPU / `g4dn` instances | CPU-only stack; ML is a later machine |
+| GPU / `g4dn` on **this** instance | CPU-only stack; ML is `platform-ml-gpu` (INF-009) |
 | RDS / ElastiCache | Postgres + Redis run in Docker on this box |
-| Opening 5432/6379 | Database must not be internet-facing |
+| Opening 5432/6379 to `0.0.0.0/0` | Allow those ports **only** from `platform-ml-gpu-sg` |
 | SSH open to `0.0.0.0/0` | Brute-force risk; restrict to your IP |
 | Putting S3 keys in git | Use `~/event-vision-pipeline/.env` only |
 
