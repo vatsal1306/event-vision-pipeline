@@ -183,4 +183,3 @@ async def test_guest_request_auth_event_not_ready(
     )
     assert response.status_code == 403
     assert response.json()["code"] == "EVENT_NOT_READY"
-

@@ -167,4 +167,3 @@ async def test_event_ready_notifies_after_faces_processed(db_session: AsyncSessi
     await db_session.refresh(event)
     assert event.status == EventStatus.READY
     mock_delay.assert_called_once_with(str(event.id))
-
