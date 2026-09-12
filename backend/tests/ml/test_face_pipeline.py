@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import uuid
 from collections.abc import AsyncIterator
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
@@ -19,6 +20,7 @@ from app.ml.config import MLConfig
 from app.ml.detection.types import DetectedFace, FaceCrop
 from app.ml.embedding.types import EmbeddingResult
 from app.ml.exceptions import ClusteringLockBusyError
+from app.ml.matching.types import MatchStatus
 from app.ml.pipeline import FaceService, ProcessingResult
 from app.ml.quality.types import QualityResult
 from app.models.enums import EventStatus, ProcessingStatus
@@ -319,3 +321,27 @@ async def test_event_ready_only_after_faces_and_proxies(db_session: AsyncSession
         await service.update_event_processing_status(event.id)
     await db_session.refresh(event)
     assert event.status == EventStatus.READY
+
+
+@pytest.mark.asyncio
+async def test_match_selfie_asyncio_timeout_returns_error(db_session: AsyncSession) -> None:
+    """Python 3.10 wait_for raises asyncio.TimeoutError, not builtin TimeoutError."""
+    service = FaceService(
+        db_session,
+        config=MLConfig(selfie_match_timeout_seconds=0.01),
+        detector=_FakeDetector(),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_FakeQuality(),  # type: ignore[arg-type]
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
+    )
+
+    async def _hang(*args: object, **kwargs: object) -> None:
+        await asyncio.sleep(1)
+
+    with patch("app.ml.pipeline.SelfieMatchPipeline.run", new=AsyncMock(side_effect=_hang)):
+        result = await service.match_selfie(
+            np.zeros((8, 8, 3), dtype=np.uint8),
+            uuid.uuid4(),
+        )
+
+    assert result.status == MatchStatus.ERROR

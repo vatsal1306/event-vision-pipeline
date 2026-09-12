@@ -502,7 +502,7 @@ Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/m
 |--------|---------|
 | `matching/liveness.py` | Heuristics: face area 15–85%, det score ≥ 0.7, Laplacian ≥ 50, HSV saturation > 20 |
 | `matching/selfie_matcher.py` | Cosine vs centroids; pgvector when cluster count ≥ `ML_SELFIE_PGVECTOR_MIN_CLUSTERS` (500) |
-| `matching/pipeline.py` | Detect once → liveness → crop → quality → embed → match → photo IDs |
+| `matching/pipeline.py` | Detect once → liveness → crop → quality → embed (thread) → match → photo IDs |
 
 ### Behaviour vs original story / component doc
 
@@ -515,6 +515,7 @@ Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/m
 | Photo IDs | Matcher returns clusters. Pipeline/FaceService loads distinct `face_embeddings.photo_id`. |
 | HNSW | BE-003 index is on `face_embeddings.embedding`, **not** `face_clusters.centroid`. Large events still use `centroid.cosine_distance` (exact for the candidate LIMIT). |
 | App EC2 | `ML_FACE_PROCESSING_ENABLED` defaults **false** so the guest API does not load PyTorch. Set **true** locally. |
+| Selfie timeout | Default `ML_SELFIE_MATCH_TIMEOUT_SECONDS=180`. GPU can lower this to ~5. FastAPI must load weights itself (Celery already having them loaded does not help). Inference runs in a worker thread so a timeout cannot cancel a mid-flight Postgres query. On timeout the API returns `status=error`, not HTTP 500. |
 | Layout | `matching/liveness.py`, not `app/ml/liveness/basic_liveness.py`. |
 
 ### Local guest selfie
@@ -523,7 +524,11 @@ Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/m
 # backend/.env
 ML_FACE_PROCESSING_ENABLED=true
 ML_DEVICE=cpu
+# optional; default is 180s for local CPU first-load
+# ML_SELFIE_MATCH_TIMEOUT_SECONDS=180
 ```
+
+Restart **uvicorn** after changing these. The first selfie in the API process loads SCRFD + blur/YPR + R100/AdaFace and can take a minute. Retry if the first call still times out.
 
 ```bash
 cd backend

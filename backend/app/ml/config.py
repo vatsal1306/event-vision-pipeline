@@ -71,7 +71,9 @@ class MLConfig(BaseSettings):
     clustering_lock_retry_attempts: int = 6
     clustering_lock_retry_base_delay_seconds: float = 0.25
     face_pipeline_lock_ttl_seconds: int = 7200
-    selfie_match_timeout_seconds: float = 5.0
+    # GPU target is ~5s. FastAPI loads models separately from Celery; CPU
+    # first-load on Apple Silicon can take well over a minute.
+    selfie_match_timeout_seconds: float = 180.0
     orphan_crop_similarity_threshold: float = 0.55
     orphan_cluster_merge_threshold: float = 0.55
     orphan_cluster_max_size: int = 3

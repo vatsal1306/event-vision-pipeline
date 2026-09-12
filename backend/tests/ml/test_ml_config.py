@@ -92,6 +92,11 @@ def test_ml_config_reads_env_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.face_processing_enabled is True
 
 
+def test_selfie_match_timeout_default_is_cpu_friendly() -> None:
+    """Field default is 180s so local FastAPI first-load is not a 5s 500."""
+    assert MLConfig.model_fields["selfie_match_timeout_seconds"].default == 180.0
+
+
 def test_resolve_model_path_relative_and_absolute() -> None:
     """Model paths resolve relative to backend/ unless absolute."""
     config = MLConfig(models_dir="models")

@@ -283,7 +283,7 @@ class FaceService:
         timeout = self._config.selfie_match_timeout_seconds
         try:
             return await asyncio.wait_for(pipeline.run(image_bgr, event_id), timeout=timeout)
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):
             logger.error(
                 "selfie_match_timeout",
                 event_id=str(event_id),
