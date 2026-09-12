@@ -238,7 +238,7 @@ ML code lives in `backend/app/ml/` (see `docs/component_ai_ml.md` and `backend/R
 | Redis | No backup |
 | Compose config | Git |
 
-Restore: new EC2 + compose + `pg_restore` + same IAM/S3.
+Restore: new EC2 + compose + `psql` from `.sql.gz` dump + same IAM/S3. See `infrastructure/README.md` § Step 7.
 
 ---
 

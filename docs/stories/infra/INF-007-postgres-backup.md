@@ -6,7 +6,7 @@
 
 ## Goal
 
-Daily `pg_dump | gzip` to `s3://…/backups/pg/YYYY-MM-DD.sql.gz` using the app IAM user. Retain 14 days. Document restore onto a new m6i.xlarge.
+Daily `pg_dump | gzip` to `s3://…/backups/pg/YYYY-MM-DD.sql.gz` using the app IAM user. Retain 7 days. Document restore onto a new m6i.xlarge.
 
 ## References
 
@@ -14,5 +14,5 @@ Daily `pg_dump | gzip` to `s3://…/backups/pg/YYYY-MM-DD.sql.gz` using the app 
 
 ## Acceptance
 
-- [ ] Cron script in repo
-- [ ] Restore steps written
+- [x] Cron script in repo (`scripts/postgres-backup.sh`, `scripts/install-postgres-backup-cron.sh`)
+- [x] Restore steps written (`infrastructure/README.md` § Step 7)

@@ -313,6 +313,125 @@ AWS allows two active keys per user; for zero-downtime rotation, create a second
 
 ---
 
+## Step 7 — Postgres backups to S3 (INF-007)
+
+Daily `pg_dump | gzip` from the Docker Postgres container to the **originals bucket** under `backups/pg/YYYY-MM-DD.sql.gz`. Uses the same IAM user credentials as tusd/FastAPI (`~/event-vision-pipeline/.env`). The script prunes objects older than **7 days**.
+
+### Why this S3 tier
+
+Backups live in the **originals bucket on S3 Standard** (no separate Glacier/IA bucket or prefix rule).
+
+| Factor | Choice |
+|--------|--------|
+| Retention | 7 days — script deletes expired keys; objects never age long enough for IA savings to matter |
+| Restore likelihood | Very low — Standard avoids IA/Glacier retrieval fees if you ever need a dump |
+| Lifecycle | Bucket-wide IA transition at 7 days applies to `originals/` uploads, not a concern for deleted backups |
+| Cost (ballpark) | 7 × ~100 MB dump ≈ 0.7 GB × $0.023/GB-month ≈ **$0.02/month** storage; ~30 PUT + ~30 DELETE/month ≈ **$0.00** |
+
+Glacier or Intelligent-Tiering would add retrieval cost and complexity for no real savings on sub-GB, week-long objects.
+
+### Schedule and impact on production
+
+| Job | Time (IST) | Load |
+|-----|------------|------|
+| Celery archival | 02:00 | S3 transitions + DB updates |
+| **Postgres backup** | **03:30** | `pg_dump` read snapshot + one S3 PUT |
+| Celery archival warnings | 10:00 | Email notifications |
+
+`pg_dump` uses a consistent MVCC snapshot — normal reads/writes continue. At 03:30 IST there is no meaningful user traffic, and the backup runs **90 minutes after** archival starts so the two jobs do not overlap.
+
+**Dump format:** plain SQL, gzip-compressed (`.sql.gz`). Restore with `psql`, not `pg_restore`. Simple, debuggable, and fine at current DB sizes. Custom format (`pg_dump -Fc`) is better only if dumps grow past ~10 GB or you need parallel restore.
+
+### One-time setup on the EC2
+
+Prerequisites: Docker Compose stack running, AWS CLI installed (`sudo apt install -y awscli`), `.env` filled with `AWS_*` and `S3_BUCKET_ORIGINALS`.
+
+```bash
+cd ~/event-vision-pipeline
+git pull
+chmod +x scripts/postgres-backup.sh scripts/install-postgres-backup-cron.sh
+./scripts/install-postgres-backup-cron.sh
+```
+
+This installs a `crontab` entry for **22:00 UTC (03:30 IST)** daily. Backup filenames use the IST calendar date. Logs: `~/event-vision-pipeline/logs/pg-backup.log`.
+
+### Manual test (run once after setup)
+
+```bash
+cd ~/event-vision-pipeline
+./scripts/postgres-backup.sh
+```
+
+Verify:
+
+```bash
+# Log should end with "Backup complete"
+tail -20 ~/event-vision-pipeline/logs/pg-backup.log
+
+# Object exists in S3
+export $(grep -E '^AWS_|^S3_BUCKET_ORIGINALS=' .env | xargs)
+TODAY=$(TZ=Asia/Kolkata date +%Y-%m-%d)
+aws s3 ls "s3://${S3_BUCKET_ORIGINALS}/backups/pg/${TODAY}.sql.gz"
+```
+
+Optional — confirm the dump is valid SQL:
+
+```bash
+aws s3 cp "s3://${S3_BUCKET_ORIGINALS}/backups/pg/${TODAY}.sql.gz" - | gunzip | head -20
+```
+
+You should see `PostgreSQL database dump` and `CREATE`/`SET` statements.
+
+### Restore onto a new m6i.xlarge
+
+Use this if the app EC2 is lost or corrupted. Assumes you have the same `.env` secrets (especially `POSTGRES_PASSWORD`) and S3 IAM keys.
+
+1. **Provision EC2** — follow `infrastructure/compute/README.md` (m6i.xlarge, Ubuntu 24.04, 200 GB gp3, EIP, security group, Docker).
+
+2. **Clone repo and configure `.env`** — same `POSTGRES_PASSWORD` as the instance that created the backup (or plan to reset app secrets after restore).
+
+   ```bash
+   git clone <repo-url> ~/event-vision-pipeline
+   cd ~/event-vision-pipeline
+   cp .env.prod.example .env
+   # Fill AWS_*, S3_BUCKET_*, POSTGRES_PASSWORD, SECRET_KEY, URLs, etc.
+   chmod 600 .env
+   ```
+
+3. **Start Postgres only** (empty database):
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d db
+   # Wait until healthy
+   docker compose -f docker-compose.prod.yml ps db
+   ```
+
+4. **Download and restore the latest backup** (replace date if needed):
+
+   ```bash
+   export $(grep -E '^AWS_|^S3_BUCKET_ORIGINALS=' .env | xargs)
+   RESTORE_DATE=2026-09-12   # or: aws s3 ls s3://$S3_BUCKET_ORIGINALS/backups/pg/ | tail -1
+
+   aws s3 cp "s3://${S3_BUCKET_ORIGINALS}/backups/pg/${RESTORE_DATE}.sql.gz" /tmp/restore.sql.gz
+   gunzip -c /tmp/restore.sql.gz | docker compose -f docker-compose.prod.yml exec -T db \
+     psql -U postgres -d photoshare
+   rm -f /tmp/restore.sql.gz
+   ```
+
+5. **Bring up the full stack**:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+6. **Smoke test** — `curl -s https://<your-domain>/health` and log in as a photographer.
+
+7. **Re-install backup cron** on the new host: `./scripts/install-postgres-backup-cron.sh`.
+
+**Note:** Redis is not backed up (by design). Celery queues and OTP codes in Redis are ephemeral — acceptable after a disaster recovery.
+
+---
+
 ## Verify bootstrap and backend status
 
 Use these commands to see what has been applied and which backends exist.
