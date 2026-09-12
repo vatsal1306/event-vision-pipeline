@@ -47,7 +47,7 @@ def decode_photo_bytes(
 def _decode_heic(image_bytes: bytes) -> np.ndarray | None:
     """Decode HEIC/HEIF bytes to BGR using pillow-heif."""
     import cv2
-    from pillow_heif import read_heif
+    from pillow_heif import read_heif  # type: ignore[attr-defined]
 
     try:
         heif_file = read_heif(image_bytes)
