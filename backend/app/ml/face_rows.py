@@ -29,7 +29,7 @@ class FaceCropWithMeta:
 
 def embedding_vector_to_list(vector: np.ndarray) -> list[float]:
     """Convert a float32 embedding array to a pgvector-compatible list."""
-    return vector.astype(float).tolist()
+    return [float(value) for value in np.asarray(vector, dtype=np.float64).ravel()]
 
 
 def build_face_embedding_row(

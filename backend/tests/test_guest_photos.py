@@ -125,18 +125,27 @@ async def test_upload_selfie_matched(
 async def test_upload_selfie_no_match(
     db_client: AsyncClient,
     guest_token: tuple[str, Any, Any, Any, Any],
+    monkeypatch: Any,
 ) -> None:
     token, event, guest, photo, cluster = guest_token
 
-    # Not mocking FaceService here, so it returns the stub 'no_match'
-    file_content = b"fake_image_data"
-    files = {"file": ("selfie.jpg", file_content, "image/jpeg")}
+    # Stub path when ML is off. Local `.env` may set ML_FACE_PROCESSING_ENABLED=true,
+    # which would decode fake bytes as invalid_image instead.
+    monkeypatch.setenv("ML_FACE_PROCESSING_ENABLED", "false")
+    from app.ml.config import get_ml_config
 
-    response = await db_client.post(
-        f"/api/v1/event/{event.slug}/selfie",
-        headers={"Authorization": f"Bearer {token}"},
-        files=files,
-    )
+    get_ml_config.cache_clear()
+    try:
+        file_content = b"fake_image_data"
+        files = {"file": ("selfie.jpg", file_content, "image/jpeg")}
+
+        response = await db_client.post(
+            f"/api/v1/event/{event.slug}/selfie",
+            headers={"Authorization": f"Bearer {token}"},
+            files=files,
+        )
+    finally:
+        get_ml_config.cache_clear()
 
     assert response.status_code == 200
     data = response.json()

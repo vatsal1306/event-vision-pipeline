@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-from typing import TypeVar
+from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
+from typing import Any, TypeVar
 
 T = TypeVar("T")
-DownloadFn = Callable[[T], Awaitable[bytes]]
+DownloadFn = Callable[[T], Coroutine[Any, Any, bytes]]
 
 
 async def iter_prefetched(

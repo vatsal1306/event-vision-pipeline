@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, cast
 from uuid import UUID
 
 import redis.asyncio as redis
@@ -155,7 +157,7 @@ class ProcessingProgressTracker:
 
     async def read(self) -> ProcessingProgress | None:
         """Load the hash, or ``None`` if it has not been written yet."""
-        raw = await self._redis.hgetall(self._key)
+        raw = await cast(Awaitable[dict[str, str]], self._redis.hgetall(self._key))
         if not raw:
             return None
         started_raw = raw.get("started_at") or None
@@ -215,5 +217,5 @@ class ProcessingProgressTracker:
             "started_at": started.isoformat(),
             "eta_seconds": "" if eta_seconds is None else str(eta_seconds),
         }
-        await self._redis.hset(self._key, mapping=mapping)
-        await self._redis.expire(self._key, self._ttl_seconds)
+        await cast(Awaitable[Any], self._redis.hset(self._key, mapping=mapping))
+        await cast(Awaitable[bool], self._redis.expire(self._key, self._ttl_seconds))
