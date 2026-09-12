@@ -182,6 +182,9 @@ backend/**/*.pkl
 backend/.env
 backend/.data
 
+# EC2 backup logs
+logs/
+
 # uv lockfile is committed; virtual env is not
 .venv/
 

@@ -53,7 +53,7 @@ async def update_profile(
 ) -> PhotographerProfile:
     """Update studio name, phone, logo, or watermark."""
     update_data = request.model_dump(exclude_unset=True)
-    
+
     if "studio_name" in update_data:
         photographer.studio_name = update_data["studio_name"]
     if "phone" in update_data and update_data["phone"] != photographer.phone:
@@ -63,7 +63,7 @@ async def update_profile(
         photographer.logo_url = update_data["logo_url"]
     if "watermark_url" in update_data:
         photographer.watermark_url = update_data["watermark_url"]
-        
+
     await db.commit()
     await db.refresh(photographer)
 
@@ -175,7 +175,7 @@ async def upload_watermark(
         photographer.watermark_y = y
     if opacity is not None:
         photographer.watermark_opacity = opacity
-        
+
     await db.commit()
 
     url = await storage.generate_presigned_url(settings.s3_bucket_assets, key)

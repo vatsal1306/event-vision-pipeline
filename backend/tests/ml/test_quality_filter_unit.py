@@ -217,3 +217,55 @@ def test_selfie_skips_age_and_uses_stricter_ypr() -> None:
     assert selfie_result.passed is False
     assert selfie_result.reject_reason == "ypr"
     assert selfie_result.metadata["ypr_threshold_override"] is True
+
+
+def test_quality_filter_all_gates_pass() -> None:
+    """A sharp, frontal, adult crop should pass with sunglasses as a soft flag only."""
+    blur_detector = Mock()
+    blur_detector.is_blurry.return_value = (False, 0.12)
+
+    ypr_predictor = Mock()
+    ypr_predictor.backend = "3ddfa"
+    ypr_predictor.estimate.return_value = ((4.0, 3.0, 1.0), False, False)
+
+    age_detector = Mock()
+    age_detector.estimate.return_value = (28, 0.9)
+
+    sunglasses_detector = Mock()
+    sunglasses_detector.available = True
+    sunglasses_detector.detect.return_value = (False, 0.05)
+
+    quality_filter = QualityFilter(
+        blur_detector=blur_detector,
+        ypr_predictor=ypr_predictor,
+        age_detector=age_detector,
+        sunglasses_detector=sunglasses_detector,
+    )
+    result = quality_filter.filter(_make_crop())
+    assert result.passed is True
+    assert result.reject_reason is None
+    assert result.age == 28
+
+
+def test_age_error_passes_on_error() -> None:
+    """Age-model crashes must not drop a usable face."""
+    blur_detector = Mock()
+    blur_detector.is_blurry.return_value = (False, 0.1)
+
+    ypr_predictor = Mock()
+    ypr_predictor.backend = "3ddfa"
+    ypr_predictor.estimate.return_value = ((1.0, 2.0, 3.0), False, False)
+
+    age_detector = Mock()
+    age_detector.estimate.side_effect = RuntimeError("vit missing")
+
+    quality_filter = QualityFilter(
+        blur_detector=blur_detector,
+        ypr_predictor=ypr_predictor,
+        age_detector=age_detector,
+        sunglasses_detector=None,
+        sunglasses_detection_enabled=False,
+    )
+    result = quality_filter.filter(_make_crop())
+    assert result.passed is True
+    assert result.metadata["age_pass_on_error"] is True

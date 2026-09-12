@@ -939,6 +939,10 @@ class EventDetail(BaseModel):
 
 **GET `/api/v1/events/{event_id}`** → Returns `EventDetail`
 
+**POST `/api/v1/events/{event_id}/start-face-processing`** → Photographer trigger (ML-009). Enqueues `face_processing`. Does not start on each tus upload.
+
+**GET `/api/v1/events/{event_id}/face-processing-progress`** → Redis-backed bulk ML progress (ML-010): `pipeline_status`, photo/face counts, `eta_seconds`. Poll while `event.status` is `processing`.
+
 **PUT `/api/v1/events/{event_id}`** → Partial update (name, dates, description, type)
 
 **DELETE `/api/v1/events/{event_id}`** → Soft delete, frees storage

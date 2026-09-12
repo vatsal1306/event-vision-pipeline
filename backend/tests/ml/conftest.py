@@ -12,10 +12,26 @@ import pytest
 from app.ml.config import get_ml_config
 from app.ml.model_registry import ModelRegistry, get_model_registry
 
+EMBEDDING_DIM = 512
+
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 PICSEE_FACE_CROPPER = Path(
     "/Users/vatsal/Documents/picsee/tmp/code/pix-workers/face_rec_service/embedding/utils/face_cropper.py"
 )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Mark ``tests/ml/integration`` as slow model-backed tests.
+
+    GitHub CI keeps using ``-m "not ml"`` so these never run on the CPU runner.
+    Local ``make test`` still collects them; they skip unless models exist.
+    """
+    del config
+    for item in items:
+        path = Path(str(item.fspath))
+        if "tests/ml/integration" in path.as_posix():
+            item.add_marker(pytest.mark.ml)
+            item.add_marker(pytest.mark.slow)
 
 
 def _register_default_loaders() -> None:
@@ -108,10 +124,52 @@ def embedding_models_available() -> bool:
     return r100_model_available()
 
 
+def _l2_normalize(vector: np.ndarray) -> np.ndarray:
+    """Return a unit-length float32 vector."""
+    norm = float(np.linalg.norm(vector))
+    if norm == 0.0:
+        raise ValueError("Cannot L2-normalize a zero vector.")
+    return (vector / norm).astype(np.float32)
+
+
 @pytest.fixture
 def fixtures_dir() -> Path:
     """Path to ``tests/ml/fixtures``."""
     return FIXTURES_DIR
+
+
+@pytest.fixture
+def synthetic_embedding() -> np.ndarray:
+    """Random 512-d L2-normalized embedding."""
+    rng = np.random.default_rng(123)
+    return _l2_normalize(rng.standard_normal(EMBEDDING_DIM).astype(np.float32))
+
+
+@pytest.fixture
+def well_separated_embeddings() -> np.ndarray:
+    """Three clusters of five embeddings each, clearly separated in 512-d."""
+    rng = np.random.default_rng(7)
+    rows: list[np.ndarray] = []
+    for _cluster in range(3):
+        center = _l2_normalize(rng.standard_normal(EMBEDDING_DIM).astype(np.float32))
+        for _ in range(5):
+            noise = rng.standard_normal(EMBEDDING_DIM).astype(np.float32) * 0.001
+            rows.append(_l2_normalize(center + noise))
+    return np.stack(rows, axis=0)
+
+
+@pytest.fixture
+def overlapping_embeddings() -> np.ndarray:
+    """Two nearby clusters that clustering may merge depending on eps."""
+    rng = np.random.default_rng(11)
+    first = _l2_normalize(rng.standard_normal(EMBEDDING_DIM).astype(np.float32))
+    second = _l2_normalize(first + rng.standard_normal(EMBEDDING_DIM).astype(np.float32) * 0.2)
+    rows: list[np.ndarray] = []
+    for center in (first, second):
+        for _ in range(4):
+            noise = rng.standard_normal(EMBEDDING_DIM).astype(np.float32) * 0.001
+            rows.append(_l2_normalize(center + noise))
+    return np.stack(rows, axis=0)
 
 
 @pytest.fixture

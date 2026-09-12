@@ -1,5 +1,8 @@
 """Tests for notification services and tasks."""
 
+from __future__ import annotations
+
+import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -93,7 +96,7 @@ async def test_event_service_triggers_notification_task(db_session: AsyncSession
         slug=f"trigger-event-{unique}",
         total_photos=1,
         processed_photos=0,
-        status=EventStatus.PROCESSING,
+        status=EventStatus.UPLOADING,
     )
     db_session.add(event)
     await db_session.flush()
@@ -118,5 +121,49 @@ async def test_event_service_triggers_notification_task(db_session: AsyncSession
         await event_service.update_event_processing_status(event.id)
 
         await db_session.refresh(event)
-        assert event.status == EventStatus.READY
-        mock_delay.assert_called_once_with(str(event.id))
+        assert event.status == EventStatus.UPLOADING
+        mock_delay.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_event_ready_notifies_after_faces_processed(db_session: AsyncSession) -> None:
+    """Ready + photographer email only after faces_processed and proxies are done."""
+    unique = uuid.uuid4().hex[:8]
+    photographer = Photographer(
+        email=f"facesready_{unique}@test.com",
+        password_hash="hash",
+        studio_name="Ready Studio",
+        phone=f"+919977{unique[:4]}",
+        phone_verified=True,
+    )
+    db_session.add(photographer)
+    await db_session.flush()
+    event = Event(
+        photographer_id=photographer.id,
+        name=f"Ready Event {unique}",
+        slug=f"ready-event-{unique}",
+        total_photos=1,
+        processed_photos=1,
+        status=EventStatus.PROCESSING,
+    )
+    db_session.add(event)
+    await db_session.flush()
+    photo = Photo(
+        event_id=event.id,
+        original_s3_key=f"orig_{unique}.jpg",
+        filename="test.jpg",
+        mime_type="image/jpeg",
+        file_size_bytes=100,
+        processing_status=ProcessingStatus.COMPLETED,
+        faces_processed=True,
+        tus_upload_id=f"ready_upload_{unique}",
+    )
+    db_session.add(photo)
+    await db_session.flush()
+
+    with patch("app.tasks.notification_tasks.notify_processing_complete_task.delay") as mock_delay:
+        await EventService(db_session).update_event_processing_status(event.id)
+
+    await db_session.refresh(event)
+    assert event.status == EventStatus.READY
+    mock_delay.assert_called_once_with(str(event.id))

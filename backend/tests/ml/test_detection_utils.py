@@ -7,10 +7,37 @@ import pytest
 
 pytest.importorskip("skimage")
 
+from app.ml.detection.face_cropper import FaceCropper
 from app.ml.detection.types import DetectedFace
 from app.ml.face_preprocess import estimate_norm, norm_crop
 
 pytestmark = pytest.mark.ml
+
+
+class _EmptyDetector:
+    """Stand-in for SCRFD that finds no faces."""
+
+    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+        del image
+        return []
+
+
+def test_scrfd_no_face_mocked_returns_empty_list() -> None:
+    """A detector that finds nobody must yield no crops."""
+    image = np.zeros((64, 64, 3), dtype=np.uint8)
+    cropper = FaceCropper(detector=_EmptyDetector())  # type: ignore[arg-type]
+    assert cropper.detect_and_crop_all(image) == []
+    assert cropper.detect_and_crop_primary(image) is None
+    assert cropper.crop_all(image, []) == []
+    assert cropper.crop_primary(image, []) is None
+
+
+def test_cropper_without_detector_raises() -> None:
+    """detect_and_crop_all is invalid until a detector is bound."""
+    cropper = FaceCropper()
+    image = np.zeros((32, 64, 3), dtype=np.uint8)
+    with pytest.raises(ValueError, match="requires a SCRFDDetector"):
+        cropper.detect_and_crop_all(image)
 
 
 def test_estimate_norm_returns_2x3_matrix() -> None:

@@ -1,0 +1,551 @@
+"""FaceService orchestration tests (ML-009)."""
+
+from __future__ import annotations
+
+import asyncio
+import io
+import uuid
+from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock, patch
+
+import numpy as np
+import pytest
+import pytest_asyncio
+from PIL import Image
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.ml.clustering.locks import FACE_PIPELINE_LOCK_KEY_TEMPLATE, EventClusteringLock
+from app.ml.config import MLConfig
+from app.ml.detection.types import DetectedFace, FaceCrop
+from app.ml.embedding.types import EmbeddingResult
+from app.ml.exceptions import ClusteringLockBusyError
+from app.ml.matching.types import MatchStatus
+from app.ml.pipeline import FaceService, ProcessingResult
+from app.ml.quality.types import QualityResult
+from app.models.enums import EventStatus, ProcessingStatus
+from app.models.event import Event
+from app.models.face_embedding import FaceEmbedding
+from app.models.photo import Photo
+from app.models.photographer import Photographer
+from app.services.event_service import EventService
+
+pytestmark = pytest.mark.ml
+
+
+def _jpeg_bytes() -> bytes:
+    """Return a tiny valid JPEG."""
+    image = Image.new("RGB", (32, 32), color="white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
+def _unit_vector(seed: int) -> np.ndarray:
+    """Build a deterministic L2-normalised 512-d vector."""
+    rng = np.random.default_rng(seed)
+    vector = rng.standard_normal(512).astype(np.float32)
+    return vector / np.linalg.norm(vector)
+
+
+class _EmptyDetector:
+    """Return no detections so process_photo stores zero faces."""
+
+    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+        del image
+        return []
+
+
+class _FakeDetector:
+    """Return one synthetic face for every image."""
+
+    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+        return [
+            DetectedFace(
+                bbox=np.array([0.1, 0.1, 0.2, 0.2], dtype=np.float32),
+                bbox_pixel=np.array([1.0, 1.0, 10.0, 10.0], dtype=np.float32),
+                landmarks=np.zeros((5, 2), dtype=np.float32),
+                score=0.95,
+            )
+        ]
+
+
+class _FailingDetector:
+    """Raise on detect so the service can skip the photo."""
+
+    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+        raise RuntimeError("detector exploded")
+
+
+class _FakeCropper:
+    """Wrap detections as 112×112 zero crops."""
+
+    def crop_all(
+        self,
+        image: np.ndarray,
+        detected_faces: list[DetectedFace],
+        source_photo_id: uuid.UUID | None = None,
+    ) -> list[FaceCrop]:
+        return [
+            FaceCrop(
+                aligned_face=np.zeros((112, 112, 3), dtype=np.uint8),
+                source_detection=face,
+                alignment_matrix=None,
+                source_photo_id=source_photo_id,
+            )
+            for face in detected_faces
+        ]
+
+
+class _FakeQuality:
+    """Pass every crop with dummy YPR."""
+
+    def filter(self, face_crop: FaceCrop, **kwargs: object) -> QualityResult:
+        return QualityResult(
+            passed=True,
+            reject_reason=None,
+            blur_score=0.1,
+            ypr=(1.0, 2.0, 3.0),
+            age=None,
+            has_sunglasses=False,
+        )
+
+
+class _FakeEmbedder:
+    """Return a fixed primary embedding."""
+
+    def embed_batch(self, faces: list[np.ndarray]) -> list[EmbeddingResult]:
+        vector = _unit_vector(1)
+        return [
+            EmbeddingResult(
+                primary=vector,
+                secondary=None,
+                model_primary="r100",
+                model_secondary=None,
+            )
+            for _ in faces
+        ]
+
+
+class _RecordingEmbedder(_FakeEmbedder):
+    """Record GPU batch sizes flushed by the bulk pipeline."""
+
+    def __init__(self) -> None:
+        self.batch_sizes: list[int] = []
+
+    def embed_batch(self, faces: list[np.ndarray]) -> list[EmbeddingResult]:
+        self.batch_sizes.append(len(faces))
+        return super().embed_batch(faces)
+
+
+class _RejectQuality:
+    """Fail every crop so the pipeline stores quality_passed=false rows."""
+
+    def filter(self, face_crop: FaceCrop, **kwargs: object) -> QualityResult:
+        return QualityResult(
+            passed=False,
+            reject_reason="blur",
+            blur_score=0.9,
+            ypr=(10.0, 5.0, 1.0),
+            age=None,
+            has_sunglasses=False,
+        )
+
+
+class _NthFailDetector:
+    """Crash on a chosen detect call, succeed otherwise."""
+
+    def __init__(self, fail_on: int) -> None:
+        self.fail_on = fail_on
+        self.calls = 0
+        self._ok = _FakeDetector()
+
+    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+        self.calls += 1
+        if self.calls == self.fail_on:
+            raise RuntimeError("detector exploded")
+        return self._ok.detect(image)
+
+
+class _FakeStorage:
+    """Return a tiny JPEG for every S3/MinIO get."""
+
+    async def get_object(self, bucket: str, key: str) -> bytes:
+        return _jpeg_bytes()
+
+
+async def _seed_event(db_session: AsyncSession) -> tuple[Event, Photo]:
+    """Insert photographer, event, and one photo."""
+    photographer = Photographer(
+        email=f"ml009-{uuid.uuid4().hex[:8]}@example.com",
+        password_hash="hash",
+        studio_name="ML009 Studio",
+        phone=f"+91{uuid.uuid4().hex[:10]}",
+        phone_verified=True,
+    )
+    db_session.add(photographer)
+    await db_session.flush()
+    event = Event(
+        photographer_id=photographer.id,
+        name="ML009 Event",
+        slug=f"ml009-{uuid.uuid4().hex[:8]}",
+        status=EventStatus.UPLOADING,
+    )
+    db_session.add(event)
+    await db_session.flush()
+    photo = Photo(
+        event_id=event.id,
+        filename="face.jpg",
+        original_s3_key=f"originals/{event.id}/face.jpg",
+        file_size_bytes=1024,
+        mime_type="image/jpeg",
+        processing_status=ProcessingStatus.COMPLETED,
+    )
+    db_session.add(photo)
+    await db_session.commit()
+    return event, photo
+
+
+def _face_service(
+    db_session: AsyncSession,
+    redis_client: object,
+    *,
+    detector: object | None = None,
+) -> FaceService:
+    """Build FaceService with injectable fakes."""
+    return FaceService(
+        db_session,
+        redis_client=redis_client,  # type: ignore[arg-type]
+        detector=detector or _FakeDetector(),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_FakeQuality(),  # type: ignore[arg-type]
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
+    )
+
+
+@pytest_asyncio.fixture
+async def redis_client() -> AsyncIterator:
+    """Real Redis client flushed for lock tests."""
+    from app.core.redis_client import create_redis_client
+
+    client = create_redis_client()
+    try:
+        await client.ping()
+    except Exception as exc:  # noqa: BLE001
+        await client.aclose()
+        pytest.skip(f"Redis unavailable: {exc}")
+    await client.flushdb()
+    try:
+        yield client
+    finally:
+        await client.flushdb()
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_process_photo_stores_embeddings(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """process_photo returns face count and embedding IDs."""
+    event, photo = await _seed_event(db_session)
+    service = _face_service(db_session, redis_client)
+    result = await service.process_photo(photo.id, _jpeg_bytes())
+
+    assert isinstance(result, ProcessingResult)
+    assert result.face_count == 1
+    assert result.quality_passed_count == 1
+    assert len(result.embedding_ids) == 1
+    assert result.error is None
+
+    await db_session.refresh(photo)
+    await db_session.refresh(event)
+    assert photo.faces_processed is True
+    assert photo.face_count == 1
+    assert event.total_faces == 1
+    stored = (await db_session.execute(select(FaceEmbedding))).scalars().all()
+    assert len(stored) == 1
+    assert stored[0].quality_passed is True
+
+
+@pytest.mark.asyncio
+async def test_process_photo_missing_photo_returns_error(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """Unknown photo IDs must not raise; they return a structured error."""
+    service = _face_service(db_session, redis_client)
+    missing_id = uuid.uuid4()
+    result = await service.process_photo(missing_id, _jpeg_bytes())
+    assert result.error is not None
+    assert str(missing_id) in result.error
+    assert result.face_count == 0
+
+
+@pytest.mark.asyncio
+async def test_process_photo_no_faces(db_session: AsyncSession, redis_client: object) -> None:
+    """A photo with zero detections is still marked processed."""
+    _event, photo = await _seed_event(db_session)
+    service = _face_service(db_session, redis_client, detector=_EmptyDetector())
+    result = await service.process_photo(photo.id, _jpeg_bytes())
+    assert result.error is None
+    assert result.face_count == 0
+    assert result.quality_passed_count == 0
+    await db_session.refresh(photo)
+    assert photo.faces_processed is True
+    stored = (await db_session.execute(select(FaceEmbedding))).scalars().all()
+    assert stored == []
+
+
+@pytest.mark.asyncio
+async def test_process_photo_decode_failure_marks_processed(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """Invalid bytes still mark the photo processed so the event can finish."""
+    _event, photo = await _seed_event(db_session)
+    service = _face_service(db_session, redis_client)
+    result = await service.process_photo(photo.id, b"not-an-image")
+    assert result.error is not None
+    await db_session.refresh(photo)
+    assert photo.faces_processed is True
+    assert photo.face_count == 0
+
+
+@pytest.mark.asyncio
+async def test_single_photo_failure_continues(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """A detector crash on one photo does not block the next photo."""
+    event, photo_ok = await _seed_event(db_session)
+    photo_bad = Photo(
+        event_id=event.id,
+        filename="bad.jpg",
+        original_s3_key=f"originals/{event.id}/bad.jpg",
+        file_size_bytes=10,
+        mime_type="image/jpeg",
+        processing_status=ProcessingStatus.COMPLETED,
+    )
+    db_session.add(photo_bad)
+    await db_session.commit()
+
+    failing = FaceService(
+        db_session,
+        redis_client=redis_client,  # type: ignore[arg-type]
+        detector=_FailingDetector(),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_FakeQuality(),  # type: ignore[arg-type]
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
+    )
+    bad_result = await failing.process_photo(photo_bad.id, _jpeg_bytes())
+    assert bad_result.error is not None
+
+    ok_service = _face_service(db_session, redis_client)
+    ok_result = await ok_service.process_photo(photo_ok.id, _jpeg_bytes())
+    assert ok_result.embedding_ids
+    await db_session.refresh(photo_bad)
+    await db_session.refresh(photo_ok)
+    assert photo_bad.faces_processed is True
+    assert photo_ok.faces_processed is True
+
+
+@pytest.mark.asyncio
+async def test_run_clustering_from_stored_embeddings(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """run_clustering groups stored embeddings into clusters."""
+    event, photo = await _seed_event(db_session)
+    service = _face_service(db_session, redis_client)
+    await service.process_photo(photo.id, _jpeg_bytes())
+    result = await service.run_clustering(event.id)
+    assert result.event_id == event.id
+    assert result.cluster_pass is not None
+
+
+@pytest.mark.asyncio
+async def test_pipeline_lock_busy(db_session: AsyncSession, redis_client: object) -> None:
+    """A second pipeline run fails when the lock is held."""
+    event, _photo = await _seed_event(db_session)
+    config = MLConfig(
+        clustering_lock_retry_attempts=1,
+        clustering_lock_retry_base_delay_seconds=0.01,
+        face_pipeline_lock_ttl_seconds=30,
+    )
+    holder = EventClusteringLock(
+        redis_client,  # type: ignore[arg-type]
+        event.id,
+        ttl_seconds=30,
+        key_template=FACE_PIPELINE_LOCK_KEY_TEMPLATE,
+    )
+    assert await holder.acquire()
+    service = FaceService(
+        db_session,
+        redis_client=redis_client,  # type: ignore[arg-type]
+        config=config,
+        detector=_FakeDetector(),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_FakeQuality(),  # type: ignore[arg-type]
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
+    )
+    with pytest.raises(ClusteringLockBusyError):
+        await service.process_event_photos(event.id)
+    await holder.release()
+
+
+@pytest.mark.asyncio
+async def test_event_ready_only_after_faces_and_proxies(db_session: AsyncSession) -> None:
+    """Proxy completion alone leaves the event Uploading until faces are done."""
+    event, photo = await _seed_event(db_session)
+    service = EventService(db_session)
+    await service.update_event_processing_status(event.id)
+    await db_session.refresh(event)
+    assert event.status == EventStatus.UPLOADING
+
+    photo.faces_processed = True
+    await db_session.commit()
+    with patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"):
+        await service.update_event_processing_status(event.id)
+    await db_session.refresh(event)
+    assert event.status == EventStatus.READY
+
+
+@pytest.mark.asyncio
+async def test_match_selfie_asyncio_timeout_returns_error(db_session: AsyncSession) -> None:
+    """Python 3.10 wait_for raises asyncio.TimeoutError, not builtin TimeoutError."""
+    service = FaceService(
+        db_session,
+        config=MLConfig(selfie_match_timeout_seconds=0.01),
+        detector=_FakeDetector(),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_FakeQuality(),  # type: ignore[arg-type]
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
+    )
+
+    async def _hang(*args: object, **kwargs: object) -> None:
+        await asyncio.sleep(1)
+
+    with patch("app.ml.pipeline.SelfieMatchPipeline.run", new=AsyncMock(side_effect=_hang)):
+        result = await service.match_selfie(
+            np.zeros((8, 8, 3), dtype=np.uint8),
+            uuid.uuid4(),
+        )
+
+    assert result.status == MatchStatus.ERROR
+
+
+@pytest.mark.asyncio
+async def test_process_photo_stores_quality_rejected_faces(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """Rejected faces are persisted with quality_passed=false and a placeholder vector."""
+    event, photo = await _seed_event(db_session)
+    service = FaceService(
+        db_session,
+        redis_client=redis_client,  # type: ignore[arg-type]
+        detector=_FakeDetector(),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_RejectQuality(),  # type: ignore[arg-type]
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
+    )
+    result = await service.process_photo(photo.id, _jpeg_bytes())
+    assert result.face_count == 1
+    assert result.quality_passed_count == 0
+    stored = (await db_session.execute(select(FaceEmbedding))).scalars().all()
+    assert len(stored) == 1
+    assert stored[0].quality_passed is False
+    assert stored[0].blur_score == 0.9
+    assert stored[0].embedding is not None
+
+
+@pytest.mark.asyncio
+async def test_process_event_photos_batches_embeds_and_clusters_once(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """10 photos flush embeddings in GPU-sized batches; clustering runs once."""
+    event, first = await _seed_event(db_session)
+    for index in range(9):
+        db_session.add(
+            Photo(
+                event_id=event.id,
+                filename=f"face-{index}.jpg",
+                original_s3_key=f"originals/{event.id}/face-{index}.jpg",
+                file_size_bytes=1024,
+                mime_type="image/jpeg",
+                processing_status=ProcessingStatus.COMPLETED,
+            )
+        )
+    await db_session.commit()
+
+    embedder = _RecordingEmbedder()
+    config = MLConfig(embedding_batch_size=4, download_ahead=3)
+    service = FaceService(
+        db_session,
+        redis_client=redis_client,  # type: ignore[arg-type]
+        config=config,
+        detector=_FakeDetector(),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_FakeQuality(),  # type: ignore[arg-type]
+        embedder=embedder,  # type: ignore[arg-type]
+    )
+    cluster_calls = {"n": 0}
+    original_cluster = service.run_clustering
+
+    async def _spy_cluster(event_id: uuid.UUID):  # type: ignore[no-untyped-def]
+        cluster_calls["n"] += 1
+        return await original_cluster(event_id)
+
+    service.run_clustering = _spy_cluster  # type: ignore[method-assign]
+
+    with patch("app.ml.pipeline.get_storage_service", return_value=_FakeStorage()):
+        result = await service.process_event_photos(event.id)
+
+    assert result.photos_processed == 10
+    assert result.photos_failed == 0
+    assert result.total_faces == 10
+    assert result.total_embedded == 10
+    assert cluster_calls["n"] == 1
+    assert embedder.batch_sizes == [4, 4, 2]
+    assert result.clustering is not None
+
+    from app.ml.processing_progress import STATUS_COMPLETE, ProcessingProgressTracker
+
+    progress = await ProcessingProgressTracker(redis_client, event.id).read()  # type: ignore[arg-type]
+    assert progress is not None
+    assert progress.status == STATUS_COMPLETE
+    assert progress.processed_photos == 10
+
+
+@pytest.mark.asyncio
+async def test_process_event_photos_skips_failed_photo(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """One detector crash does not abort the rest of the event."""
+    event, _first = await _seed_event(db_session)
+    for index in range(2):
+        db_session.add(
+            Photo(
+                event_id=event.id,
+                filename=f"extra-{index}.jpg",
+                original_s3_key=f"originals/{event.id}/extra-{index}.jpg",
+                file_size_bytes=10,
+                mime_type="image/jpeg",
+                processing_status=ProcessingStatus.COMPLETED,
+            )
+        )
+    await db_session.commit()
+
+    service = FaceService(
+        db_session,
+        redis_client=redis_client,  # type: ignore[arg-type]
+        config=MLConfig(embedding_batch_size=64, download_ahead=2),
+        detector=_NthFailDetector(fail_on=2),  # type: ignore[arg-type]
+        cropper=_FakeCropper(),  # type: ignore[arg-type]
+        quality_filter=_FakeQuality(),  # type: ignore[arg-type]
+        embedder=_FakeEmbedder(),  # type: ignore[arg-type]
+    )
+    with patch("app.ml.pipeline.get_storage_service", return_value=_FakeStorage()):
+        result = await service.process_event_photos(event.id)
+
+    assert result.photos_failed == 1
+    assert result.photos_processed == 2
+    photos = (
+        (await db_session.execute(select(Photo).where(Photo.event_id == event.id))).scalars().all()
+    )
+    assert all(photo.faces_processed for photo in photos)

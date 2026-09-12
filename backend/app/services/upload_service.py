@@ -8,7 +8,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.core.exceptions import AuthorizationError, BadRequestError, StorageLimitError
 from app.core.logging import get_logger
 from app.models.enums import EventStatus
@@ -124,8 +123,8 @@ class UploadService:
         photographer.storage_used_bytes += upload_info.size
         event.total_photos += 1
 
-        if event.status in (EventStatus.DRAFT, EventStatus.READY, EventStatus.UPLOADING):
-            event.status = EventStatus.PROCESSING
+        if event.status in (EventStatus.DRAFT, EventStatus.READY):
+            event.status = EventStatus.UPLOADING
 
         await self.db.commit()
         await self.db.refresh(photo)

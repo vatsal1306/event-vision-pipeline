@@ -165,3 +165,21 @@ async def test_guest_verify_auth_invalid_otp(
     assert response.status_code == 401
     data = response.json()
     assert data["code"] == "AUTH_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_guest_request_auth_event_not_ready(
+    api_client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Guests cannot start selfie flow until the event is Ready."""
+    event = await create_test_event(db_session)
+    event.status = EventStatus.UPLOADING
+    await db_session.commit()
+
+    response = await api_client.post(
+        f"/api/v1/event/{event.slug}/auth",
+        json={"name": "Test Guest", "phone": "+919988776655"},
+    )
+    assert response.status_code == 403
+    assert response.json()["code"] == "EVENT_NOT_READY"

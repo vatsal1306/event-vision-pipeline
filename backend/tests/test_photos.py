@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -272,10 +273,20 @@ async def test_download_photo_url(authed_client: AsyncClient, db_session) -> Non
     db_session.add(photo)
     await db_session.flush()
 
-    resp = await authed_client.get(f"/api/v1/events/{event_id}/photos/{photo.id}/download")
+    mock_storage = AsyncMock()
+    mock_storage.generate_presigned_url.return_value = (
+        "https://mock-s3.local/download/original_image_123.jpg?expires=3600"
+    )
+
+    with patch("app.services.photo_service.get_storage_service", return_value=mock_storage):
+        resp = await authed_client.get(f"/api/v1/events/{event_id}/photos/{photo.id}/download")
+
     assert resp.status_code == 200
     data = resp.json()
     assert data["url"] == "https://mock-s3.local/download/original_image_123.jpg?expires=3600"
+    mock_storage.generate_presigned_url.assert_awaited_once()
+    extra_params = mock_storage.generate_presigned_url.await_args.kwargs["extra_params"]
+    assert extra_params["ResponseContentDisposition"] == 'attachment; filename="test.jpg"'
 
 
 def _jpeg_bytes() -> bytes:

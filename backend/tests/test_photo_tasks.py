@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import uuid
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from unittest.mock import patch
 
 import pytest
@@ -43,7 +45,7 @@ async def create_event(db_session: AsyncSession, photographer_id: uuid.UUID) -> 
         photographer_id=photographer_id,
         name="Test Event processing",
         slug=f"test-slug-{uuid.uuid4().hex[:8]}",
-        status=EventStatus.PROCESSING,
+        status=EventStatus.UPLOADING,
         total_photos=1,
     )
     db_session.add(e)
@@ -83,9 +85,27 @@ def create_test_watermark_bytes() -> bytes:
 
 
 @pytest.fixture
-def storage():
-    # Use local storage service which writes to .data/s3
+def storage() -> LocalStorageService:
+    """Local storage backend writing under ``.data/s3``."""
     return LocalStorageService()
+
+
+@contextmanager
+def _patch_photo_processing(
+    db_session: AsyncSession, storage: LocalStorageService
+) -> Iterator[None]:
+    """Bind photo processing to the test database session and storage."""
+
+    @asynccontextmanager
+    async def session_cm() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    with (
+        patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
+        patch("app.tasks.photo_tasks._build_session_factory", return_value=session_cm),
+        patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
+    ):
+        yield
 
 
 @pytest.mark.asyncio
@@ -152,19 +172,7 @@ async def test_process_uploaded_photo_success(
     img_bytes = create_test_image_bytes()
     await storage.put_object(get_settings().s3_bucket_originals, s3_key, img_bytes, "image/jpeg")
 
-    # Process
-    with (
-        patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
-        patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
-        patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
-    ):
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def mock_session():
-            yield db_session
-
-        mock_db.side_effect = mock_session
+    with _patch_photo_processing(db_session, storage):
         await _process_uploaded_photo_async(str(photo.id), s3_key, str(event.id))
 
     # Verify db update
@@ -176,9 +184,9 @@ async def test_process_uploaded_photo_success(
     assert photo.height == 100
     assert photo.processing_error is None
 
-    # Verify event status updated to READY because 1 of 1 completed
+    # Verify event stays Uploading until the photographer starts face processing
     await db_session.refresh(event)
-    assert event.status == EventStatus.READY
+    assert event.status == EventStatus.UPLOADING
 
 
 @pytest.mark.asyncio
@@ -199,19 +207,7 @@ async def test_process_uploaded_photo_with_watermark(
         settings.s3_bucket_assets, str(photographer.watermark_url), wm_bytes, "image/png"
     )
 
-    # Process
-    with (
-        patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
-        patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
-        patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
-    ):
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def mock_session():
-            yield db_session
-
-        mock_db.side_effect = mock_session
+    with _patch_photo_processing(db_session, storage):
         await _process_uploaded_photo_async(str(photo.id), s3_key, str(event.id))
 
     await db_session.refresh(photo)
@@ -233,18 +229,7 @@ async def test_process_uploaded_photo_failure(
         get_settings().s3_bucket_originals, s3_key, b"not an image", "image/jpeg"
     )
 
-    with (
-        patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
-        patch("app.tasks.photo_tasks.async_session_factory") as mock_db,
-        patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
-    ):
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def mock_session():
-            yield db_session
-
-        mock_db.side_effect = mock_session
+    with _patch_photo_processing(db_session, storage):
         await _process_uploaded_photo_async(str(photo.id), s3_key, str(event.id))
 
     await db_session.refresh(photo)

@@ -3,7 +3,8 @@
 > **Version:** 2.0  
 > **Last Updated:** September 2026  
 > **Scope:** Local + one AWS EC2 app server, S3 media, Terraform for cheap AWS resources  
-> **Not in scope:** ECS, Fargate, RDS, ElastiCache, ALB, NAT Gateway, CloudFront, GPU instances.
+> **Not in scope for the app EC2:** ECS, Fargate, RDS, ElastiCache, ALB, NAT Gateway, CloudFront.
+> GPU instances are a **separate on-demand ML host** (INF-009), never the `m6i.xlarge`.
 
 ---
 
@@ -18,7 +19,7 @@
 7. [Containers on the app server](#7-containers-on-the-app-server)
 8. [Database and Redis](#8-database-and-redis)
 9. [Networking and TLS](#9-networking-and-tls)
-10. [ML placeholder](#10-ml-placeholder)
+10. [ML host (on-demand GPU)](#10-ml-host-on-demand-gpu)
 11. [CI/CD](#11-cicd)
 12. [Monitoring](#12-monitoring)
 13. [Security](#13-security)
@@ -184,14 +185,18 @@ Bind Postgres and Redis to the Docker network only.
 
 ---
 
-## 10. ML placeholder
+## 10. ML host (on-demand GPU)
 
-The app server is **CPU-only**. Do not install CUDA or load R100 in production Compose.
+The app server is **CPU-only**. Do not install CUDA or load R100 in production Compose on the `m6i.xlarge`.
 
-- `detect_faces_task`: no-op success or skip enqueue until a later ML host exists.
-- Guest selfie API: return a controlled stub (`no_match` / not implemented) **or** wire only after ML stories run on a different machine.
+- CPU Celery workers subscribe to `photo_processing` only (proxies, watermark, notifications).
+- Face tasks (`app.tasks.face_tasks.*`) route to `face_processing`. A worker for that queue runs on a **separate GPU EC2** that is **not** left on 24/7.
+- Photographer calls `POST /events/{id}/start-face-processing` when uploads are done. That enqueue is the signal to boot the GPU host (INF-009), run detect/embed/cluster, then stop the instance.
+- Guest selfie matching runs on the **app EC2 CPU** (one image, ~1–2s). Guests do not need the GPU box. Guest APIs return `EVENT_NOT_READY` until the event is Ready.
+- Until INF-009 exists, enable `ML_FACE_PROCESSING_ENABLED=true` locally and run:
+  `uv run celery -A app.tasks.celery_app worker -Q face_processing -c 1`
 
-ML code still lives in `backend/app/ml/` for future use (see `docs/component_ai_ml.md`).
+ML code lives in `backend/app/ml/` (see `docs/component_ai_ml.md` and `backend/README_ML.md`).
 
 ---
 
@@ -233,7 +238,7 @@ ML code still lives in `backend/app/ml/` for future use (see `docs/component_ai_
 | Redis | No backup |
 | Compose config | Git |
 
-Restore: new EC2 + compose + `pg_restore` + same IAM/S3.
+Restore: new EC2 + compose + `psql` from `.sql.gz` dump + same IAM/S3. See `infrastructure/README.md` § Step 7.
 
 ---
 

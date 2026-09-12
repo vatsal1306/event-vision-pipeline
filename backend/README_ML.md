@@ -38,25 +38,20 @@ backend/app/ml/
 │   ├── types.py
 │   └── registry.py
 ├── clustering/         # ML-005, ML-006, ML-007
-│   ├── incremental_clusterer.py  # DBSCAN + Agglomerative (done)
-│   ├── clustering_config.py      # Cluster vs Sweeper configs (done)
-│   ├── types.py                  # Input/output dataclasses (done)
-│   ├── cluster_manager.py        # Load + lock + batched pass (ML-006)
-│   ├── cluster_persistence.py    # Transactional DB writes (ML-006)
-│   ├── vector_utils.py           # pgvector numpy helpers (ML-006)
-│   ├── locks.py                  # Redis event clustering lock (ML-006)
-│   └── recovery/                 # ML-007 (done)
-│       ├── orphan_crops.py
-│       ├── orphan_clusters.py
-│       ├── similarity.py
-│       └── types.py
-├── matching/           # ML-008 — selfie liveness + cosine match (done)
+│   ├── incremental_clusterer.py
+│   ├── clustering_config.py
 │   ├── types.py
-│   ├── liveness.py
-│   ├── selfie_matcher.py
-│   └── pipeline.py
-└── vendor/             # PicSee / pix-workers code copies
-    └── ypr_3ddfa_v2/   # 3DDFA FaceBoxes + TDDFA ONNX (ML-003)
+│   ├── cluster_manager.py
+│   ├── cluster_persistence.py
+│   ├── vector_utils.py
+│   ├── locks.py              # clustering_lock + face_pipeline_lock
+│   └── recovery/
+├── matching/           # ML-008
+├── pipeline.py         # ML-009/ML-010 — FaceService facade + bulk event processing
+├── image_io.py         # ML-009 — original JPEG/HEIC decode
+├── face_rows.py        # ML-010 — FaceEmbedding row builder + failed-face placeholder
+├── processing_progress.py  # ML-010 — Redis `spotme:processing:{event_id}`
+└── vendor/
 ```
 
 Model weight files live in `backend/models/` (git-ignored).
@@ -136,7 +131,8 @@ uv sync --extra dev --extra ml
 | Clustering algorithm | ML-005 (done) |
 | Cluster persistence (pgvector) | ML-006 (done) |
 | Orphan crop/cluster recovery | ML-007 (done) |
-| FaceService selfie match | ML-008 (done) — Celery upload pipeline still ML-009 |
+| FaceService selfie match | ML-008 (done) |
+| FaceService + Celery face queue | ML-009 (done) |
 
 ## ML-003 — Quality Filters
 
@@ -508,7 +504,7 @@ Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/m
 |--------|---------|
 | `matching/liveness.py` | Heuristics: face area 15–85%, det score ≥ 0.7, Laplacian ≥ 50, HSV saturation > 20 |
 | `matching/selfie_matcher.py` | Cosine vs centroids; pgvector when cluster count ≥ `ML_SELFIE_PGVECTOR_MIN_CLUSTERS` (500) |
-| `matching/pipeline.py` | Detect once → liveness → crop → quality → embed → match → photo IDs |
+| `matching/pipeline.py` | Detect once → liveness → crop → quality → embed (thread) → match → photo IDs |
 
 ### Behaviour vs original story / component doc
 
@@ -521,6 +517,7 @@ Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/m
 | Photo IDs | Matcher returns clusters. Pipeline/FaceService loads distinct `face_embeddings.photo_id`. |
 | HNSW | BE-003 index is on `face_embeddings.embedding`, **not** `face_clusters.centroid`. Large events still use `centroid.cosine_distance` (exact for the candidate LIMIT). |
 | App EC2 | `ML_FACE_PROCESSING_ENABLED` defaults **false** so the guest API does not load PyTorch. Set **true** locally. |
+| Selfie timeout | Default `ML_SELFIE_MATCH_TIMEOUT_SECONDS=180`. GPU can lower this to ~5. FastAPI must load weights itself (Celery already having them loaded does not help). Inference runs in a worker thread so a timeout cannot cancel a mid-flight Postgres query. On timeout the API returns `status=error`, not HTTP 500. |
 | Layout | `matching/liveness.py`, not `app/ml/liveness/basic_liveness.py`. |
 
 ### Local guest selfie
@@ -529,7 +526,11 @@ Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/m
 # backend/.env
 ML_FACE_PROCESSING_ENABLED=true
 ML_DEVICE=cpu
+# optional; default is 180s for local CPU first-load
+# ML_SELFIE_MATCH_TIMEOUT_SECONDS=180
 ```
+
+Restart **uvicorn** after changing these. The first selfie in the API process loads SCRFD + blur/YPR + R100/AdaFace and can take a minute. Retry if the first call still times out.
 
 ```bash
 cd backend
@@ -543,16 +544,128 @@ uv run pytest tests/ml/test_liveness_unit.py tests/ml/test_selfie_matcher_unit.p
 
 Live pipeline test needs SCRFD + blur/YPR + R100 weights and a face that passes 15% area + colour checks.
 
-## Testing
+## ML-009 — FaceService + Celery (`face_processing` queue)
+
+Wires detection, quality, embeddings, clustering, and selfie matching behind
+`app.ml.pipeline.FaceService`. Guest API still uses
+`app.services.face_service.FaceService` as a thin wrapper.
+
+| Module | Purpose |
+|--------|---------|
+| `ml/pipeline.py` | `process_photo`, `run_clustering`, `match_selfie`, `process_event_photos` |
+| `ml/image_io.py` | Decode **original** JPEG/PNG/WebP/HEIC (not the WebP proxy) |
+| `tasks/face_tasks.py` | Celery tasks on queue `face_processing` only |
+| `services/face_processing_service.py` | `POST /events/{id}/start-face-processing` |
+| `photos.faces_processed` | Skip photos already extracted (migration `add_faces_processed`) |
+
+### Photographer flow
+
+1. Upload → event **Uploading**; CPU worker builds WebP proxies (`photo_processing`).
+2. Photographer calls start-face-processing (dashboard button is **FE-023**).
+3. If `ML_FACE_PROCESSING_ENABLED=false` → HTTP 503, status stays Uploading.
+4. Else event **Processing**, task runs detect → embed → cluster + sweeper + recovery.
+5. **Ready** only when every photo has `faces_processed=true` **and** proxies finished.
+   Then the existing processing-complete email is sent.
+6. More photos after Ready → **Uploading** again; only new rows are processed.
+
+GPU EC2 start/stop is **INF-009**, not this story. Guests do not need GPU.
+Guest auth/selfie/gallery return `EVENT_NOT_READY` until Ready.
+
+Local worker (from `backend/`, with ML extra):
+
+```bash
+# backend/.env
+ML_FACE_PROCESSING_ENABLED=true
+ML_DEVICE=cpu
+
+cd backend
+docker compose up -d db redis
+uv sync --extra dev --extra ml
+uv run celery -A app.tasks.celery_app worker -Q face_processing -c 1
+```
+
+App/CPU worker must **not** include `face_processing`:
+
+```bash
+uv run celery -A app.tasks.celery_app worker -Q photo_processing
+```
+
+### Testing
 
 ```bash
 cd backend
-uv sync --extra dev --extra ml
-uv run pytest tests/ml/ -v
+docker compose up -d db redis
+uv run alembic upgrade head
+uv run pytest tests/ml/test_face_pipeline.py tests/ml/test_face_tasks.py \
+  tests/ml/test_image_io.py tests/test_face_processing_api.py \
+  tests/test_notifications.py tests/test_photo_tasks.py tests/test_upload_hook.py \
+  tests/test_guest_auth.py -v --no-cov
 ```
 
-SCRFD integration tests need `backend/models/det_10g.onnx`. Set `RUN_ML_TESTS=0` to skip without models.
-Fixtures: `tests/ml/fixtures/` (see `tests/ml/fixtures/README.md`).
+Pipeline tests inject fake detector/embedder (no GPU). They need Postgres + Redis.
+Queue tests do not need Redis.
+
+## ML-010 — Bulk event processing
+
+Optimises `process_event_photos` (alias `process_event_bulk`) for 5k–20k
+originals without loading the event into RAM.
+
+| Piece | What we shipped |
+|-------|-----------------|
+| Trigger | Still the photographer button (`POST /start-face-processing`). **Not** auto-start on tus complete. |
+| Download | Sliding-window prefetch via `app/services/storage_prefetch.py` + existing `storage_service.get_object` (S3 in prod, MinIO/local on laptop). Config `ML_DOWNLOAD_AHEAD` (default 4). Story's `s3_service.py` was not added. |
+| Embed | Accumulate quality-passed 112×112 crops until `ML_EMBEDDING_BATCH_SIZE` (64), then one `embed_batch`. Detect one photo at a time; release decoded pixels after cropping. |
+| OOM | Unchanged from ML-004: `extract_batch_with_oom_retry` halves 64→32→16→…→1, then MobileFaceNet. |
+| Failed faces | Stored with `quality_passed=false` and a **zero placeholder** vector (`face_embeddings.embedding` is NOT NULL). Clustering / guest match already ignore these. **Photos still appear** in photographer + master galleries. |
+| Progress | Redis hash `spotme:processing:{event_id}`. Poll `GET /api/v1/events/{id}/face-processing-progress`. Frontend helper `api.getFaceProcessingProgress`. |
+| Clustering | Exactly once after the last embed flush (cluster + sweeper + recovery). |
+| Status | `uploading` → `processing` → `ready` (Ready still requires proxies + `faces_processed`). |
+
+CPU vs GPU is unchanged: bulk detect/embed/cluster on `face_processing` (GPU later). Guest selfie stays on the app CPU host — one image, models stay in RAM after first load; that does not starve the box the way a 20k job would.
+
+VRAM/RAM 4GB/6GB and “1k photos < 15 min” are production GPU targets, not local pytest assertions.
+
+### Testing
+
+```bash
+cd backend
+docker compose up -d db redis
+uv run pytest tests/ml/test_face_pipeline.py tests/ml/test_storage_prefetch.py \
+  tests/ml/test_processing_progress.py tests/ml/test_ml_config.py \
+  tests/test_face_processing_api.py tests/ml/test_embedding_unit.py -v --no-cov
+```
+
+## Testing (ML-011)
+
+Two tiers. **GitHub Actions never runs `tests/ml` tests marked ``ml``.** Local `make test` runs the full suite, including ML, with coverage of `app/ml` except vendor copies.
+
+| Command | What runs | Coverage |
+|---------|-----------|----------|
+| `make test` | All pytest, including `@pytest.mark.ml` | `app/` minus `app/ml/vendor/*` |
+| `make test-ci` / GitHub `backend-ci.yml` | `-m "not ml"` | `coverage.ci.ini` omits **all** of `app/ml` |
+| `RUN_ML_TESTS=1 uv run pytest tests/ml/integration -v --no-cov` | Real weights (CPU is fine: `ML_DEVICE=cpu`) | skip coverage for speed |
+
+`RUN_ML_TESTS` defaults to **on** (`1`). Set `RUN_ML_TESTS=0` to skip live-model tests when weights are missing. Integration tests also skip if the ONNX/PyTorch files are not in `backend/models/`.
+
+Install ML extras before local ML tests:
+
+```bash
+cd backend
+docker compose up -d db redis
+uv sync --extra dev --extra ml
+uv run pytest tests/ml/ -v --no-cov
+```
+
+SCRFD tests need `backend/models/det_10g.onnx`. Fixtures: `tests/ml/fixtures/` (see `tests/ml/fixtures/README.md`).
+
+Running **every** file in `tests/ml/` in one process can SIGSEGV on interpreter shutdown (Torch + TFLite). Tests themselves may have all passed. Run age integration separately if you see that (`tests/ml/test_age_detector_integration.py`).
+
+### Markers
+
+- `ml` — needs the `ml` extra and/or real weights / Postgres+Redis for that file
+- `slow` — applied automatically to `tests/ml/integration/` (end-to-end with real models)
+
+There is **no** self-hosted GPU GitHub runner. CPU (`ML_DEVICE=cpu`) is the supported local path.
 
 ## Registering Models
 

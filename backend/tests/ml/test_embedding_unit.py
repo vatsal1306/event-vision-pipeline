@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from app.ml.config import MLConfig
 from app.ml.embedding.base import l2_normalize
@@ -77,3 +78,23 @@ def test_extract_batch_with_oom_retry_empty_input() -> None:
         model_name="test_model",
     )
     assert result.shape == (0, 512)
+
+
+def test_extract_batch_with_oom_retry_raises_when_size_one_still_fails() -> None:
+    """If batch size 1 still OOMs, the error must propagate."""
+
+    class FakeCudaOomError(Exception):
+        pass
+
+    def extract_fn(faces: list[np.ndarray], batch_size: int) -> np.ndarray:
+        del faces, batch_size
+        raise FakeCudaOomError("CUDA out of memory")
+
+    with patch("app.ml.embedding.batch_utils._is_cuda_oom", return_value=True):
+        with pytest.raises(FakeCudaOomError):
+            extract_batch_with_oom_retry(
+                [np.zeros((112, 112, 3), dtype=np.uint8)],
+                batch_size=2,
+                extract_fn=extract_fn,
+                model_name="test_model",
+            )

@@ -55,7 +55,7 @@ Find instance by same tag; `stop-instances` unless already stopped/stopping.
 
 - Python 3.10 via `uv`, deps from `backend/pyproject.toml` (`--extra dev`)
 - `ruff check` + `ruff format --check` on `app/` and `tests/`
-- `pytest --cov=app` with 60% fail-under (`app/ml/*` omitted from coverage)
+- `pytest -m "not ml"` with 60% fail-under. Coverage on CI uses `backend/coverage.ci.ini` and **omits all of `app/ml`**. Local `make test` includes `app/ml` except `app/ml/vendor/*`.
 - Uploads `coverage.xml` artifact
 
 ## Related files

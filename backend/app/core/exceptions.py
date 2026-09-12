@@ -105,3 +105,14 @@ class RateLimitedError(AppException):
 
     def __init__(self, message: str = "Rate limit exceeded") -> None:
         super().__init__(message, "RATE_LIMITED", 429)
+
+
+class FaceProcessingDisabledError(AppException):
+    """Raised when the photographer starts face processing but ML is disabled."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Face processing is not enabled on this server.",
+            "FACE_PROCESSING_DISABLED",
+            503,
+        )

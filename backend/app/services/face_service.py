@@ -8,9 +8,9 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ml.config import get_ml_config
-from app.ml.matching.pipeline import SelfieMatchPipeline, decode_selfie_bytes
+from app.ml.matching.pipeline import decode_selfie_bytes
 from app.ml.matching.types import MatchResult, MatchStatus
-from app.ml.registry_bootstrap import register_default_model_loaders
+from app.ml.pipeline import FaceService as MlFaceService
 
 logger = structlog.get_logger(__name__)
 
@@ -18,12 +18,10 @@ __all__ = ["FaceService", "MatchResult", "MatchStatus"]
 
 
 class FaceService:
-    """Backend bridge to the ML selfie matching pipeline.
+    """Backend bridge to ML selfie matching.
 
-    Upload clustering stays on the ML host (ML-009). Guest selfie matching is
-    a synchronous API call. Production app hosts should keep
-    ``ML_FACE_PROCESSING_ENABLED=false`` so PyTorch is not loaded on the CPU
-    EC2. Local development sets it to true.
+    Guest matching runs on the app CPU host. Bulk event clustering stays on
+    the ``face_processing`` Celery queue (see ``app.ml.pipeline.FaceService``).
     """
 
     def __init__(self, db: AsyncSession) -> None:
@@ -52,6 +50,5 @@ class FaceService:
         if image is None:
             return MatchResult(status=MatchStatus.INVALID_IMAGE)
 
-        register_default_model_loaders()
-        pipeline = SelfieMatchPipeline(self.db, config=self._config)
-        return await pipeline.run(image, event_id)
+        pipeline = MlFaceService(self.db, config=self._config)
+        return await pipeline.match_selfie(image, event_id)

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import redis.asyncio as redis
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_photographer, get_photographer_event
+from app.api.deps import get_current_photographer, get_photographer_event, get_redis_dep
 from app.core.database import get_db
 from app.models.enums import EventStatus
 from app.models.event import Event
@@ -19,6 +20,8 @@ from app.schemas.event import (
     EventSettingsRequest,
     EventSortBy,
     EventSortOrder,
+    FaceProcessingProgressResponse,
+    StartFaceProcessingResponse,
     UpdateEventRequest,
 )
 from app.schemas.folder import (
@@ -151,6 +154,37 @@ async def update_event_settings(
 ) -> EventDetail:
     """Update download and share-link flags."""
     return await EventService(db).update_settings(event, request)
+
+
+@router.post(
+    "/{event_id}/start-face-processing",
+    response_model=StartFaceProcessingResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_face_processing(
+    event: Event = Depends(get_photographer_event),
+    db: AsyncSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_dep),
+) -> StartFaceProcessingResponse:
+    """Photographer trigger: enqueue face extraction + clustering."""
+    from app.services.face_processing_service import FaceProcessingService
+
+    return await FaceProcessingService(db, redis_client).start_face_processing(event)
+
+
+@router.get(
+    "/{event_id}/face-processing-progress",
+    response_model=FaceProcessingProgressResponse,
+)
+async def get_face_processing_progress(
+    event: Event = Depends(get_photographer_event),
+    db: AsyncSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_dep),
+) -> FaceProcessingProgressResponse:
+    """Poll Redis-backed face processing progress for the photographer dashboard."""
+    from app.services.face_processing_service import FaceProcessingService
+
+    return await FaceProcessingService(db, redis_client).get_progress(event)
 
 
 @router.put("/{event_id}/links/{link_type}/toggle", response_model=EventDetail)

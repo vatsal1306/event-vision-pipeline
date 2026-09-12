@@ -1,7 +1,13 @@
 import { Event, EventType, EventStatus, Folder, FolderNode, Photo } from '@/types/event';
 import { Photographer } from '@/types/user';
 import { AnalyticsSummary, AnalyticsTopPhoto, PaginatedGuests } from '@/types/analytics';
-import { PaginatedResponse, RegisterResponse, LoginOtpPendingResponse, TokenResponse } from '@/types/api';
+import {
+  PaginatedResponse,
+  RegisterResponse,
+  LoginOtpPendingResponse,
+  TokenResponse,
+  GuestTokenResponse,
+} from '@/types/api';
 
 export class ApiError extends Error {
   constructor(
@@ -179,6 +185,26 @@ export const api = {
   deleteEvent: (id: string) => apiClient.delete<void>(`/api/v1/events/${id}`),
   archiveEvent: (id: string) => apiClient.post<void>(`/api/v1/events/${id}/archive`, {}),
   restoreEvent: (id: string) => apiClient.post<void>(`/api/v1/events/${id}/restore`, {}),
+    startFaceProcessing: (id: string) =>
+    apiClient.post<{
+      event_id: string;
+      status: EventStatus;
+      already_running: boolean;
+      photos_queued: number;
+    }>(`/api/v1/events/${id}/start-face-processing`, {}),
+  getFaceProcessingProgress: (id: string) =>
+    apiClient.get<{
+      event_id: string;
+      event_status: EventStatus;
+      pipeline_status: string;
+      total_photos: number;
+      processed_photos: number;
+      failed_photos: number;
+      total_faces: number;
+      embedded_faces: number;
+      started_at: string | null;
+      eta_seconds: number | null;
+    }>(`/api/v1/events/${id}/face-processing-progress`),
 
   // Folders
   getFolders: (eventId: string) =>
@@ -235,7 +261,7 @@ export const api = {
     apiClient.post<{ token: string }>(`/api/v1/event/${slug}/master/verify`, data),
   sendGuestOtp: (slug: string, data: unknown) => apiClient.post<void>(`/api/v1/event/${slug}/auth`, data),
   verifyGuestOtp: (slug: string, data: { name: string; phone: string; otp: string }) =>
-    apiClient.post<TokenResponse>(`/api/v1/event/${slug}/auth/verify`, data),
+    apiClient.post<GuestTokenResponse>(`/api/v1/event/${slug}/auth/verify`, data),
   submitSelfie: (slug: string, data: unknown, token?: string) =>
     apiClient.post<{ matched_photo_ids: string[]; matched_photo_count: number; status: string }>(
       `/api/v1/event/${slug}/selfie`,

@@ -59,6 +59,8 @@ class MLConfig(BaseSettings):
     # Embedding
     embedding_model: str = "dual"
     embedding_batch_size: int = 64
+    download_ahead: int = 4
+    processing_progress_ttl_seconds: int = 86400
 
     # Clustering
     dbscan_eps: float = 0.45
@@ -70,6 +72,10 @@ class MLConfig(BaseSettings):
     clustering_lock_ttl_seconds: int = 900
     clustering_lock_retry_attempts: int = 6
     clustering_lock_retry_base_delay_seconds: float = 0.25
+    face_pipeline_lock_ttl_seconds: int = 7200
+    # GPU target is ~5s. FastAPI loads models separately from Celery; CPU
+    # first-load on Apple Silicon can take well over a minute.
+    selfie_match_timeout_seconds: float = 180.0
     orphan_crop_similarity_threshold: float = 0.55
     orphan_cluster_merge_threshold: float = 0.55
     orphan_cluster_max_size: int = 3

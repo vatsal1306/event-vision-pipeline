@@ -133,15 +133,20 @@ testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing"
 markers = [
     "ml: tests that require the ml optional extra (torch, onnxruntime, litert, transformers, model weights)",
+    "slow: slow ML integration tests that load real model weights",
 ]
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["app/ml/*"]
+omit = ["app/ml/vendor/*"]
 
 [tool.coverage.report]
 fail_under = 60
 show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]
 
 [dependency-groups]
 dev = [

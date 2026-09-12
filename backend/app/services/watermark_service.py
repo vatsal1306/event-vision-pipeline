@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import cv2
 import numpy as np
 
@@ -21,9 +23,9 @@ class WatermarkService:
         self.settings = get_settings()
 
     async def apply_watermark(
-        self, 
-        s3_key: str, 
-        watermark_s3_key: str, 
+        self,
+        s3_key: str,
+        watermark_s3_key: str,
         bucket: str | None = None,
         output_format: str = ".webp",
         output_quality: int | None = None,
@@ -31,7 +33,7 @@ class WatermarkService:
         watermark_x: float = 0.98,
         watermark_y: float = 0.98,
         watermark_opacity: float = 0.70,
-        interpolation: int = cv2.INTER_LANCZOS4
+        interpolation: int = cv2.INTER_LANCZOS4,
     ) -> None:
         """Download image and watermark, composite, re-upload."""
         target_bucket = bucket or self.settings.s3_bucket_proxies
@@ -67,12 +69,7 @@ class WatermarkService:
         # Apply global opacity
         watermark[:, :, 3] = (watermark[:, :, 3] * watermark_opacity).astype(np.uint8)
 
-        # Position: Calculate offset based on x/y percentages (0.0 to 1.0)
-        # We need to bound the offset so the watermark doesn't draw outside the image if x=1.0 or y=1.0
-        # By default x=0.98, y=0.98 means the bottom-right corner of the watermark is near the bottom-right corner of the image.
-        # It's more intuitive to have x/y represent the bounding box's top-left corner ratio relative to the image.
-        # But wait, earlier I said x,y is the top-left offset ratio. Let's use it as top-left offset.
-        # For a top-left offset ratio (x,y):
+        # x/y are top-left offset ratios (0.0–1.0) relative to the image.
         x_offset = int(proxy.shape[1] * watermark_x)
         y_offset = int(proxy.shape[0] * watermark_y)
 
@@ -104,9 +101,7 @@ class WatermarkService:
         if output_format == ".webp":
             quality = output_quality if output_quality is not None else self.settings.proxy_quality
             encode_param = cv2.IMWRITE_WEBP_QUALITY
-            success, encoded_img = cv2.imencode(
-                output_format, proxy, [int(encode_param), quality]
-            )
+            success, encoded_img = cv2.imencode(output_format, proxy, [int(encode_param), quality])
             if not success:
                 raise ValueError(f"Failed to encode {output_format}")
             buffer = encoded_img.tobytes()
@@ -128,7 +123,7 @@ class WatermarkService:
         )
 
     def _encode_jpeg_matching_size(
-        self, image: np.ndarray, target_size: int, explicit_quality: int | None = None
+        self, image: np.ndarray[Any, Any], target_size: int, explicit_quality: int | None = None
     ) -> bytes:
         """Encode JPEG at a quality that keeps file size close to the original.
 

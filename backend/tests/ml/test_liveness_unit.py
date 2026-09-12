@@ -28,6 +28,22 @@ def _sharp_color_image(size: int = 320) -> np.ndarray:
     return rng.integers(30, 225, size=(size, size, 3), dtype=np.uint8)
 
 
+def test_liveness_blank_fails() -> None:
+    """A solid-color frame is too flat to pass sharpness or colour checks."""
+    detector = BasicLivenessDetector(MLConfig())
+    blank = np.full((240, 320, 3), 40, dtype=np.uint8)
+    result = detector.check(blank, _face())
+    assert result.passed is False
+    assert "sharpness" in result.failed_checks or "color_present" in result.failed_checks
+
+
+def test_liveness_rejects_non_bgr_image() -> None:
+    """Liveness only accepts a 3-channel BGR array."""
+    detector = BasicLivenessDetector(MLConfig())
+    with pytest.raises(ValueError, match="BGR"):
+        detector.check(np.zeros((32, 32), dtype=np.uint8), _face())
+
+
 def test_liveness_passes_sharp_color_face() -> None:
     """A sharp, colourful, reasonably sized face should pass all checks."""
     detector = BasicLivenessDetector(MLConfig())

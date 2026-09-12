@@ -15,7 +15,11 @@
 
 **Do NOT deploy face processing workers on the production app EC2** (`m6i.xlarge`, CPU-only).
 All ML inference runs on a **separate ML host** (GPU instance, size TBD).
-Until the ML host is provisioned, BE-013 uses a stub `FaceService` that returns `no_match`.
+Until the on-demand GPU host (INF-009) is provisioned, local/dev sets
+`ML_FACE_PROCESSING_ENABLED=true` and runs a `face_processing` Celery worker.
+The production app EC2 stays CPU-only. Guest selfie matching runs on that CPU
+host and does **not** need the GPU box. Guest APIs return `EVENT_NOT_READY`
+until the photographer has triggered processing and the event is Ready.
 
 ## Model Inventory
 
@@ -74,9 +78,9 @@ ML-001 (Foundation)
 | **ML-006** | Cluster Persistence (pgvector) | Done | P0 | M |
 | **ML-007** | Advanced Clustering Recovery (Orphan Crops + Clusters) | Done | P1 | M |
 | **ML-008** | Selfie Matching + Basic Liveness | Done | P0 | M |
-| **ML-009** | FaceService Orchestration + Celery Tasks | Pending | P0 | M |
-| **ML-010** | Bulk Upload Processing Pipeline | Pending | P0 | L |
-| **ML-011** | ML Tests + CI Skip Rules | Pending | P1 | M |
+| **ML-009** | FaceService Orchestration + Celery Tasks | Done | P0 | M |
+| **ML-010** | Bulk Upload Processing Pipeline | Done | P0 | L |
+| **ML-011** | ML Tests + CI Skip Rules | Done | P1 | M |
 
 ## Key Changes from Previous ML Stories
 

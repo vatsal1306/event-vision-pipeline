@@ -9,6 +9,11 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# App EC2 (CPU): celery -A app.tasks.celery_app worker -Q photo_processing
+# ML / local face worker: celery -A app.tasks.celery_app worker -Q face_processing -c 2
+APP_QUEUES = ["photo_processing"]
+ML_QUEUES = ["face_processing"]
+
 celery_app = Celery(
     "spotme",
     broker=settings.celery_broker_url,
@@ -17,6 +22,7 @@ celery_app = Celery(
         "app.tasks.notification_tasks",
         "app.tasks.archival_tasks",
         "app.tasks.photo_tasks",
+        "app.tasks.face_tasks",
     ],
 )
 
@@ -31,6 +37,7 @@ celery_app.conf.update(
         "app.tasks.photo_tasks.*": {"queue": "photo_processing"},
         "app.tasks.notification_tasks.*": {"queue": "photo_processing"},
         "app.tasks.archival_tasks.*": {"queue": "photo_processing"},
+        "app.tasks.face_tasks.*": {"queue": "face_processing"},
     },
     beat_schedule={
         "check-archival": {

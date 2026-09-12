@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +34,11 @@ class Photo(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
             "processing_status",
             postgresql_where=text("processing_status != 'completed'"),
         ),
+        Index(
+            "idx_photos_event_faces_pending",
+            "event_id",
+            postgresql_where=text("faces_processed IS FALSE"),
+        ),
     )
 
     event_id: Mapped[uuid.UUID] = mapped_column(
@@ -55,6 +60,11 @@ class Photo(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(50), nullable=False)
     face_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    faces_processed: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=text("false"),
+        nullable=False,
+    )
     processing_status: Mapped[ProcessingStatus] = mapped_column(
         pg_enum(ProcessingStatus, "processing_status"),
         server_default=ProcessingStatus.PENDING.value,

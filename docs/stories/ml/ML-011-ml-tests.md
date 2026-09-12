@@ -221,11 +221,24 @@ exclude_lines = [
 
 ## Acceptance
 
-- [ ] `pytest` (default) runs all Tier 1 tests without GPU, all pass
-- [ ] `RUN_ML_TESTS=1 pytest tests/ml/` runs Tier 2 tests on GPU host
-- [ ] CI pipeline passes without model files present on runner
-- [ ] Coverage report excludes `app/ml/vendor/*`
-- [ ] No private/copyrighted face images in git — all fixtures are CC0 or synthetic
-- [ ] Backend README documents how to run ML tests
-- [ ] At least 15 unit tests covering all ML components
-- [ ] At least 3 integration tests covering end-to-end flow
+- [x] `pytest` (default) runs all Tier 1 tests without GPU, all pass
+- [x] `RUN_ML_TESTS=1 pytest tests/ml/` runs Tier 2 tests on GPU host
+- [x] CI pipeline passes without model files present on runner
+- [x] Coverage report excludes `app/ml/vendor/*`
+- [x] No private/copyrighted face images in git — all fixtures are CC0 or synthetic
+- [x] Backend README documents how to run ML tests
+- [x] At least 15 unit tests covering all ML components
+- [x] At least 3 integration tests covering end-to-end flow
+
+## What we implemented (vs original file list)
+
+Kept **existing** test filenames from ML-001–ML-010 (`test_ml_config.py`, `test_clustering_unit.py`, …) instead of renaming to `test_config.py` / `test_detection.py`. Gaps from the matrix were filled in those files plus:
+
+- `backend/tests/ml/integration/test_e2e_pipeline.py` — live-model e2e (CPU is supported; `ML_DEVICE=cpu`)
+- `backend/tests/ml/test_ml_types.py`, `test_face_rows.py`, `test_dual_embedder_unit.py`
+
+**CI:** still `pytest -m "not ml"` (no GPU / self-hosted ML job). Coverage on CI uses `backend/coverage.ci.ini` and **omits all of `app/ml`**. Local `make test` measures `app/ml` except `app/ml/vendor/*`.
+
+**Synthetic embeddings:** story sample used noise `* 0.05`; in 512-d that is too large for `eps=0.45`. Fixtures use `* 0.001` so intra-cluster cosine distance stays below DBSCAN eps.
+
+**`RUN_ML_TESTS`:** still defaults to `"1"` so local runs try live models and skip if weights are missing. GitHub never collects `@pytest.mark.ml` tests.

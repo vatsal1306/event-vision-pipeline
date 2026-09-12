@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import TYPE_CHECKING
 
@@ -58,15 +59,18 @@ class SelfieMatchPipeline:
         self._embedder = embedder
         self._matcher = matcher or SelfieMatcher(db, config=self._config)
 
-    async def run(self, image_bgr: np.ndarray, event_id: uuid.UUID) -> MatchResult:
-        """Execute matching for a decoded BGR selfie.
+    def infer_embedding(
+        self, image_bgr: np.ndarray, event_id: uuid.UUID
+    ) -> MatchResult | tuple[np.ndarray, np.ndarray | None]:
+        """Run detect, liveness, quality, and embedding on the calling thread.
 
         Args:
             image_bgr: Decoded OpenCV image.
-            event_id: Event whose clusters are searched.
+            event_id: Event id used only for structured logs.
 
         Returns:
-            ``MatchResult`` including cluster IDs; photo IDs are filled when matched.
+            An early ``MatchResult`` when matching cannot proceed, otherwise
+            ``(primary_embedding, secondary_embedding)``.
         """
         detector, cropper = self._resolve_detector()
 
@@ -110,10 +114,29 @@ class SelfieMatchPipeline:
             )
 
         embedding = embedder.embed_single(crop.aligned_face)
+        return embedding.primary, embedding.secondary
+
+    async def run(self, image_bgr: np.ndarray, event_id: uuid.UUID) -> MatchResult:
+        """Execute matching for a decoded BGR selfie.
+
+        CPU inference runs in a worker thread so it does not block the event
+        loop or get cancelled mid-SQLAlchemy execute.
+
+        Args:
+            image_bgr: Decoded OpenCV image.
+            event_id: Event whose clusters are searched.
+
+        Returns:
+            ``MatchResult`` including cluster IDs; photo IDs are filled when matched.
+        """
+        inferred = await asyncio.to_thread(self.infer_embedding, image_bgr, event_id)
+        if isinstance(inferred, MatchResult):
+            return inferred
+        primary, secondary = inferred
         result = await self._matcher.match(
-            embedding.primary,
+            primary,
             event_id,
-            secondary_embedding=embedding.secondary,
+            secondary_embedding=secondary,
         )
         if result.status == MatchStatus.MATCHED:
             result.photo_ids = await self._load_photo_ids(result.matched_cluster_ids)

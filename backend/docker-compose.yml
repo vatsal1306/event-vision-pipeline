@@ -68,6 +68,8 @@ services:
     build: .
     env_file: .env
     command: ["uv", "run", "celery", "-A", "app.tasks.celery_app", "worker", "-Q", "photo_processing", "--loglevel=info"]
+    # Face/ML worker is NOT this service. Run locally:
+    #   uv run celery -A app.tasks.celery_app worker -Q face_processing -c 1
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/photoshare
       REDIS_URL: redis://redis:6379/0

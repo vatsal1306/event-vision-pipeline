@@ -30,11 +30,27 @@ class GuestService:
         self.db = db_session
         self.otp_service = otp_service
 
+    @staticmethod
+    def _ensure_guest_gallery_ready(event: Event) -> None:
+        """Block guest selfie matching until the event is Ready."""
+        from app.models.enums import EventStatus
+
+        if event.status != EventStatus.READY:
+            raise AuthorizationError(
+                "This gallery is not ready yet. Please try again later.",
+                code="EVENT_NOT_READY",
+            )
+
     async def process_selfie(
         self, session: GuestSession, selfie_bytes: bytes, face_service: FaceService
     ) -> SelfieMatchResponse:
         """Process guest selfie, extract embedding, and find matching photos."""
         from app.schemas.guest import SelfieMatchResponse
+
+        event = await self.db.get(Event, session.event_id)
+        if event is None:
+            raise NotFoundError("Event")
+        self._ensure_guest_gallery_ready(event)
 
         match_result = await face_service.match_selfie(selfie_bytes, session.event_id)
 
@@ -71,6 +87,11 @@ class GuestService:
         from app.models.enums import ProcessingStatus
         from app.models.face_embedding import FaceEmbedding
         from app.models.photo import Photo
+
+        event = await self.db.get(Event, session.event_id)
+        if event is None:
+            raise NotFoundError("Event")
+        self._ensure_guest_gallery_ready(event)
 
         if not session.matched_cluster_ids:
             return [], 0
@@ -173,6 +194,8 @@ class GuestService:
         if event.status == EventStatus.ARCHIVED:
             raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
 
+        self._ensure_guest_gallery_ready(event)
+
         if not event.guest_link_active:
             raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
 
@@ -209,6 +232,8 @@ class GuestService:
 
         if event.status == EventStatus.ARCHIVED:
             raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
+        self._ensure_guest_gallery_ready(event)
 
         if not event.guest_link_active:
             raise AuthorizationError("Guest link is inactive", code="LINK_INACTIVE")
