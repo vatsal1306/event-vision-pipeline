@@ -232,8 +232,8 @@ class ClusterManager:
     async def run_recovery(self, event_id: uuid.UUID) -> RecoveryPipelineResult:
         """Run orphan-crop recovery then orphan-cluster merge under the event lock.
 
-        No-ops when ``ML_ORPHAN_RECOVERY_ENABLED`` is false. Celery wiring is
-        deferred to ML-009; call this after cluster + sweeper passes.
+        No-ops when ``ML_ORPHAN_RECOVERY_ENABLED`` is false. Called from
+        ``FaceService.run_clustering`` (ML-009).
 
         Args:
             event_id: Event to recover.

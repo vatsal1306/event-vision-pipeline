@@ -245,3 +245,20 @@ Increment `events.total_faces` as faces are detected.
 - [ ] Concurrent clustering tasks → second task waits/retries on lock
 - [ ] Single photo failure → other photos still processed successfully
 - [ ] Event status transitions: uploaded → processing → ready
+
+## Implementation notes (what we actually built)
+
+- Photographer **starts** face processing via
+  `POST /api/v1/events/{id}/start-face-processing`. It is not enqueued from
+  tus completion. GPU EC2 start/stop is **INF-009**. Dashboard button is
+  **FE-023**.
+- Photographer statuses: `draft` → `uploading` → `processing` → `ready` →
+  `archived`. No `uploaded` / `processing_failed` public states.
+- Ready only when every photo has `faces_processed=true` **and** proxy jobs
+  are completed or failed. Previews still run automatically on CPU.
+- Face work uses **original** JPG/HEIC bytes, not WebP proxies.
+- `ML_FACE_PROCESSING_ENABLED` (default false) — not a second flag in
+  `app/config.py`. App workers stay on `photo_processing`; ML worker uses
+  `face_processing`.
+- Selfie matching stays sync on the app CPU host.
+- Per-photo GPU batching stays **ML-010**; this story loops `process_photo`.

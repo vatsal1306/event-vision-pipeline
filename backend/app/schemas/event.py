@@ -40,6 +40,7 @@ class EventSummary(BaseModel):
     folder_count: int
     guest_count: int
     cover_image_url: str | None = None
+    pending_face_photos: int = 0
     archive_at: datetime | None = None
     created_at: datetime
     updated_at: datetime | None = None
@@ -118,6 +119,7 @@ class EventDetail(BaseModel):
     processed_photos: int
     folder_count: int = 0
     guest_count: int = 0
+    pending_face_photos: int = 0
     archive_at: datetime | None
     created_at: datetime
     updated_at: datetime | None = None
@@ -129,6 +131,7 @@ class EventDetail(BaseModel):
         *,
         folder_count: int = 0,
         guest_count: int = 0,
+        pending_face_photos: int = 0,
     ) -> EventDetail:
         """Build a detail payload with computed share URLs."""
         frontend_url = get_settings().frontend_url.rstrip("/")
@@ -153,10 +156,20 @@ class EventDetail(BaseModel):
             processed_photos=event.processed_photos,
             folder_count=folder_count,
             guest_count=guest_count,
+            pending_face_photos=pending_face_photos,
             archive_at=event.archive_at,
             created_at=event.created_at,
             updated_at=event.updated_at,
         )
+
+
+class StartFaceProcessingResponse(BaseModel):
+    """Acknowledgement from POST /events/{id}/start-face-processing."""
+
+    event_id: UUID
+    status: EventStatus
+    already_running: bool = False
+    photos_queued: int
 
 
 class EventPublicInfoEvent(BaseModel):

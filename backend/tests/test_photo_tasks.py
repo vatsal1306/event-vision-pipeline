@@ -45,7 +45,7 @@ async def create_event(db_session: AsyncSession, photographer_id: uuid.UUID) -> 
         photographer_id=photographer_id,
         name="Test Event processing",
         slug=f"test-slug-{uuid.uuid4().hex[:8]}",
-        status=EventStatus.PROCESSING,
+        status=EventStatus.UPLOADING,
         total_photos=1,
     )
     db_session.add(e)
@@ -184,9 +184,9 @@ async def test_process_uploaded_photo_success(
     assert photo.height == 100
     assert photo.processing_error is None
 
-    # Verify event status updated to READY because 1 of 1 completed
+    # Verify event stays Uploading until the photographer starts face processing
     await db_session.refresh(event)
-    assert event.status == EventStatus.READY
+    assert event.status == EventStatus.UPLOADING
 
 
 @pytest.mark.asyncio

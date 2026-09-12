@@ -19,6 +19,7 @@ export interface Event {
   totalPhotos: number;
   totalFaces: number;
   processedPhotos: number;
+  pendingFacePhotos?: number;
   guestCount: number;
   folderCount: number;
   archiveAt: string | null; // ISO Datetime string

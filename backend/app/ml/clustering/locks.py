@@ -11,6 +11,7 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 CLUSTERING_LOCK_KEY_TEMPLATE = "clustering_lock:{event_id}"
+FACE_PIPELINE_LOCK_KEY_TEMPLATE = "face_pipeline_lock:{event_id}"
 
 _RELEASE_SCRIPT = """
 if redis.call("get", KEYS[1]) == ARGV[1] then
@@ -36,18 +37,26 @@ class EventClusteringLock:
     with the project's ``decode_responses=True`` client.
     """
 
-    def __init__(self, redis_client: redis.Redis, event_id: uuid.UUID, ttl_seconds: int) -> None:
+    def __init__(
+        self,
+        redis_client: redis.Redis,
+        event_id: uuid.UUID,
+        ttl_seconds: int,
+        *,
+        key_template: str = CLUSTERING_LOCK_KEY_TEMPLATE,
+    ) -> None:
         """Bind a lock key for ``event_id``.
 
         Args:
             redis_client: Async Redis client (string-decoded responses).
-            event_id: Event whose clustering must be exclusive.
+            event_id: Event whose clustering or face pipeline must be exclusive.
             ttl_seconds: Key expiry used on acquire and extend.
+            key_template: Redis key pattern containing ``{event_id}``.
         """
         self._redis = redis_client
         self._event_id = event_id
         self._ttl_seconds = ttl_seconds
-        self._key = CLUSTERING_LOCK_KEY_TEMPLATE.format(event_id=event_id)
+        self._key = key_template.format(event_id=event_id)
         self._token = str(uuid.uuid4())
 
     @property

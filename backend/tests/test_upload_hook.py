@@ -212,7 +212,7 @@ async def test_tusd_hook_post_finish_success(
     # Verify event updated
     await db_session.refresh(event)
     assert event.total_photos == 1
-    assert event.status == EventStatus.PROCESSING
+    assert event.status == EventStatus.UPLOADING
 
     # Verify quota updated
     await db_session.refresh(photographer)

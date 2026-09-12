@@ -20,6 +20,7 @@ class MatchStatus(str, Enum):
     LIVENESS_FAILED = "liveness_failed"
     CROP_FAILED = "crop_failed"
     INVALID_IMAGE = "invalid_image"
+    ERROR = "error"
 
 
 @dataclass(frozen=True)

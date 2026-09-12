@@ -185,11 +185,45 @@ class EventService:
         return event
 
     async def update_event_processing_status(self, event_id: UUID) -> None:
-        """Update event status based on photo processing completion."""
+        """Refresh photo counters and photographer-facing event status.
+
+        Preview (WebP) completion alone never marks an event Ready. Ready
+        requires every photo to have finished face extraction (or failed
+        that attempt) and every proxy job to be completed or failed.
+        """
         event = await self.db.get(Event, event_id)
         if not event:
             return
+        if event.status == EventStatus.ARCHIVED:
+            await self._refresh_photo_counters(event)
+            await self.db.commit()
+            return
 
+        total, proxy_done, pending_faces = await self._photo_status_counts(event_id)
+        event.total_photos = total
+        event.processed_photos = proxy_done
+
+        previous_status = event.status
+        proxies_finished = total > 0 and proxy_done == total
+        faces_finished = total > 0 and pending_faces == 0
+
+        if total == 0:
+            event.status = EventStatus.DRAFT
+        elif faces_finished and proxies_finished:
+            event.status = EventStatus.READY
+            if previous_status != EventStatus.READY:
+                from app.tasks.notification_tasks import notify_processing_complete_task
+
+                notify_processing_complete_task.delay(str(event_id))
+        elif previous_status == EventStatus.PROCESSING:
+            event.status = EventStatus.PROCESSING
+        else:
+            event.status = EventStatus.UPLOADING
+
+        await self.db.commit()
+
+    async def _photo_status_counts(self, event_id: UUID) -> tuple[int, int, int]:
+        """Return total photos, proxy-terminal photos, and pending face photos."""
         stats = await self.db.execute(
             select(
                 func.count(Photo.id).label("total"),
@@ -200,28 +234,19 @@ class EventService:
                     )
                 )
                 .label("processed"),
+                func.count(Photo.id)
+                .filter(Photo.faces_processed.is_(False))
+                .label("pending_faces"),
             ).where(Photo.event_id == event_id)
         )
-        total, processed = stats.one()
+        total, processed, pending_faces = stats.one()
+        return int(total or 0), int(processed or 0), int(pending_faces or 0)
 
+    async def _refresh_photo_counters(self, event: Event) -> None:
+        """Update total_photos and processed_photos without changing status."""
+        total, processed, _pending = await self._photo_status_counts(event.id)
         event.total_photos = total
         event.processed_photos = processed
-
-        previous_status = event.status
-
-        if total == 0:
-            event.status = EventStatus.DRAFT
-        elif processed < total:
-            event.status = EventStatus.PROCESSING
-        elif processed == total:
-            event.status = EventStatus.READY
-
-            if previous_status != EventStatus.READY:
-                from app.tasks.notification_tasks import notify_processing_complete_task
-
-                notify_processing_complete_task.delay(str(event_id))
-
-        await self.db.commit()
 
     async def _allocate_slug(self, name: str) -> str:
         """Retry slug generation until the unique constraint is satisfied."""
@@ -232,17 +257,22 @@ class EventService:
                 return candidate
         raise ConflictError("Could not allocate a unique event slug")
 
-    async def _folder_and_guest_counts(self, event_id: UUID) -> tuple[int, int]:
+    async def _folder_and_guest_counts(self, event_id: UUID) -> tuple[int, int, int]:
         folder_count = await self.db.scalar(
             select(func.count()).select_from(Folder).where(Folder.event_id == event_id)
         )
         guest_count = await self.db.scalar(
             select(func.count()).select_from(GuestSession).where(GuestSession.event_id == event_id)
         )
-        return int(folder_count or 0), int(guest_count or 0)
+        pending_faces = await self.db.scalar(
+            select(func.count())
+            .select_from(Photo)
+            .where(Photo.event_id == event_id, Photo.faces_processed.is_(False))
+        )
+        return int(folder_count or 0), int(guest_count or 0), int(pending_faces or 0)
 
     async def _to_summary(self, event: Event) -> EventSummary:
-        folder_count, guest_count = await self._folder_and_guest_counts(event.id)
+        folder_count, guest_count, pending_faces = await self._folder_and_guest_counts(event.id)
         return EventSummary(
             id=event.id,
             photographer_id=event.photographer_id,
@@ -262,6 +292,7 @@ class EventService:
             processed_photos=event.processed_photos,
             folder_count=folder_count,
             guest_count=guest_count,
+            pending_face_photos=pending_faces,
             cover_image_url=None,
             archive_at=event.archive_at,
             created_at=event.created_at,
@@ -269,5 +300,10 @@ class EventService:
         )
 
     async def _to_detail(self, event: Event) -> EventDetail:
-        folder_count, guest_count = await self._folder_and_guest_counts(event.id)
-        return EventDetail.from_event(event, folder_count=folder_count, guest_count=guest_count)
+        folder_count, guest_count, pending_faces = await self._folder_and_guest_counts(event.id)
+        return EventDetail.from_event(
+            event,
+            folder_count=folder_count,
+            guest_count=guest_count,
+            pending_face_photos=pending_faces,
+        )

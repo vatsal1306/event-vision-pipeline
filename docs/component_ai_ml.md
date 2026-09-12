@@ -1199,6 +1199,15 @@ These client-side checks are UX-focused; the server-side checks above are the au
 
 ## 10. Integration with Backend
 
+> **ML-009 implementation notes (differs from the original sketch):** Photographers
+> trigger face processing with `POST /events/{id}/start-face-processing` after
+> uploads. Previews still generate automatically on the CPU app host. Face Celery
+> tasks run only on the `face_processing` queue. Guest selfie matching stays
+> synchronous on the app CPU host (no GPU). Events stay **Uploading** until that
+> trigger, then **Processing**, then **Ready** when proxies *and* `faces_processed`
+> are done. `ML_FACE_PROCESSING_ENABLED` defaults false. GPU EC2 start/stop is
+> INF-009 (not this story). Dashboard button is FE-023.
+
 ### 10.1 Face Service (Backend → ML Bridge)
 
 ```python

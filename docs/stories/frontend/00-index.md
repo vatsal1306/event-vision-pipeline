@@ -39,6 +39,7 @@ Work these in order. Each story is a standalone markdown file an AI agent can im
 | FE-020 | PWA manifest and service worker | FE-007, FE-019 |
 | FE-021 | Empty/error/loading polish and a11y | FE-010–FE-019 |
 | FE-022 | Frontend tests | FE-008, FE-011, FE-012, FE-017, FE-019 |
+| FE-023 | Photographer start-face-processing button | FE-011, FE-012, ML-009 |
 
 ## Suggested implementation batches
 

@@ -123,8 +123,8 @@ class UploadService:
         photographer.storage_used_bytes += upload_info.size
         event.total_photos += 1
 
-        if event.status in (EventStatus.DRAFT, EventStatus.READY, EventStatus.UPLOADING):
-            event.status = EventStatus.PROCESSING
+        if event.status in (EventStatus.DRAFT, EventStatus.READY):
+            event.status = EventStatus.UPLOADING
 
         await self.db.commit()
         await self.db.refresh(photo)

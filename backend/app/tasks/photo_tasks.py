@@ -114,10 +114,9 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
                     settings.s3_bucket_originals, s3_key, "STANDARD_IA"
                 )
 
-            # Step 6: Dispatch face detection (stubbed for now)
+            # Face extraction is photographer-triggered (ML-009). Do not enqueue here.
             logger.info(
-                "TODO: Enqueue detect_faces_task for photo %s",
-                photo_id,
+                "proxy_complete_waiting_for_face_processing",
                 photo_id=photo_id,
                 event_id=event_id,
             )

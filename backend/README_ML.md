@@ -38,25 +38,18 @@ backend/app/ml/
 │   ├── types.py
 │   └── registry.py
 ├── clustering/         # ML-005, ML-006, ML-007
-│   ├── incremental_clusterer.py  # DBSCAN + Agglomerative (done)
-│   ├── clustering_config.py      # Cluster vs Sweeper configs (done)
-│   ├── types.py                  # Input/output dataclasses (done)
-│   ├── cluster_manager.py        # Load + lock + batched pass (ML-006)
-│   ├── cluster_persistence.py    # Transactional DB writes (ML-006)
-│   ├── vector_utils.py           # pgvector numpy helpers (ML-006)
-│   ├── locks.py                  # Redis event clustering lock (ML-006)
-│   └── recovery/                 # ML-007 (done)
-│       ├── orphan_crops.py
-│       ├── orphan_clusters.py
-│       ├── similarity.py
-│       └── types.py
-├── matching/           # ML-008 — selfie liveness + cosine match (done)
+│   ├── incremental_clusterer.py
+│   ├── clustering_config.py
 │   ├── types.py
-│   ├── liveness.py
-│   ├── selfie_matcher.py
-│   └── pipeline.py
-└── vendor/             # PicSee / pix-workers code copies
-    └── ypr_3ddfa_v2/   # 3DDFA FaceBoxes + TDDFA ONNX (ML-003)
+│   ├── cluster_manager.py
+│   ├── cluster_persistence.py
+│   ├── vector_utils.py
+│   ├── locks.py              # clustering_lock + face_pipeline_lock
+│   └── recovery/
+├── matching/           # ML-008
+├── pipeline.py         # ML-009 — FaceService facade
+├── image_io.py         # ML-009 — original JPEG/HEIC decode
+└── vendor/
 ```
 
 Model weight files live in `backend/models/` (git-ignored).
@@ -136,7 +129,8 @@ uv sync --extra dev --extra ml
 | Clustering algorithm | ML-005 (done) |
 | Cluster persistence (pgvector) | ML-006 (done) |
 | Orphan crop/cluster recovery | ML-007 (done) |
-| FaceService selfie match | ML-008 (done) — Celery upload pipeline still ML-009 |
+| FaceService selfie match | ML-008 (done) |
+| FaceService + Celery face queue | ML-009 (done) |
 
 ## ML-003 — Quality Filters
 
@@ -542,6 +536,67 @@ uv run pytest tests/ml/test_liveness_unit.py tests/ml/test_selfie_matcher_unit.p
 ```
 
 Live pipeline test needs SCRFD + blur/YPR + R100 weights and a face that passes 15% area + colour checks.
+
+## ML-009 — FaceService + Celery (`face_processing` queue)
+
+Wires detection, quality, embeddings, clustering, and selfie matching behind
+`app.ml.pipeline.FaceService`. Guest API still uses
+`app.services.face_service.FaceService` as a thin wrapper.
+
+| Module | Purpose |
+|--------|---------|
+| `ml/pipeline.py` | `process_photo`, `run_clustering`, `match_selfie`, `process_event_photos` |
+| `ml/image_io.py` | Decode **original** JPEG/PNG/WebP/HEIC (not the WebP proxy) |
+| `tasks/face_tasks.py` | Celery tasks on queue `face_processing` only |
+| `services/face_processing_service.py` | `POST /events/{id}/start-face-processing` |
+| `photos.faces_processed` | Skip photos already extracted (migration `add_faces_processed`) |
+
+### Photographer flow
+
+1. Upload → event **Uploading**; CPU worker builds WebP proxies (`photo_processing`).
+2. Photographer calls start-face-processing (dashboard button is **FE-023**).
+3. If `ML_FACE_PROCESSING_ENABLED=false` → HTTP 503, status stays Uploading.
+4. Else event **Processing**, task runs detect → embed → cluster + sweeper + recovery.
+5. **Ready** only when every photo has `faces_processed=true` **and** proxies finished.
+   Then the existing processing-complete email is sent.
+6. More photos after Ready → **Uploading** again; only new rows are processed.
+
+GPU EC2 start/stop is **INF-009**, not this story. Guests do not need GPU.
+Guest auth/selfie/gallery return `EVENT_NOT_READY` until Ready.
+
+Local worker (from `backend/`, with ML extra):
+
+```bash
+# backend/.env
+ML_FACE_PROCESSING_ENABLED=true
+ML_DEVICE=cpu
+
+cd backend
+docker compose up -d db redis
+uv sync --extra dev --extra ml
+uv run celery -A app.tasks.celery_app worker -Q face_processing -c 1
+```
+
+App/CPU worker must **not** include `face_processing`:
+
+```bash
+uv run celery -A app.tasks.celery_app worker -Q photo_processing
+```
+
+### Testing
+
+```bash
+cd backend
+docker compose up -d db redis
+uv run alembic upgrade head
+uv run pytest tests/ml/test_face_pipeline.py tests/ml/test_face_tasks.py \
+  tests/ml/test_image_io.py tests/test_face_processing_api.py \
+  tests/test_notifications.py tests/test_photo_tasks.py tests/test_upload_hook.py \
+  tests/test_guest_auth.py -v --no-cov
+```
+
+Pipeline tests inject fake detector/embedder (no GPU). They need Postgres + Redis.
+Queue tests do not need Redis.
 
 ## Testing
 

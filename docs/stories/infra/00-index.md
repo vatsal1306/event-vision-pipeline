@@ -2,7 +2,7 @@
 
 **App host:** AWS EC2 **m6i.xlarge**, Ubuntu, **ap-south-1**, CPU only.  
 **Media:** S3 in a **separate cheap account**, same region.  
-**Not in this backlog:** VPC mesh, ECS, RDS, ElastiCache, ALB, CloudFront, GPU Spot.
+**Not in this backlog except INF-009:** VPC mesh, ECS, RDS, ElastiCache, ALB, CloudFront. GPU is a **separate on-demand host**, never the app `m6i.xlarge`.
 
 | ID | Story | Depends on |
 |----|--------|------------|
@@ -14,5 +14,6 @@
 | INF-006 | SSH deploy + GH tests | INF-005 |
 | INF-007 | pg_dump to S3 | INF-002, INF-005 |
 | INF-008 | Disk/SSH/S3 spend | INF-005 |
+| INF-009 | On-demand GPU ML host start/stop | INF-004, ML-009 |
 
 Full architecture: `docs/component_infrastructure.md` v2.

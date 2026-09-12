@@ -185,6 +185,13 @@ export const api = {
   deleteEvent: (id: string) => apiClient.delete<void>(`/api/v1/events/${id}`),
   archiveEvent: (id: string) => apiClient.post<void>(`/api/v1/events/${id}/archive`, {}),
   restoreEvent: (id: string) => apiClient.post<void>(`/api/v1/events/${id}/restore`, {}),
+  startFaceProcessing: (id: string) =>
+    apiClient.post<{
+      event_id: string;
+      status: EventStatus;
+      already_running: boolean;
+      photos_queued: number;
+    }>(`/api/v1/events/${id}/start-face-processing`, {}),
 
   // Folders
   getFolders: (eventId: string) =>

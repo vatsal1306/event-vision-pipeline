@@ -18,6 +18,7 @@ export function mapEventFromApi(raw: Record<string, unknown>): Event {
     totalPhotos: Number(raw.total_photos ?? 0),
     totalFaces: Number(raw.total_faces ?? 0),
     processedPhotos: Number(raw.processed_photos ?? 0),
+    pendingFacePhotos: Number(raw.pending_face_photos ?? 0),
     guestCount: Number(raw.guest_count ?? 0),
     folderCount: Number(raw.folder_count ?? 0),
     archiveAt: (raw.archive_at as string | null) ?? null,
