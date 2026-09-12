@@ -79,7 +79,7 @@ ML-001 (Foundation)
 | **ML-007** | Advanced Clustering Recovery (Orphan Crops + Clusters) | Done | P1 | M |
 | **ML-008** | Selfie Matching + Basic Liveness | Done | P0 | M |
 | **ML-009** | FaceService Orchestration + Celery Tasks | Done | P0 | M |
-| **ML-010** | Bulk Upload Processing Pipeline | Pending | P0 | L |
+| **ML-010** | Bulk Upload Processing Pipeline | Done | P0 | L |
 | **ML-011** | ML Tests + CI Skip Rules | Pending | P1 | M |
 
 ## Key Changes from Previous ML Stories

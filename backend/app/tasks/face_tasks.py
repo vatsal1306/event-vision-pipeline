@@ -50,6 +50,8 @@ async def _process_event_photos_async(event_id: str) -> dict[str, Any]:
                 "event_id": event_id,
                 "photos_processed": result.photos_processed,
                 "photos_failed": result.photos_failed,
+                "total_faces": result.total_faces,
+                "total_embedded": result.total_embedded,
             }
     finally:
         await redis_client.aclose()

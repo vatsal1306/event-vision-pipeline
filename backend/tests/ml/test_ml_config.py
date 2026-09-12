@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -17,9 +18,12 @@ def _clear_ml_config_cache() -> None:
     get_ml_config.cache_clear()
 
 
-def test_ml_config_defaults_match_story_spec() -> None:
+def test_ml_config_defaults_match_story_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     """Defaults should match docs/stories/ml/ML-001-ml-package-registry.md."""
-    config = MLConfig()
+    for key in list(os.environ):
+        if key.startswith("ML_"):
+            monkeypatch.delenv(key, raising=False)
+    config = MLConfig(_env_file=None)
 
     assert config.device == "auto"
     assert config.models_dir == "models"
@@ -45,6 +49,8 @@ def test_ml_config_defaults_match_story_spec() -> None:
     assert config.sunglasses_threshold == 0.5
     assert config.embedding_model == "dual"
     assert config.embedding_batch_size == 64
+    assert config.download_ahead == 4
+    assert config.processing_progress_ttl_seconds == 86400
     assert config.dbscan_eps == 0.45
     assert config.dbscan_min_samples == 1
     assert config.agglo_threshold == 0.45

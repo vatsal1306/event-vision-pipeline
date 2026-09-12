@@ -47,8 +47,10 @@ backend/app/ml/
 │   ├── locks.py              # clustering_lock + face_pipeline_lock
 │   └── recovery/
 ├── matching/           # ML-008
-├── pipeline.py         # ML-009 — FaceService facade
+├── pipeline.py         # ML-009/ML-010 — FaceService facade + bulk event processing
 ├── image_io.py         # ML-009 — original JPEG/HEIC decode
+├── face_rows.py        # ML-010 — FaceEmbedding row builder + failed-face placeholder
+├── processing_progress.py  # ML-010 — Redis `spotme:processing:{event_id}`
 └── vendor/
 ```
 
@@ -602,6 +604,36 @@ uv run pytest tests/ml/test_face_pipeline.py tests/ml/test_face_tasks.py \
 
 Pipeline tests inject fake detector/embedder (no GPU). They need Postgres + Redis.
 Queue tests do not need Redis.
+
+## ML-010 — Bulk event processing
+
+Optimises `process_event_photos` (alias `process_event_bulk`) for 5k–20k
+originals without loading the event into RAM.
+
+| Piece | What we shipped |
+|-------|-----------------|
+| Trigger | Still the photographer button (`POST /start-face-processing`). **Not** auto-start on tus complete. |
+| Download | Sliding-window prefetch via `app/services/storage_prefetch.py` + existing `storage_service.get_object` (S3 in prod, MinIO/local on laptop). Config `ML_DOWNLOAD_AHEAD` (default 4). Story's `s3_service.py` was not added. |
+| Embed | Accumulate quality-passed 112×112 crops until `ML_EMBEDDING_BATCH_SIZE` (64), then one `embed_batch`. Detect one photo at a time; release decoded pixels after cropping. |
+| OOM | Unchanged from ML-004: `extract_batch_with_oom_retry` halves 64→32→16→…→1, then MobileFaceNet. |
+| Failed faces | Stored with `quality_passed=false` and a **zero placeholder** vector (`face_embeddings.embedding` is NOT NULL). Clustering / guest match already ignore these. **Photos still appear** in photographer + master galleries. |
+| Progress | Redis hash `spotme:processing:{event_id}`. Poll `GET /api/v1/events/{id}/face-processing-progress`. Frontend helper `api.getFaceProcessingProgress`. |
+| Clustering | Exactly once after the last embed flush (cluster + sweeper + recovery). |
+| Status | `uploading` → `processing` → `ready` (Ready still requires proxies + `faces_processed`). |
+
+CPU vs GPU is unchanged: bulk detect/embed/cluster on `face_processing` (GPU later). Guest selfie stays on the app CPU host — one image, models stay in RAM after first load; that does not starve the box the way a 20k job would.
+
+VRAM/RAM 4GB/6GB and “1k photos < 15 min” are production GPU targets, not local pytest assertions.
+
+### Testing
+
+```bash
+cd backend
+docker compose up -d db redis
+uv run pytest tests/ml/test_face_pipeline.py tests/ml/test_storage_prefetch.py \
+  tests/ml/test_processing_progress.py tests/ml/test_ml_config.py \
+  tests/test_face_processing_api.py tests/ml/test_embedding_unit.py -v --no-cov
+```
 
 ## Testing
 

@@ -182,3 +182,34 @@ async def test_start_face_processing_already_running(
         await lock.release()
     finally:
         get_ml_config.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_face_processing_progress_idle_then_hash(
+    authed_client: AsyncClient,
+    db_session: AsyncSession,
+    redis_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Progress endpoint returns idle without a hash, then Redis values after start."""
+    monkeypatch.setenv("ML_FACE_PROCESSING_ENABLED", "true")
+    get_ml_config.cache_clear()
+    try:
+        event = await _event_with_photo(db_session, authed_client)
+        idle = await authed_client.get(f"/api/v1/events/{event.id}/face-processing-progress")
+        assert idle.status_code == 200, idle.text
+        assert idle.json()["pipeline_status"] == "idle"
+
+        with patch("app.tasks.face_tasks.process_event_photos.delay"):
+            start = await authed_client.post(f"/api/v1/events/{event.id}/start-face-processing")
+        assert start.status_code == 202
+
+        live = await authed_client.get(f"/api/v1/events/{event.id}/face-processing-progress")
+        assert live.status_code == 200
+        body = live.json()
+        assert body["pipeline_status"] == "processing"
+        assert body["total_photos"] == 1
+        assert body["processed_photos"] == 0
+        assert body["event_status"] == "processing"
+    finally:
+        get_ml_config.cache_clear()

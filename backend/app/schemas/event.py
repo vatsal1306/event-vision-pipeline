@@ -172,6 +172,21 @@ class StartFaceProcessingResponse(BaseModel):
     photos_queued: int
 
 
+class FaceProcessingProgressResponse(BaseModel):
+    """Live bulk face-processing progress from Redis (ML-010)."""
+
+    event_id: UUID
+    event_status: EventStatus
+    pipeline_status: str
+    total_photos: int
+    processed_photos: int
+    failed_photos: int = 0
+    total_faces: int = 0
+    embedded_faces: int = 0
+    started_at: datetime | None = None
+    eta_seconds: int | None = None
+
+
 class EventPublicInfoEvent(BaseModel):
     id: UUID
     name: str

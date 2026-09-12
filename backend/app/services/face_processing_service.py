@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequestError, FaceProcessingDisabledError
 from app.ml.clustering.locks import FACE_PIPELINE_LOCK_KEY_TEMPLATE, EventClusteringLock
 from app.ml.config import get_ml_config
+from app.ml.processing_progress import ProcessingProgressTracker
 from app.models.enums import EventStatus
 from app.models.event import Event
 from app.models.photo import Photo
-from app.schemas.event import StartFaceProcessingResponse
+from app.schemas.event import FaceProcessingProgressResponse, StartFaceProcessingResponse
 
 
 class FaceProcessingService:
@@ -58,6 +59,13 @@ class FaceProcessingService:
         event.status = EventStatus.PROCESSING
         await self.db.commit()
 
+        tracker = ProcessingProgressTracker(
+            self._redis,
+            event.id,
+            ttl_seconds=self._config.processing_progress_ttl_seconds,
+        )
+        await tracker.start(pending)
+
         from app.tasks.face_tasks import process_event_photos
 
         process_event_photos.delay(str(event.id))
@@ -66,6 +74,48 @@ class FaceProcessingService:
             status=EventStatus.PROCESSING,
             already_running=False,
             photos_queued=pending,
+        )
+
+    async def get_progress(self, event: Event) -> FaceProcessingProgressResponse:
+        """Return Redis progress, or an idle snapshot when the hash is missing.
+
+        Args:
+            event: Photographer-owned event.
+
+        Returns:
+            Progress payload for the dashboard poll endpoint.
+        """
+        tracker = ProcessingProgressTracker(
+            self._redis,
+            event.id,
+            ttl_seconds=self._config.processing_progress_ttl_seconds,
+        )
+        snapshot = await tracker.read()
+        if snapshot is None:
+            pipeline_status = "processing" if event.status == EventStatus.PROCESSING else "idle"
+            return FaceProcessingProgressResponse(
+                event_id=event.id,
+                event_status=event.status,
+                pipeline_status=pipeline_status,
+                total_photos=event.total_photos,
+                processed_photos=0,
+                failed_photos=0,
+                total_faces=event.total_faces,
+                embedded_faces=0,
+                started_at=None,
+                eta_seconds=None,
+            )
+        return FaceProcessingProgressResponse(
+            event_id=event.id,
+            event_status=event.status,
+            pipeline_status=snapshot.status,
+            total_photos=snapshot.total_photos,
+            processed_photos=snapshot.processed_photos,
+            failed_photos=snapshot.failed_photos,
+            total_faces=snapshot.total_faces,
+            embedded_faces=snapshot.embedded_faces,
+            started_at=snapshot.started_at,
+            eta_seconds=snapshot.eta_seconds,
         )
 
     async def _pending_face_photo_count(self, event_id: UUID) -> int:

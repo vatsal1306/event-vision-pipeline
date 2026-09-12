@@ -59,6 +59,8 @@ class MLConfig(BaseSettings):
     # Embedding
     embedding_model: str = "dual"
     embedding_batch_size: int = 64
+    download_ahead: int = 4
+    processing_progress_ttl_seconds: int = 86400
 
     # Clustering
     dbscan_eps: float = 0.45

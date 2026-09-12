@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -18,14 +19,21 @@ from app.ml.clustering.locks import FACE_PIPELINE_LOCK_KEY_TEMPLATE, EventCluste
 from app.ml.clustering.types import ClusteringResult
 from app.ml.config import MLConfig, get_ml_config
 from app.ml.exceptions import ClusteringLockBusyError, ClusteringLockError
+from app.ml.face_rows import (
+    FAILED_FACE_PLACEHOLDER_EMBEDDING,
+    FaceCropWithMeta,
+    build_face_embedding_row,
+    embedding_vector_to_list,
+)
 from app.ml.image_io import decode_photo_bytes
 from app.ml.matching.pipeline import SelfieMatchPipeline
 from app.ml.matching.types import MatchResult, MatchStatus
 from app.ml.model_registry import ModelRegistry, get_model_registry
+from app.ml.processing_progress import ProcessingProgressTracker
 from app.ml.registry_bootstrap import register_default_model_loaders
 from app.models.event import Event
-from app.models.face_embedding import FaceEmbedding
 from app.models.photo import Photo
+from app.services.storage_prefetch import iter_prefetched
 from app.services.storage_service import get_storage_service
 
 if TYPE_CHECKING:
@@ -75,7 +83,9 @@ class EventFacePipelineResult:
     event_id: uuid.UUID
     photos_processed: int
     photos_failed: int
-    clustering: ClusteringPipelineResult | None
+    total_faces: int = 0
+    total_embedded: int = 0
+    clustering: ClusteringPipelineResult | None = None
 
 
 class FaceService:
@@ -163,57 +173,12 @@ class FaceService:
 
         try:
             detector, cropper, quality_filter, embedder = self._resolve_upload_models()
-            faces = detector.detect(image)
-            crops = cropper.crop_all(image, faces, source_photo_id=photo.id)
-            embedding_ids: list[uuid.UUID] = []
-            passed_crops = []
-            passed_quality = []
-            for crop in crops:
-                quality = quality_filter.filter(crop)
-                if not quality.passed:
-                    continue
-                passed_crops.append(crop)
-                passed_quality.append(quality)
-
-            if passed_crops:
-                embeddings = embedder.embed_batch([crop.aligned_face for crop in passed_crops])
-                for crop, quality, embedding in zip(
-                    passed_crops, passed_quality, embeddings, strict=True
-                ):
-                    bbox = crop.source_detection.bbox
-                    yaw = pitch = roll = None
-                    if quality.ypr is not None:
-                        yaw, pitch, roll = quality.ypr
-                    row = FaceEmbedding(
-                        photo_id=photo.id,
-                        event_id=photo.event_id,
-                        embedding=embedding.primary.astype(float).tolist(),
-                        secondary_embedding=(
-                            embedding.secondary.astype(float).tolist()
-                            if embedding.secondary is not None
-                            else None
-                        ),
-                        bbox_x=float(bbox[0]),
-                        bbox_y=float(bbox[1]),
-                        bbox_w=float(bbox[2]),
-                        bbox_h=float(bbox[3]),
-                        detection_score=float(crop.source_detection.score),
-                        blur_score=quality.blur_score,
-                        yaw=yaw,
-                        pitch=pitch,
-                        roll=roll,
-                        quality_passed=True,
-                    )
-                    self._db.add(row)
-                    await self._db.flush()
-                    embedding_ids.append(row.id)
-
-            result = ProcessingResult(
-                photo_id=photo.id,
-                face_count=len(faces),
-                quality_passed_count=len(embedding_ids),
-                embedding_ids=embedding_ids,
+            buffer, result = await self._detect_and_buffer_photo(
+                photo, image, detector, cropper, quality_filter
             )
+            if buffer:
+                flushed_ids = await self._flush_embedding_batch(buffer, embedder)
+                result.embedding_ids.extend(flushed_ids)
         except Exception as exc:
             logger.warning(
                 "face_process_photo_failed",
@@ -291,11 +256,18 @@ class FaceService:
             )
             return MatchResult(status=MatchStatus.ERROR)
 
-    async def process_event_photos(self, event_id: uuid.UUID) -> EventFacePipelineResult:
-        """Process all photos that have not had faces extracted, then cluster.
+    async def process_event_bulk(self, event_id: uuid.UUID) -> EventFacePipelineResult:
+        """Alias for :meth:`process_event_photos` (ML-010 bulk entrypoint)."""
+        return await self.process_event_photos(event_id)
 
-        Holds ``face_pipeline_lock`` so a second trigger is a no-op until this
-        run finishes. Per-photo failures do not abort the event.
+    async def process_event_photos(self, event_id: uuid.UUID) -> EventFacePipelineResult:
+        """Process pending photos with crop buffering, then cluster once.
+
+        Downloads originals through a sliding S3/MinIO window (never loads the
+        whole event into RAM). Quality-passed crops accumulate until
+        ``embedding_batch_size``, then one GPU embed flush. Clustering runs
+        exactly once after the last flush. Per-photo failures do not abort
+        the event.
 
         Args:
             event_id: Event to process.
@@ -310,22 +282,71 @@ class FaceService:
         lock = await self._acquire_pipeline_lock(event_id)
         photos_processed = 0
         photos_failed = 0
+        total_faces = 0
+        total_embedded = 0
         clustering: ClusteringPipelineResult | None = None
+        tracker = (
+            ProcessingProgressTracker(
+                self._redis,
+                event_id,
+                ttl_seconds=self._config.processing_progress_ttl_seconds,
+            )
+            if self._redis is not None
+            else None
+        )
         try:
             pending = await self._load_pending_photos(event_id)
+            if tracker is not None:
+                await tracker.start(len(pending))
+
             storage = get_storage_service()
             settings = get_settings()
-            for photo in pending:
+            bucket = settings.s3_bucket_originals
+            detector, cropper, quality_filter, embedder = self._resolve_upload_models()
+            crop_buffer: list[FaceCropWithMeta] = []
+            awaiting_flush: dict[uuid.UUID, ProcessingResult] = {}
+            batch_size = max(1, self._config.embedding_batch_size)
+
+            async def _download(photo: Photo) -> bytes:
+                return await storage.get_object(bucket, photo.original_s3_key)
+
+            async def _publish_progress() -> None:
+                if tracker is None:
+                    return
+                await tracker.update(
+                    total_photos=len(pending),
+                    processed_photos=photos_processed + photos_failed,
+                    failed_photos=photos_failed,
+                    total_faces=total_faces,
+                    embedded_faces=total_embedded,
+                )
+
+            async for photo, image_bytes, download_error in iter_prefetched(
+                pending,
+                _download,
+                ahead=self._config.download_ahead,
+            ):
                 try:
-                    image_bytes = await storage.get_object(
-                        settings.s3_bucket_originals,
-                        photo.original_s3_key,
+                    if download_error is not None or image_bytes is None:
+                        raise download_error or RuntimeError("Empty download")
+                    image = decode_photo_bytes(
+                        image_bytes,
+                        filename=photo.filename,
+                        mime_type=photo.mime_type,
                     )
-                    result = await self.process_photo(photo.id, image_bytes)
-                    if result.error:
-                        photos_failed += 1
+                    if image is None:
+                        raise RuntimeError("Failed to decode image")
+                    buffer, result = await self._detect_and_buffer_photo(
+                        photo, image, detector, cropper, quality_filter
+                    )
+                    total_faces += result.face_count
+                    if buffer:
+                        crop_buffer.extend(buffer)
+                        awaiting_flush[photo.id] = result
                     else:
+                        await self._finish_photo(photo, result)
                         photos_processed += 1
+                    del image
                 except Exception as exc:
                     logger.warning(
                         "face_event_photo_failed",
@@ -336,9 +357,65 @@ class FaceService:
                     photos_failed += 1
                     photo.faces_processed = True
                     await self._db.commit()
+                try:
+                    while len(crop_buffer) >= batch_size:
+                        to_flush = crop_buffer[:batch_size]
+                        del crop_buffer[:batch_size]
+                        finished, embedded = await self._persist_passed_crops(
+                            to_flush, crop_buffer, awaiting_flush, embedder
+                        )
+                        photos_processed += finished
+                        total_embedded += embedded
+                except Exception as exc:
+                    logger.warning(
+                        "face_event_flush_failed",
+                        event_id=str(event_id),
+                        error=str(exc),
+                    )
+                    failed_now = await self._fail_awaiting_photos(awaiting_flush)
+                    photos_failed += failed_now
+                    crop_buffer.clear()
                 await lock.extend()
+                await _publish_progress()
 
+            if crop_buffer:
+                try:
+                    finished, embedded = await self._persist_passed_crops(
+                        crop_buffer, [], awaiting_flush, embedder
+                    )
+                    photos_processed += finished
+                    total_embedded += embedded
+                    crop_buffer.clear()
+                except Exception as exc:
+                    logger.warning(
+                        "face_event_flush_failed",
+                        event_id=str(event_id),
+                        error=str(exc),
+                    )
+                    failed_now = await self._fail_awaiting_photos(awaiting_flush)
+                    photos_failed += failed_now
+
+            if tracker is not None:
+                await tracker.mark_clustering(
+                    total_photos=len(pending),
+                    processed_photos=photos_processed + photos_failed,
+                    failed_photos=photos_failed,
+                    total_faces=total_faces,
+                    embedded_faces=total_embedded,
+                )
             clustering = await self.run_clustering(event_id)
+            if tracker is not None:
+                await tracker.mark_complete(
+                    total_photos=len(pending),
+                    processed_photos=photos_processed + photos_failed,
+                    failed_photos=photos_failed,
+                    total_faces=total_faces,
+                    embedded_faces=total_embedded,
+                )
+        except Exception:
+            if tracker is not None:
+                await tracker.mark_error("bulk_pipeline_failed")
+            raise
         finally:
             await lock.release()
 
@@ -346,8 +423,159 @@ class FaceService:
             event_id=event_id,
             photos_processed=photos_processed,
             photos_failed=photos_failed,
+            total_faces=total_faces,
+            total_embedded=total_embedded,
             clustering=clustering,
         )
+
+    async def _detect_and_buffer_photo(
+        self,
+        photo: Photo,
+        image: np.ndarray,
+        detector: SCRFDDetector,
+        cropper: FaceCropper,
+        quality_filter: QualityFilter,
+    ) -> tuple[list[FaceCropWithMeta], ProcessingResult]:
+        """Detect faces, persist quality rejects, and buffer crops that need GPU embed.
+
+        Args:
+            photo: Photo row being processed.
+            image: Decoded BGR original.
+            detector: SCRFD detector.
+            cropper: ArcFace cropper.
+            quality_filter: Quality orchestrator.
+
+        Returns:
+            Passed crops waiting for embedding, plus a partial processing result.
+        """
+        faces = await asyncio.to_thread(detector.detect, image)
+        crops = await asyncio.to_thread(cropper.crop_all, image, faces, photo.id)
+        passed: list[FaceCropWithMeta] = []
+        stored_ids: list[uuid.UUID] = []
+        for crop in crops:
+            quality = quality_filter.filter(crop)
+            if quality.passed:
+                passed.append(
+                    FaceCropWithMeta(
+                        crop=crop,
+                        photo_id=photo.id,
+                        event_id=photo.event_id,
+                        quality=quality,
+                    )
+                )
+                continue
+            row = build_face_embedding_row(
+                photo_id=photo.id,
+                event_id=photo.event_id,
+                crop=crop,
+                quality=quality,
+                primary=list(FAILED_FACE_PLACEHOLDER_EMBEDDING),
+                secondary=None,
+                quality_passed=False,
+            )
+            self._db.add(row)
+            await self._db.flush()
+            stored_ids.append(row.id)
+        await self._db.commit()
+        return passed, ProcessingResult(
+            photo_id=photo.id,
+            face_count=len(faces),
+            quality_passed_count=len(passed),
+            embedding_ids=stored_ids,
+        )
+
+    async def _flush_embedding_batch(
+        self,
+        crops: list[FaceCropWithMeta],
+        embedder: DualEmbedder,
+    ) -> list[uuid.UUID]:
+        """Embed a crop buffer and bulk-insert passed-face rows.
+
+        Args:
+            crops: Quality-passed crops (may be smaller than config batch size).
+            embedder: Dual embedder (already applies CUDA OOM batch halving).
+
+        Returns:
+            IDs of inserted embedding rows, in crop order.
+        """
+        if not crops:
+            return []
+        face_arrays = [item.crop.aligned_face for item in crops]
+        results = await asyncio.to_thread(embedder.embed_batch, face_arrays)
+        inserted: list[uuid.UUID] = []
+        for item, embedding in zip(crops, results, strict=True):
+            secondary = None
+            if embedding.secondary is not None:
+                secondary = embedding_vector_to_list(embedding.secondary)
+            row = build_face_embedding_row(
+                photo_id=item.photo_id,
+                event_id=item.event_id,
+                crop=item.crop,
+                quality=item.quality,
+                primary=embedding_vector_to_list(embedding.primary),
+                secondary=secondary,
+                quality_passed=True,
+            )
+            self._db.add(row)
+            await self._db.flush()
+            inserted.append(row.id)
+        await self._db.commit()
+        return inserted
+
+    async def _persist_passed_crops(
+        self,
+        to_flush: list[FaceCropWithMeta],
+        remaining_buffer: list[FaceCropWithMeta],
+        awaiting_flush: dict[uuid.UUID, ProcessingResult],
+        embedder: DualEmbedder,
+    ) -> tuple[int, int]:
+        """Flush embeddings and finish photos that have no remaining buffered crops.
+
+        Args:
+            to_flush: Crops to embed now.
+            remaining_buffer: Crops still waiting for a later flush.
+            awaiting_flush: Photos that cannot be marked processed yet.
+            embedder: Dual embedder.
+
+        Returns:
+            ``(photos_finished, faces_embedded)``.
+        """
+        inserted = await self._flush_embedding_batch(to_flush, embedder)
+        ids_by_photo: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for item, row_id in zip(to_flush, inserted, strict=True):
+            ids_by_photo.setdefault(item.photo_id, []).append(row_id)
+        remaining = Counter(item.photo_id for item in remaining_buffer)
+        finished = 0
+        for photo_id, row_ids in ids_by_photo.items():
+            partial = awaiting_flush.get(photo_id)
+            if partial is not None:
+                partial.embedding_ids.extend(row_ids)
+            if remaining[photo_id] == 0 and photo_id in awaiting_flush:
+                photo = await self._db.get(Photo, photo_id)
+                if photo is not None:
+                    await self._finish_photo(photo, awaiting_flush.pop(photo_id))
+                    finished += 1
+        return finished, len(inserted)
+
+    async def _fail_awaiting_photos(self, awaiting_flush: dict[uuid.UUID, ProcessingResult]) -> int:
+        """Mark photos that never received a successful embed flush as processed failures.
+
+        Args:
+            awaiting_flush: Photos still waiting on GPU embed results.
+
+        Returns:
+            Number of photos marked failed.
+        """
+        failed = 0
+        for photo_id in list(awaiting_flush):
+            leftover = await self._db.get(Photo, photo_id)
+            if leftover is not None:
+                leftover.faces_processed = True
+            awaiting_flush.pop(photo_id, None)
+            failed += 1
+        if failed:
+            await self._db.commit()
+        return failed
 
     async def _finish_photo(self, photo: Photo, result: ProcessingResult) -> ProcessingResult:
         """Persist face_count, faces_processed, and event.total_faces."""

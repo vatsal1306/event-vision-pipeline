@@ -1207,6 +1207,14 @@ These client-side checks are UX-focused; the server-side checks above are the au
 > trigger, then **Processing**, then **Ready** when proxies *and* `faces_processed`
 > are done. `ML_FACE_PROCESSING_ENABLED` defaults false. GPU EC2 start/stop is
 > INF-009 (not this story). Dashboard button is FE-023.
+>
+> **ML-010 implementation notes:** Bulk processing upgrades `FaceService.process_event_photos`
+> (alias `process_event_bulk`). Prefetch uses `storage_prefetch.iter_prefetched` +
+> `StorageService.get_object`, not a new `s3_service.py`. Crops buffer across photos
+> until `ML_EMBEDDING_BATCH_SIZE`. Quality rejects are stored (`quality_passed=false`,
+> zero placeholder embedding). Progress is Redis `spotme:processing:{event_id}` exposed
+> at `GET /api/v1/events/{id}/face-processing-progress`. CUDA OOM retry remains ML-004
+> halving down to batch size 1 (not stop at 16). Clustering still runs once at the end.
 
 ### 10.1 Face Service (Backend → ML Bridge)
 

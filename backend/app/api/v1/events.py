@@ -20,6 +20,7 @@ from app.schemas.event import (
     EventSettingsRequest,
     EventSortBy,
     EventSortOrder,
+    FaceProcessingProgressResponse,
     StartFaceProcessingResponse,
     UpdateEventRequest,
 )
@@ -169,6 +170,21 @@ async def start_face_processing(
     from app.services.face_processing_service import FaceProcessingService
 
     return await FaceProcessingService(db, redis_client).start_face_processing(event)
+
+
+@router.get(
+    "/{event_id}/face-processing-progress",
+    response_model=FaceProcessingProgressResponse,
+)
+async def get_face_processing_progress(
+    event: Event = Depends(get_photographer_event),
+    db: AsyncSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_dep),
+) -> FaceProcessingProgressResponse:
+    """Poll Redis-backed face processing progress for the photographer dashboard."""
+    from app.services.face_processing_service import FaceProcessingService
+
+    return await FaceProcessingService(db, redis_client).get_progress(event)
 
 
 @router.put("/{event_id}/links/{link_type}/toggle", response_model=EventDetail)
