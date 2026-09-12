@@ -635,16 +635,37 @@ uv run pytest tests/ml/test_face_pipeline.py tests/ml/test_storage_prefetch.py \
   tests/test_face_processing_api.py tests/ml/test_embedding_unit.py -v --no-cov
 ```
 
-## Testing
+## Testing (ML-011)
+
+Two tiers. **GitHub Actions never runs `tests/ml` tests marked ``ml``.** Local `make test` runs the full suite, including ML, with coverage of `app/ml` except vendor copies.
+
+| Command | What runs | Coverage |
+|---------|-----------|----------|
+| `make test` | All pytest, including `@pytest.mark.ml` | `app/` minus `app/ml/vendor/*` |
+| `make test-ci` / GitHub `backend-ci.yml` | `-m "not ml"` | `coverage.ci.ini` omits **all** of `app/ml` |
+| `RUN_ML_TESTS=1 uv run pytest tests/ml/integration -v --no-cov` | Real weights (CPU is fine: `ML_DEVICE=cpu`) | skip coverage for speed |
+
+`RUN_ML_TESTS` defaults to **on** (`1`). Set `RUN_ML_TESTS=0` to skip live-model tests when weights are missing. Integration tests also skip if the ONNX/PyTorch files are not in `backend/models/`.
+
+Install ML extras before local ML tests:
 
 ```bash
 cd backend
+docker compose up -d db redis
 uv sync --extra dev --extra ml
-uv run pytest tests/ml/ -v
+uv run pytest tests/ml/ -v --no-cov
 ```
 
-SCRFD integration tests need `backend/models/det_10g.onnx`. Set `RUN_ML_TESTS=0` to skip without models.
-Fixtures: `tests/ml/fixtures/` (see `tests/ml/fixtures/README.md`).
+SCRFD tests need `backend/models/det_10g.onnx`. Fixtures: `tests/ml/fixtures/` (see `tests/ml/fixtures/README.md`).
+
+Running **every** file in `tests/ml/` in one process can SIGSEGV on interpreter shutdown (Torch + TFLite). Tests themselves may have all passed. Run age integration separately if you see that (`tests/ml/test_age_detector_integration.py`).
+
+### Markers
+
+- `ml` — needs the `ml` extra and/or real weights / Postgres+Redis for that file
+- `slow` — applied automatically to `tests/ml/integration/` (end-to-end with real models)
+
+There is **no** self-hosted GPU GitHub runner. CPU (`ML_DEVICE=cpu`) is the supported local path.
 
 ## Registering Models
 

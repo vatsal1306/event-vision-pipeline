@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.ml.config import get_ml_config
+from app.ml.exceptions import ModelNotRegisteredError
 from app.ml.model_registry import (
     ModelRegistry,
     get_model_registry,
@@ -27,6 +28,19 @@ def _reset_registry() -> None:
     restore_model_loaders(saved_loaders)
     ModelRegistry.reset_for_tests()
     get_ml_config.cache_clear()
+
+
+def test_registry_singleton() -> None:
+    """get_model_registry must return the same process-wide instance."""
+    first = get_model_registry()
+    second = get_model_registry()
+    assert first is second
+
+
+def test_get_model_unknown_name_raises() -> None:
+    """Unknown registry keys fail fast instead of loading a random file."""
+    with pytest.raises(ModelNotRegisteredError):
+        get_model_registry().get_model("definitely-not-registered")
 
 
 def test_get_or_create_runs_factory_once() -> None:

@@ -48,6 +48,48 @@ def clusterer() -> IncrementalClusterer:
     return IncrementalClusterer(MLConfig(dbscan_eps=0.45, agglo_threshold=0.45))
 
 
+def test_clustering_synthetic(
+    clusterer: IncrementalClusterer,
+    well_separated_embeddings: np.ndarray,
+) -> None:
+    """Fifteen well-separated embeddings should form exactly three person clusters."""
+    embeddings = {
+        f"crop-{index}": well_separated_embeddings[index]
+        for index in range(len(well_separated_embeddings))
+    }
+    result = clusterer.cluster(
+        ClusteringInput(
+            new_embeddings=embeddings,
+            existing_clusters={},
+            clustering_type=CLUSTER_TYPE,
+        )
+    )
+    assert len(result.new_clusters) == 3
+    assert sorted(cluster.size for cluster in result.new_clusters) == [5, 5, 5]
+    assert result.unassigned_crop_ids == []
+
+
+def test_overlapping_embeddings_do_not_crash(
+    clusterer: IncrementalClusterer,
+    overlapping_embeddings: np.ndarray,
+) -> None:
+    """Nearby clusters may merge or stay split; the algorithm must still assign everyone."""
+    embeddings = {
+        f"crop-{index}": overlapping_embeddings[index]
+        for index in range(len(overlapping_embeddings))
+    }
+    result = clusterer.cluster(
+        ClusteringInput(
+            new_embeddings=embeddings,
+            existing_clusters={},
+            clustering_type=CLUSTER_TYPE,
+        )
+    )
+    assigned = sum(len(cluster.crop_ids) for cluster in result.new_clusters)
+    assigned += len(result.unassigned_crop_ids)
+    assert assigned == len(overlapping_embeddings)
+
+
 def test_two_identical_embeddings_create_one_new_cluster(clusterer: IncrementalClusterer) -> None:
     """Two identical embeddings with no existing clusters form one group of size 2."""
     base = _unit_vector(1)

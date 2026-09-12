@@ -48,6 +48,14 @@ def _unit_vector(seed: int) -> np.ndarray:
     return vector / np.linalg.norm(vector)
 
 
+class _EmptyDetector:
+    """Return no detections so process_photo stores zero faces."""
+
+    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+        del image
+        return []
+
+
 class _FakeDetector:
     """Return one synthetic face for every image."""
 
@@ -257,6 +265,34 @@ async def test_process_photo_stores_embeddings(
     stored = (await db_session.execute(select(FaceEmbedding))).scalars().all()
     assert len(stored) == 1
     assert stored[0].quality_passed is True
+
+
+@pytest.mark.asyncio
+async def test_process_photo_missing_photo_returns_error(
+    db_session: AsyncSession, redis_client: object
+) -> None:
+    """Unknown photo IDs must not raise; they return a structured error."""
+    service = _face_service(db_session, redis_client)
+    missing_id = uuid.uuid4()
+    result = await service.process_photo(missing_id, _jpeg_bytes())
+    assert result.error is not None
+    assert str(missing_id) in result.error
+    assert result.face_count == 0
+
+
+@pytest.mark.asyncio
+async def test_process_photo_no_faces(db_session: AsyncSession, redis_client: object) -> None:
+    """A photo with zero detections is still marked processed."""
+    _event, photo = await _seed_event(db_session)
+    service = _face_service(db_session, redis_client, detector=_EmptyDetector())
+    result = await service.process_photo(photo.id, _jpeg_bytes())
+    assert result.error is None
+    assert result.face_count == 0
+    assert result.quality_passed_count == 0
+    await db_session.refresh(photo)
+    assert photo.faces_processed is True
+    stored = (await db_session.execute(select(FaceEmbedding))).scalars().all()
+    assert stored == []
 
 
 @pytest.mark.asyncio

@@ -42,6 +42,15 @@ def test_no_face_image_returns_empty_list(
     assert scrfd_detector.detect(image) == []
 
 
+def test_blank_image_returns_empty_list(
+    scrfd_detector: SCRFDDetector,
+    load_bgr_image,
+) -> None:
+    """Solid-color fixture must not hallucinate a face."""
+    image = load_bgr_image("blank_image.jpg")
+    assert scrfd_detector.detect(image) == []
+
+
 def test_single_face_fixture_detects_one_face(
     scrfd_detector: SCRFDDetector,
     load_bgr_image,

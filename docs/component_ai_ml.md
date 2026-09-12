@@ -269,11 +269,12 @@ backend/
 │
 └── tests/
     └── ml/
-        ├── test_detection.py
-        ├── test_embedding.py
-        ├── test_clustering.py
-        ├── test_matching.py
-        └── fixtures/                    # Test images with known faces
+        ├── conftest.py                 # fixtures, RUN_ML_TESTS, integration markers
+        ├── test_ml_config.py            # (not the original test_config.py name)
+        ├── test_clustering_unit.py
+        ├── test_quality_filter_unit.py
+        ├── integration/                 # live-model e2e; skipped in GitHub CI
+        └── fixtures/                    # synthetic / public-domain test images
 ```
 
 ---
@@ -1666,24 +1667,22 @@ These metrics are logged per event and can be reviewed to detect model degradati
 
 ### 15.1 Unit Tests
 
-- **Detection:** Test with known images containing 0, 1, 5, and 50+ faces
-- **Embedding:** Verify output is 512-d, L2-normalized, deterministic for same input
-- **Quality Filter:** Test with known blurry and clear images; known frontal and profile poses
-- **Clustering:** Test with synthetic embeddings (known clusters, known merges)
-- **Matching:** Test with synthetic query embedding against known clusters
+- **Detection:** Known images with 0 / 1 / 3+ faces; mocked empty detector for cropper
+- **Embedding:** 512-d L2-normalized output, CUDA OOM batch-halving, DualEmbedder fallback
+- **Quality Filter:** Blur reject, YPR/age/blur pass-on-error, sunglasses as a soft flag
+- **Clustering:** Synthetic well-separated embeddings (3×5), sweeper expand-only, orphan recovery
+- **Matching:** Identical centroid match, distant no-match, dual-model confidence tags
+- **FaceService:** Mocked detect/embed path, missing photo, decode failure, zero faces
 
 ### 15.2 Integration Tests
 
-- **Full pipeline:** Upload a set of test images → verify face detection → verify embedding storage in pgvector → verify clustering → verify selfie matching
-- **Edge cases:** Zero-face images, corrupt images, very large images, HEIC images
+Live-model tests live in `backend/tests/ml/integration/` and existing `*_integration.py` files. They load real weights on **CPU or GPU** (`ML_DEVICE=cpu` is supported). GitHub CI skips them with `pytest -m "not ml"`. There is no self-hosted GPU runner.
 
 ### 15.3 Test Fixtures
 
-Maintain a curated test dataset (stored in `tests/ml/fixtures/`):
-- 50–100 event-style photos with known face identities
-- 10–20 selfie images with known corresponding identities
-- Photos with varying quality (blur, pose, lighting, occlusion)
-- Expected clustering ground truth
+Curated images in `tests/ml/fixtures/` (see that folder’s README). **No private event photos.** The set is small and synthetic/public-domain (single face, group, blank, blur, warped profile, 112×112 crops) — not a 50–100 image labeled wedding corpus.
+
+How to run: `backend/README_ML.md` § Testing (ML-011).
 
 ---
 
