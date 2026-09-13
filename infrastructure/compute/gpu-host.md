@@ -12,7 +12,7 @@ Do **not** put the GPU worker on the `m6i.xlarge` app host.
 
 ## Why we keep the 100 GB disk when stopped
 
-Deleting the volume on every stop would save about **$9/month**. Starting from a
+Deleting the volume on every stop would save about `$9/month`. Starting from a
 blank disk each job would mean reinstalling NVIDIA drivers, CUDA, PyTorch, and
 copying ~1 GB of model weights (often **20–40 minutes** extra, billed). We
 **stop** (not terminate) the instance so the root volume stays. GPU compute is
@@ -135,6 +135,24 @@ GPU_IDLE_STOP_MINUTES=10
 Redeploy/restart `backend`, `celery-worker`, and `celery-beat` so they load the
 new env.
 
+Copy **the same** `backend/models/` tree onto the **app** host (guest selfie
+runs in the API container, CPU, GPU may be stopped):
+
+```bash
+# from your laptop, after SSH/rsync to the app EC2
+rsync -avP backend/models/ ubuntu@<APP_EIP>:~/event-vision-pipeline/backend/models/
+```
+
+The API image is built with `INSTALL_ML=true` and mounts that directory at
+`/app/models`. Celery CPU workers do **not** get the ML extra.
+
+Then:
+
+```bash
+cd ~/event-vision-pipeline
+docker compose -f docker-compose.prod.yml up -d --build backend
+```
+
 ---
 
 ## 4. First SSH + software on the GPU box
@@ -170,8 +188,9 @@ uv pip uninstall -y onnxruntime || true
 uv pip install onnxruntime-gpu
 ```
 
-Copy model weights into `backend/models/` (rsync from your laptop or from a
-private S3 prefix). Same files as local ML-001 setup.
+Copy model weights into `~/event-vision-pipeline/backend/models/` (rsync the
+**entire** `backend/models/` directory from your laptop). Same files as the
+app host. GPU uses CUDA; the app API uses CPU.
 
 Create `~/event-vision-pipeline/backend/.env` from `.env.gpu.example`. Use the
 **app private IP** (not `db` / `redis` Docker names):
@@ -249,6 +268,7 @@ uv run celery -A app.tasks.celery_app worker -Q face_processing -c 1
 - [ ] App SG: 5432 + 6379 from GPU SG only
 - [ ] Compute IAM user with start/stop on this instance id
 - [ ] App `.env`: `ML_FACE_PROCESSING_ENABLED=true` + compute keys + `GPU_INSTANCE_ID`
+- [ ] `backend/models/` on **both** the app EC2 (selfie) and GPU EC2 (bulk)
 - [ ] GPU `.env` points at app **private IP**; systemd face worker enabled
 - [ ] Instance left **stopped** after first setup
 - [ ] Guest selfie still works with GPU stopped (CPU on app)

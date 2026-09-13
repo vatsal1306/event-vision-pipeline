@@ -80,4 +80,5 @@ Local/dev: no GPU instance. Run the face worker on the laptop
 - Compute IAM keys: `AWS_COMPUTE_ACCESS_KEY_ID` / `AWS_COMPUTE_SECRET_ACCESS_KEY` on the **app** `.env` only. Policy: `infrastructure/compute/gpu-lifecycle-iam-policy.json`.
 - App Compose publishes 5432/6379; SG allows them only from `platform-ml-gpu-sg`. Redis `--protected-mode no`.
 - `celery-beat` added to `docker-compose.prod.yml` for idle stop + existing archival schedules.
+- Guest selfie on the **app** API: image built with `INSTALL_ML=true` (CPU torch), `./backend/models` mounted read-only at `/app/models`, one uvicorn worker. Copy the same model tree to the app EC2 and the GPU EC2.
 - Local: empty `GPU_INSTANCE_ID` → no AWS calls.

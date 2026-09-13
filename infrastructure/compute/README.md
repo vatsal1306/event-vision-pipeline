@@ -147,6 +147,13 @@ chmod 600 .env
 | `FRONTEND_URL`, `NEXT_PUBLIC_*` | `https://spotme.hpklabs.ai` and `https://spotme.hpklabs.ai/api` |
 | `SMS_PROVIDER` | `log` |
 | `ENVIRONMENT` / `DEBUG` | `production` / `false` |
+| `ML_FACE_PROCESSING_ENABLED` | `true` when GPU lifecycle is configured (INF-009) |
+| `ML_DEVICE` | `cpu` on this host (guest selfie). `cuda` only on the GPU box |
+| `GPU_INSTANCE_ID`, `AWS_COMPUTE_*` | This `.env` only — not on the GPU box |
+
+Copy `backend/models/` onto this instance at `~/event-vision-pipeline/backend/models/`
+so the API container can match guest selfies (volume `/app/models`). Rebuild
+`backend` after the first copy (`INSTALL_ML=true`).
 
 ### Deploy stack
 

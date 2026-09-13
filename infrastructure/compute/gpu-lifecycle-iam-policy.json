@@ -17,7 +17,7 @@
         "ec2:StartInstances",
         "ec2:StopInstances"
       ],
-      "Resource": "arn:aws:ec2:ap-south-1:ACCOUNT_ID:instance/INSTANCE_ID"
+      "Resource": "arn:aws:ec2:ap-south-1:914320889477:instance/i-0199a01c57ca8a5c7"
     }
   ]
 }

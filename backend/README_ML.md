@@ -516,7 +516,7 @@ Guest selfie → cluster IDs. **Synchronous** (not Celery). Files live in `app/m
 | Dual model | **R100 decides membership**. AdaFace agreement → `confidence=high`, primary-only → `low`. AdaFace-only dropped. PicSee search is primary-only; this tagging is extra. |
 | Photo IDs | Matcher returns clusters. Pipeline/FaceService loads distinct `face_embeddings.photo_id`. |
 | HNSW | BE-003 index is on `face_embeddings.embedding`, **not** `face_clusters.centroid`. Large events still use `centroid.cosine_distance` (exact for the candidate LIMIT). |
-| App EC2 | `ML_FACE_PROCESSING_ENABLED` defaults **false** so the guest API does not load PyTorch. Set **true** locally. |
+| App EC2 | `ML_FACE_PROCESSING_ENABLED=true` in production so guest selfie runs on CPU in FastAPI. Compose builds the API with `--extra ml` and mounts `backend/models`. CPU Celery does **not** install the ML extra. |
 | Selfie timeout | Default `ML_SELFIE_MATCH_TIMEOUT_SECONDS=180`. GPU can lower this to ~5. FastAPI must load weights itself (Celery already having them loaded does not help). Inference runs in a worker thread so a timeout cannot cancel a mid-flight Postgres query. On timeout the API returns `status=error`, not HTTP 500. |
 | Layout | `matching/liveness.py`, not `app/ml/liveness/basic_liveness.py`. |
 
