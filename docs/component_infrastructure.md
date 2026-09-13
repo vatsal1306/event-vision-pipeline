@@ -40,7 +40,9 @@ Both accounts use region **ap-south-1 (Mumbai)** so photographer traffic and S3 
 
 **Do not use on the cheap account:** RDS, ElastiCache, ECS, ALB, NAT, CloudFront, GPU.
 
-**Do not run on the app EC2:** InsightFace GPU workers. Face ML is a later decision (another machine or CPU batch). Until then, face Celery tasks are no-ops or stubs.
+**Do not run on the app EC2:** InsightFace GPU workers. Face ML runs on a
+separate on-demand `g4dn.xlarge` (INF-009). The app host only starts/stops that
+instance and never subscribes to `face_processing`.
 
 ---
 
@@ -156,16 +158,20 @@ Single `docker-compose.prod.yml` on the EC2:
 
 - `caddy`
 - `frontend` (Next.js)
-- `backend` (uvicorn, 2 workers — not 8; leave RAM)
+- `backend` (uvicorn **1 worker**, `--extra ml`, mounts `backend/models` for guest selfie on CPU)
 - `tusd`
 - `db` (`pgvector/pgvector:pg16`) with volume on gp3
 - `redis`
-- `celery-worker` (`photo_processing`, `notifications`)
+- `celery-worker` (`photo_processing`, `notifications`; **no** ML extra)
 - `celery-beat`
 
-No `celery-gpu` service.
+No `celery-gpu` service on this Compose file. `celery-beat` runs idle GPU stop
+(`stop_idle_gpu_host`).
 
-Bind Postgres and Redis to the Docker network only.
+Postgres **5432** and Redis **6379** are published on the app host so the GPU
+EC2 can reach them on the **private IP**. Security group: those ports from
+`platform-ml-gpu-sg` only, never `0.0.0.0/0`. Redis uses `--protected-mode no`
+because the GPU is a remote client; the SG is the firewall.
 
 ---
 
@@ -187,13 +193,20 @@ Bind Postgres and Redis to the Docker network only.
 
 ## 10. ML host (on-demand GPU)
 
-The app server is **CPU-only**. Do not install CUDA or load R100 in production Compose on the `m6i.xlarge`.
+The app server is **CPU-only** (no NVIDIA, no CUDA). Bulk detect/embed/cluster
+does **not** run in Compose Celery. Guest selfie **does** load R100 on the API
+process (CPU wheels, `INSTALL_ML=true`, `./backend/models` mounted at `/app/models`).
 
-- CPU Celery workers subscribe to `photo_processing` only (proxies, watermark, notifications).
-- Face tasks (`app.tasks.face_tasks.*`) route to `face_processing`. A worker for that queue runs on a **separate GPU EC2** that is **not** left on 24/7.
-- Photographer calls `POST /events/{id}/start-face-processing` when uploads are done. That enqueue is the signal to boot the GPU host (INF-009), run detect/embed/cluster, then stop the instance.
-- Guest selfie matching runs on the **app EC2 CPU** (one image, ~1–2s). Guests do not need the GPU box. Guest APIs return `EVENT_NOT_READY` until the event is Ready.
-- Until INF-009 exists, enable `ML_FACE_PROCESSING_ENABLED=true` locally and run:
+**What we shipped (INF-009):**
+
+- Instance: `g4dn.xlarge`, 100 GB gp3, `ap-south-1`, same VPC as the app, **no Elastic IP**, **no NAT Gateway**. Console recipe: `infrastructure/compute/gpu-host.md`.
+- We **stop** (keep the disk) rather than terminate/delete EBS. Re-provisioning CUDA + models each job costs more time and GPU-hours than ~$9/month of gp3.
+- Photographer `POST /events/{id}/start-face-processing` returns immediately, enqueues `face_processing`, and a **CPU** task `ensure_gpu_host_running` calls `StartInstances`.
+- Beat on the app host (`stop_idle_gpu_host`, every minute) calls `StopInstances` when pipeline/clustering locks are gone **and** the `face_processing` Redis list has been empty for `GPU_IDLE_STOP_MINUTES` (default 10).
+- App `.env`: `ML_FACE_PROCESSING_ENABLED=true`, `GPU_INSTANCE_ID`, `AWS_COMPUTE_*` (compute-account IAM; not S3 keys). Empty `GPU_INSTANCE_ID` = laptop, no AWS calls.
+- GPU systemd unit: `spotme-face-worker.service` → `celery … -Q face_processing -c 2`. App Compose worker stays `-Q photo_processing,notifications`.
+- Guest selfie matching stays on the **app EC2 CPU** (FastAPI, one uvicorn worker, `ML_DEVICE=cpu`). Copy `backend/models/` to the app host as well as the GPU host. The API image installs `--extra ml`; CPU Celery images do not.
+- Local/dev: `ML_FACE_PROCESSING_ENABLED=true` and
   `uv run celery -A app.tasks.celery_app worker -Q face_processing -c 1`
 
 ML code lives in `backend/app/ml/` (see `docs/component_ai_ml.md` and `backend/README_ML.md`).
@@ -220,7 +233,7 @@ ML code lives in `backend/app/ml/` (see `docs/component_ai_ml.md` and `backend/R
 
 ## 13. Security
 
-- SG: 22 restricted; 80/443 open; 5432/6379 closed
+- SG: 22 restricted; 80/443 open; 5432/6379 only from `platform-ml-gpu-sg`
 - Fail2ban on SSH
 - Unattended-upgrades
 - Secrets in `/opt/platform/.env` (600)
@@ -250,7 +263,8 @@ Terraform **only** what is cheap and repetitive in the **storage account**:
 - S3 buckets, encryption, lifecycle, CORS, public access block
 - IAM user + policy for the app server
 
-**EC2 may be Terraform in the compute account or clicked in console** — one instance; document AMI, type `m6i.xlarge`, gp3 200GB, EIP, SG. Prefer a small `infrastructure/compute/` module later if desired.
+**EC2 may be Terraform in the compute account or clicked in console.** App host:
+`infrastructure/compute/README.md`. GPU host: `infrastructure/compute/gpu-host.md`.
 
 **Not Terraform:** RDS, ECS, ALB, CloudFront, ElastiCache, GPU ASG.
 

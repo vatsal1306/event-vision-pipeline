@@ -105,6 +105,9 @@ def test_settings_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_REGION", "ap-south-1")
     monkeypatch.setenv("JWT_GUEST_TOKEN_EXPIRE_DAYS", "30")
     monkeypatch.setenv("SENTRY_DSN", "")
+    monkeypatch.setenv("GPU_INSTANCE_ID", "i-0123456789abcdef0")
+    monkeypatch.setenv("AWS_COMPUTE_REGION", "ap-south-1")
+    monkeypatch.setenv("GPU_IDLE_STOP_MINUTES", "15")
     get_settings.cache_clear()
     try:
         settings = get_settings()
@@ -112,6 +115,9 @@ def test_settings_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
         assert settings.aws_region == "ap-south-1"
         assert settings.jwt_couple_token_expire_days == settings.jwt_guest_token_expire_days
         assert settings.jwt_guest_token_expire_days == 30
+        assert settings.gpu_instance_id == "i-0123456789abcdef0"
+        assert settings.aws_compute_region == "ap-south-1"
+        assert settings.gpu_idle_stop_minutes == 15
     finally:
         get_settings.cache_clear()
 

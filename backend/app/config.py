@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_region: str = "ap-south-1"
+    # Compute-account IAM (start/stop GPU). Do not reuse storage-account S3 keys.
+    aws_compute_access_key_id: str = ""
+    aws_compute_secret_access_key: str = ""
+    aws_compute_region: str = "ap-south-1"
+    gpu_instance_id: str = ""
+    gpu_idle_stop_minutes: int = 10
     s3_bucket_originals: str = "platform-originals"
     s3_bucket_proxies: str = "platform-proxies"
     s3_bucket_assets: str = "platform-assets"

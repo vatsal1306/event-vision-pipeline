@@ -139,7 +139,10 @@ async def test_start_face_processing_enqueues(
     get_ml_config.cache_clear()
     try:
         event = await _event_with_photo(db_session, authed_client)
-        with patch("app.tasks.face_tasks.process_event_photos.delay") as mock_delay:
+        with (
+            patch("app.tasks.face_tasks.process_event_photos.delay") as mock_delay,
+            patch("app.tasks.gpu_host_tasks.ensure_gpu_host_running.delay") as mock_gpu,
+        ):
             response = await authed_client.post(f"/api/v1/events/{event.id}/start-face-processing")
         assert response.status_code == 202, response.text
         body = response.json()
@@ -147,6 +150,7 @@ async def test_start_face_processing_enqueues(
         assert body["photos_queued"] == 1
         assert body["status"] == "processing"
         mock_delay.assert_called_once_with(str(event.id))
+        mock_gpu.assert_called_once_with()
         await db_session.refresh(event)
         assert event.status == EventStatus.PROCESSING
     finally:
@@ -174,11 +178,15 @@ async def test_start_face_processing_already_running(
             key_template=FACE_PIPELINE_LOCK_KEY_TEMPLATE,
         )
         assert await lock.acquire()
-        with patch("app.tasks.face_tasks.process_event_photos.delay") as mock_delay:
+        with (
+            patch("app.tasks.face_tasks.process_event_photos.delay") as mock_delay,
+            patch("app.tasks.gpu_host_tasks.ensure_gpu_host_running.delay") as mock_gpu,
+        ):
             response = await authed_client.post(f"/api/v1/events/{event.id}/start-face-processing")
         assert response.status_code == 202
         assert response.json()["already_running"] is True
         mock_delay.assert_not_called()
+        mock_gpu.assert_not_called()
         await lock.release()
     finally:
         get_ml_config.cache_clear()
@@ -200,7 +208,10 @@ async def test_face_processing_progress_idle_then_hash(
         assert idle.status_code == 200, idle.text
         assert idle.json()["pipeline_status"] == "idle"
 
-        with patch("app.tasks.face_tasks.process_event_photos.delay"):
+        with (
+            patch("app.tasks.face_tasks.process_event_photos.delay"),
+            patch("app.tasks.gpu_host_tasks.ensure_gpu_host_running.delay"),
+        ):
             start = await authed_client.post(f"/api/v1/events/{event.id}/start-face-processing")
         assert start.status_code == 202
 

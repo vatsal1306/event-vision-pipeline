@@ -60,13 +60,25 @@ Local/dev: no GPU instance. Run the face worker on the laptop
 - Changing the app `m6i.xlarge` to a GPU type
 - Running `face_processing` on the app Compose CPU worker
 - Spot fleet / SageMaker / ECS (keep one EC2 unless a later story says otherwise)
+- Terminating the instance or deleting EBS on every stop (~$9/month disk is cheaper than reinstalling CUDA + models each job)
 
 ## Acceptance
 
-- [ ] GPU instance is documented (AMI, type, disk, SG, region)
-- [ ] Photographer start-face-processing can boot the instance
-- [ ] Celery `face_processing` worker comes up and processes a real event
-- [ ] Instance stops after the job (or after a documented idle timeout)
-- [ ] App EC2 never subscribes to `face_processing`
-- [ ] Guest selfie still works with the GPU instance **stopped**
-- [ ] Cost note: GPU billed only while running
+- [x] GPU instance is documented (AMI, type, disk, SG, region) — `infrastructure/compute/gpu-host.md`
+- [x] Photographer start-face-processing can boot the instance (`ensure_gpu_host_running` on `photo_processing`)
+- [ ] Celery `face_processing` worker comes up and processes a real event (after you provision and copy models)
+- [x] Instance stops after the job (or after a documented idle timeout) — 10 minutes, beat `stop_idle_gpu_host`
+- [x] App EC2 never subscribes to `face_processing`
+- [x] Guest selfie still works with the GPU instance **stopped** (unchanged CPU path)
+- [x] Cost note: GPU billed only while running (disk ~$9/month while stopped)
+
+## Implementation notes (what we actually built)
+
+- Type: **`g4dn.xlarge`** (T4 16 GB) in **ap-south-1**, **100 GB gp3**, same VPC as the app, **no EIP**, **no NAT**.
+- **Stop**, do not hibernate or terminate. Disk stays attached.
+- API does **not** wait for boot. Face job sits in Redis until systemd worker starts.
+- Compute IAM keys: `AWS_COMPUTE_ACCESS_KEY_ID` / `AWS_COMPUTE_SECRET_ACCESS_KEY` on the **app** `.env` only. Policy: `infrastructure/compute/gpu-lifecycle-iam-policy.json`.
+- App Compose publishes 5432/6379; SG allows them only from `platform-ml-gpu-sg`. Redis `--protected-mode no`.
+- `celery-beat` added to `docker-compose.prod.yml` for idle stop + existing archival schedules.
+- Guest selfie on the **app** API: image built with `INSTALL_ML=true` (CPU torch), `./backend/models` mounted read-only at `/app/models`, one uvicorn worker. Copy the same model tree to the app EC2 and the GPU EC2.
+- Local: empty `GPU_INSTANCE_ID` → no AWS calls.

@@ -22,6 +22,7 @@ infrastructure/
 ├── outputs.tf
 ├── terraform.tfvars.example    # Copy to terraform.tfvars (gitignored)
 ├── versions.tf                 # Terraform and AWS provider pins
+├── compute/                    # Console runbooks (app EC2 + GPU host) — not Terraform
 └── README.md
 ```
 

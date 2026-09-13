@@ -14,12 +14,11 @@
 ## Deployment Constraint
 
 **Do NOT deploy face processing workers on the production app EC2** (`m6i.xlarge`, CPU-only).
-All ML inference runs on a **separate ML host** (GPU instance, size TBD).
-Until the on-demand GPU host (INF-009) is provisioned, local/dev sets
-`ML_FACE_PROCESSING_ENABLED=true` and runs a `face_processing` Celery worker.
-The production app EC2 stays CPU-only. Guest selfie matching runs on that CPU
-host and does **not** need the GPU box. Guest APIs return `EVENT_NOT_READY`
-until the photographer has triggered processing and the event is Ready.
+All ML inference for **bulk** detect/embed/cluster runs on a **separate**
+`g4dn.xlarge` (INF-009). Local/dev still sets `ML_FACE_PROCESSING_ENABLED=true`
+and runs a `face_processing` Celery worker on the laptop (`GPU_INSTANCE_ID` empty).
+The production app EC2 stays CPU-only and never subscribes to `face_processing`.
+Guest selfie matching runs on that CPU host and does **not** need the GPU box.
 
 ## Model Inventory
 
