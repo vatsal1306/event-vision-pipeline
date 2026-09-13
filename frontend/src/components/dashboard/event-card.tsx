@@ -94,11 +94,14 @@ export function EventCard({ event }: EventCardProps) {
                 <Users className="h-4 w-4" />
                 <span>{event.guestCount} guests viewed</span>
               </div>
-              <StatusBadge 
-                status={event.status} 
-                progress={event.processedPhotos && event.totalPhotos > 0
-                  ? Math.round((event.processedPhotos / event.totalPhotos) * 100)
-                  : undefined}
+              <StatusBadge
+                status={event.status}
+                event={event}
+                progress={
+                  event.status === 'processing' && event.totalPhotos > 0
+                    ? Math.round((event.processedPhotos / event.totalPhotos) * 100)
+                    : undefined
+                }
               />
             </div>
           </div>

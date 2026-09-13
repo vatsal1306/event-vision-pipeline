@@ -15,24 +15,23 @@ export function UploadProgress({ eventId }: UploadProgressProps) {
   const store = useUploadStore();
   const evState = store.events[eventId];
 
-  const [lastBytes, setLastBytes] = useState(evState?.uploadedBytes || 0);
   const [speed, setSpeed] = useState(0);
 
-  // Speed calculation
   useEffect(() => {
     if (!evState || evState.status !== 'uploading') {
       setSpeed(0);
       return;
     }
 
+    let previousBytes = useUploadStore.getState().events[eventId]?.uploadedBytes || 0;
     const interval = setInterval(() => {
       const currentBytes = useUploadStore.getState().events[eventId]?.uploadedBytes || 0;
-      setSpeed(Math.max(0, currentBytes - lastBytes));
-      setLastBytes(currentBytes);
+      setSpeed(Math.max(0, currentBytes - previousBytes));
+      previousBytes = currentBytes;
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [evState?.status, lastBytes, eventId]);
+  }, [evState?.status, eventId]);
 
   // Auto-dismiss on completion
   useEffect(() => {

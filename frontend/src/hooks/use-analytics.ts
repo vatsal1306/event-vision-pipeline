@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { mapTopPhotoFromApi } from '@/lib/map-api';
 
 export function useAnalyticsSummary(eventId: string) {
   return useQuery({
@@ -12,7 +13,14 @@ export function useAnalyticsSummary(eventId: string) {
 export function useTopPhotos(eventId: string) {
   return useQuery({
     queryKey: ['events', eventId, 'analytics', 'top-photos'],
-    queryFn: () => api.getAnalyticsTopPhotos(eventId),
+    queryFn: async () => {
+      const data = await api.getAnalyticsTopPhotos(eventId);
+      return {
+        photos: (data.photos ?? []).map((photo) =>
+          mapTopPhotoFromApi(photo as unknown as Record<string, unknown>)
+        ),
+      };
+    },
     enabled: !!eventId,
   });
 }

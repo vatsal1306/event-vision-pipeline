@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { mapEventFromApi } from '@/lib/map-api';
+import { EVENT_STATUS_POLL_INTERVAL_MS } from '@/lib/constants';
 import { Event, EventType } from '@/types/event';
 
 export interface CreateEventData {
@@ -20,7 +21,9 @@ export function useEvents() {
       return (res.events || []).map((item) => mapEventFromApi(item));
     },
     refetchInterval: (query) => {
-      return query.state.data?.some(e => e.status === 'processing' || e.status === 'uploading') ? 5000 : false;
+      return query.state.data?.some((e) => e.status === 'processing' || e.status === 'uploading')
+        ? EVENT_STATUS_POLL_INTERVAL_MS
+        : false;
     }
   });
 }
@@ -136,7 +139,7 @@ export function useEvent(id: string) {
     enabled: !!id,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === 'processing' || status === 'uploading' ? 5000 : false;
+      return status === 'processing' || status === 'uploading' ? EVENT_STATUS_POLL_INTERVAL_MS : false;
     }
   });
 }

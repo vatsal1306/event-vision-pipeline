@@ -7,6 +7,7 @@ import { useEvent, useUpdateEvent, useArchiveEvent, useRestoreEvent, useDeleteEv
 import { useFolders } from '@/hooks/use-folders';
 import { Photo } from '@/types/event';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { FindFacesControl } from '@/components/dashboard/find-faces-control';
 import { FolderTree } from '@/components/dashboard/folder-tree';
 import { PhotoDetailViewer } from '@/components/dashboard/photo-detail-viewer';
 import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
@@ -160,11 +161,14 @@ export default function EventDetailPage() {
           </Button>
         </div>
         
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-3">
               {event.name}
-              <StatusBadge status={event.status} />
+              <StatusBadge
+                status={event.status}
+                event={event}
+              />
             </h1>
             <p className="text-muted-foreground text-sm flex items-center gap-2">
               {event.dateEnd ? `${
@@ -178,6 +182,8 @@ export default function EventDetailPage() {
               {event.totalPhotos.toLocaleString()} photos
             </p>
           </div>
+          <div className="flex flex-none items-start gap-3">
+            <FindFacesControl event={event} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
@@ -207,6 +213,7 @@ export default function EventDetailPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -237,7 +244,7 @@ export default function EventDetailPage() {
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">
         {currentTab === 'photos' && (
-          <div className="flex h-full">
+          <div className="flex h-full min-h-0">
             {/* Left Sidebar - Folders */}
             <div className="w-64 flex-none border-r bg-muted/20">
               <FolderTree 
@@ -250,8 +257,9 @@ export default function EventDetailPage() {
             </div>
             
             {/* Right Content - Grid */}
-            <div className="flex-1 bg-background relative">
-              <PhotoGrid 
+            <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
+              <PhotoGrid
+                key={folderId ?? 'root'}
                 eventId={id}
                 folderId={folderId}
                 onPhotoClick={setSelectedPhoto}

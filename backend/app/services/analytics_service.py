@@ -18,6 +18,7 @@ from app.schemas.analytics import (
     TopPhotoResponse,
 )
 from app.utils.csv_export import generate_guest_leads_csv
+from app.utils.media_tokens import build_photo_preview_url
 
 
 class AnalyticsService:
@@ -107,9 +108,7 @@ class AnalyticsService:
             TopPhotoResponse(
                 id=p.id,
                 filename=p.filename,
-                proxy_url=(
-                    f"https://mock-s3.local/proxy/{p.proxy_s3_key}" if p.proxy_s3_key else None
-                ),
+                proxy_url=build_photo_preview_url(event_id, p.id),
                 views=p.views,
                 downloads=p.downloads,
             )

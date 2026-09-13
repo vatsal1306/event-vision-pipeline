@@ -263,7 +263,12 @@ export const api = {
   verifyGuestOtp: (slug: string, data: { name: string; phone: string; otp: string }) =>
     apiClient.post<GuestTokenResponse>(`/api/v1/event/${slug}/auth/verify`, data),
   submitSelfie: (slug: string, data: unknown, token?: string) =>
-    apiClient.post<{ matched_photo_ids: string[]; matched_photo_count: number; status: string }>(
+    apiClient.post<{
+      matched_photo_ids: string[];
+      matched_photo_count: number;
+      status: string;
+      photos?: unknown[];
+    }>(
       `/api/v1/event/${slug}/selfie`,
       data,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined

@@ -182,6 +182,9 @@ async def test_get_top_photos(
     assert len(data["photos"]) == 3
     assert data["photos"][0]["id"] == str(photos[0].id)
     assert data["photos"][0]["views"] == 3
+    assert data["photos"][0]["proxy_url"] is not None
+    assert "/preview?" in data["photos"][0]["proxy_url"]
+    assert data["photos"][0]["id"] in data["photos"][0]["proxy_url"]
     assert data["photos"][1]["id"] == str(photos[1].id)
     assert data["photos"][1]["views"] == 1
 

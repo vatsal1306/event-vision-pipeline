@@ -11,7 +11,9 @@ Work these in order. Each story is a standalone markdown file an AI agent can im
 
 **Phase 1 constraints (do not implement):** custom domains, QR at venue, WhatsApp, social sharing, photo selling, video, desktop upload app, real-time camera-to-cloud, multi-photographer roles, guest uploads.
 
-**Mock-first:** all API calls go through the typed client. MSW intercepts until `NEXT_PUBLIC_MOCK_API=false`.
+**Mock-first (older stories):** API calls go through the typed client. MSW can
+still intercept when `NEXT_PUBLIC_MOCK_API=true`. **FE-023 and current local
+dev use the live backend** (`NEXT_PUBLIC_MOCK_API=false`).
 
 ## Order
 

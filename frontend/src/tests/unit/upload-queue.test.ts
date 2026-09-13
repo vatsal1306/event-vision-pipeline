@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isValidFileType, formatSpeed, formatTime, SUPPORTED_IMAGE_TYPES } from '@/lib/upload/file-utils';
+import { isValidFileType, formatSpeed, formatTime } from '@/lib/upload/file-utils';
+import { isTusdUnreachableError } from '@/lib/upload/tusd-availability';
 
 describe('Upload File Utils', () => {
   describe('isValidFileType', () => {
@@ -35,5 +36,25 @@ describe('Upload File Utils', () => {
       expect(formatTime(3660)).toBe('1h 1m');
       expect(formatTime(-1)).toBe('--');
     });
+  });
+});
+
+describe('isTusdUnreachableError', () => {
+  it('should detect connection refused before an upload starts', () => {
+    expect(isTusdUnreachableError(new Error('Failed to fetch'))).toBe(true);
+    expect(isTusdUnreachableError(new Error('ERR_CONNECTION_REFUSED'))).toBe(true);
+  });
+
+  it('should not treat mid-upload retry exhaustion as tusd being down', () => {
+    expect(
+      isTusdUnreachableError(
+        new Error('tus: failed to upload chunk, originated from request (response code: n/a)')
+      )
+    ).toBe(false);
+    expect(isTusdUnreachableError(new Error('tus: cannot retry'))).toBe(false);
+  });
+
+  it('should not treat HTTP 4xx hook errors as unreachable', () => {
+    expect(isTusdUnreachableError(new Error('tus: unexpected response (403)'))).toBe(false);
   });
 });

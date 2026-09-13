@@ -59,10 +59,17 @@ export const useUploadStore = create<UploadState>()(
         }));
 
         set((state) => {
-          const evState = state.events[eventId] || { ...defaultEventState };
-          const updatedFiles = [...evState.files, ...uploadFiles];
+          const existing = state.events[eventId];
+          const hasActive =
+            existing != null &&
+            existing.files.some(
+              (item) =>
+                item.status === 'queued' || item.status === 'uploading' || item.status === 'paused'
+            );
+          const evState = hasActive && existing ? existing : { ...defaultEventState };
+          const updatedFiles = hasActive && existing ? [...existing.files, ...uploadFiles] : uploadFiles;
           const newBytes = uploadFiles.reduce((acc, f) => acc + f.totalBytes, 0);
-          
+
           return {
             events: {
               ...state.events,
@@ -70,7 +77,10 @@ export const useUploadStore = create<UploadState>()(
                 ...evState,
                 files: updatedFiles,
                 totalFiles: updatedFiles.length,
-                totalBytes: evState.totalBytes + newBytes,
+                totalBytes: hasActive ? evState.totalBytes + newBytes : newBytes,
+                completedFiles: hasActive ? evState.completedFiles : 0,
+                failedFiles: hasActive ? evState.failedFiles : 0,
+                uploadedBytes: hasActive ? evState.uploadedBytes : 0,
                 status: 'uploading',
               }
             }
@@ -241,9 +251,21 @@ export const useUploadStore = create<UploadState>()(
       partialize: (state) => {
         const persistableEvents: Record<string, EventUploadState> = {};
         for (const [eventId, evState] of Object.entries(state.events)) {
+          const inFlight = evState.files.filter(
+            (item) => item.status === 'queued' || item.status === 'uploading' || item.status === 'paused'
+          );
+          if (inFlight.length === 0) {
+            continue;
+          }
           persistableEvents[eventId] = {
             ...evState,
-            files: evState.files.map(({ file, ...rest }) => rest as UploadFile),
+            files: inFlight.map(({ file, ...rest }) => rest as UploadFile),
+            totalFiles: inFlight.length,
+            completedFiles: 0,
+            failedFiles: 0,
+            totalBytes: inFlight.reduce((sum, item) => sum + item.totalBytes, 0),
+            uploadedBytes: inFlight.reduce((sum, item) => sum + item.uploadedBytes, 0),
+            status: evState.status === 'paused' ? 'paused' : 'uploading',
           };
         }
         return {

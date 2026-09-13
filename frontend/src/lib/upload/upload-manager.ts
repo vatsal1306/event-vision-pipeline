@@ -5,20 +5,22 @@ import { queryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
 import { createTusUpload, startOrResumeTusUpload } from '@/lib/upload/tus-client';
+import { startDirectPhotoUpload } from '@/lib/upload/direct-upload';
+import { isTusdReachable, isTusdUnreachableError } from '@/lib/upload/tusd-availability';
 import * as tus from 'tus-js-client';
 
 const TUS_ENDPOINT = process.env.NEXT_PUBLIC_TUS_ENDPOINT || '';
 
 /**
- * Queues event photo uploads and sends them to tusd (resumable tus protocol).
- *
- * Direct FastAPI ingest (`POST /events/{id}/photos`) remains available as an
- * API fallback but is not used by the dashboard uploader.
+ * Queues event photo uploads. Uses tusd when it is reachable; otherwise
+ * FastAPI `POST /events/{id}/photos` so local laptop uploads still work.
  */
 export class UploadManager {
   private static instance: UploadManager;
   private activeUploads = new Set<string>();
   private tusUploads = new Map<string, tus.Upload>();
+  private abortDirect = new Map<string, () => void>();
+  private tusdReachable: boolean | null = null;
 
   private constructor() {
     setInterval(() => {
@@ -27,9 +29,11 @@ export class UploadManager {
   }
 
   static getInstance(): UploadManager {
-    if (!UploadManager.instance) {
-      UploadManager.instance = new UploadManager();
+    const globalRef = globalThis as typeof globalThis & { __spotmeUploadManager?: UploadManager };
+    if (!globalRef.__spotmeUploadManager) {
+      globalRef.__spotmeUploadManager = new UploadManager();
     }
+    UploadManager.instance = globalRef.__spotmeUploadManager;
     return UploadManager.instance;
   }
 
@@ -47,7 +51,7 @@ export class UploadManager {
         if (this.activeUploads.has(file.id)) continue;
 
         this.activeUploads.add(file.id);
-        this.startTusUpload(eventId, file.id);
+        void this.routeUpload(eventId, file.id);
       }
     }
   }
@@ -84,6 +88,11 @@ export class UploadManager {
       void tusUpload.abort(shouldTerminate);
       this.tusUploads.delete(fileId);
     }
+    const abortDirect = this.abortDirect.get(fileId);
+    if (abortDirect) {
+      abortDirect();
+      this.abortDirect.delete(fileId);
+    }
     this.activeUploads.delete(fileId);
   }
 
@@ -105,28 +114,94 @@ export class UploadManager {
     });
     this.activeUploads.delete(fileId);
     this.tusUploads.delete(fileId);
+    this.abortDirect.delete(fileId);
   }
 
-  private startTusUpload(eventId: string, fileId: string) {
-    if (!TUS_ENDPOINT) {
-      this.markFailed(
-        eventId,
-        fileId,
-        'Tus endpoint is not configured. Set NEXT_PUBLIC_TUS_ENDPOINT.'
-      );
+  private async ensureTusdReachable(): Promise<boolean> {
+    if (this.tusdReachable !== null) {
+      return this.tusdReachable;
+    }
+    this.tusdReachable = await isTusdReachable(TUS_ENDPOINT);
+    return this.tusdReachable;
+  }
+
+  private startDirectUpload(eventId: string, fileId: string) {
+    const store = useUploadStore.getState();
+    const file = store.events[eventId]?.files.find((item) => item.id === fileId);
+    if (!file?.file) {
+      this.markFailed(eventId, fileId, 'Cannot start upload without a valid file. Re-select the photos.');
       return;
     }
 
+    store.updateFileProgress(eventId, fileId, {
+      status: 'uploading',
+      uploadedBytes: file.uploadedBytes,
+      progress: file.totalBytes > 0 ? file.uploadedBytes / file.totalBytes : 0,
+    });
+
+    const abort = startDirectPhotoUpload({
+      eventId,
+      file: file.file,
+      folderId: file.targetFolderId && file.targetFolderId !== 'root' ? file.targetFolderId : null,
+      onProgress: (bytesUploaded, bytesTotal) => {
+        useUploadStore.getState().updateFileProgress(eventId, fileId, {
+          status: 'uploading',
+          uploadedBytes: bytesUploaded,
+          progress: bytesTotal > 0 ? bytesUploaded / bytesTotal : 0,
+        });
+      },
+      onSuccess: () => {
+        this.abortDirect.delete(fileId);
+        this.activeUploads.delete(fileId);
+        useUploadStore.getState().updateFileProgress(eventId, fileId, {
+          status: 'complete',
+          uploadedBytes: file.totalBytes,
+          progress: 1,
+        });
+        this.refreshGallery(eventId);
+      },
+      onError: (error) => {
+        this.abortDirect.delete(fileId);
+        if (error.message === 'Upload cancelled') {
+          this.activeUploads.delete(fileId);
+          return;
+        }
+        this.markFailed(eventId, fileId, error.message);
+      },
+    });
+    this.abortDirect.set(fileId, abort);
+  }
+
+  private async routeUpload(eventId: string, fileId: string) {
+    const tusdUp = await this.ensureTusdReachable();
+    if (!tusdUp) {
+      this.startDirectUpload(eventId, fileId);
+      return;
+    }
+    this.startTusUpload(eventId, fileId);
+  }
+
+  private startTusUpload(eventId: string, fileId: string) {
     const store = useUploadStore.getState();
     const file = store.events[eventId]?.files.find((item) => item.id === fileId);
     const photographerId = useAuthStore.getState().photographer?.id;
 
-    if (!file?.file || !photographerId) {
+    if (!file?.file) {
       this.markFailed(
         eventId,
         fileId,
-        'Cannot start upload without a file and signed-in photographer. Re-select the files if you refreshed the page.'
+        'Cannot start upload without a valid file. Re-select the photos if you refreshed the page.'
       );
+      return;
+    }
+
+    if (!photographerId) {
+      this.startDirectUpload(eventId, fileId);
+      return;
+    }
+
+    if (!TUS_ENDPOINT) {
+      this.startDirectUpload(eventId, fileId);
       return;
     }
 
@@ -164,15 +239,48 @@ export class UploadManager {
         this.refreshGallery(eventId);
       },
       onError: (error) => {
-        this.markFailed(eventId, fileId, error.message);
+        this.handleTusFailure(eventId, fileId, error);
       },
     });
 
     this.tusUploads.set(fileId, upload);
     void startOrResumeTusUpload(upload).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Failed to start tus upload';
-      this.markFailed(eventId, fileId, message);
+      this.handleTusFailure(eventId, fileId, error);
     });
+  }
+
+  /**
+   * Fall back to FastAPI ingest only when tus never created a server object.
+   * Mid-flight tus failures must not start a second ingest of the same file.
+   */
+  private handleTusFailure(eventId: string, fileId: string, error: unknown) {
+    const store = useUploadStore.getState();
+    const file = store.events[eventId]?.files.find((item) => item.id === fileId);
+    const tusUpload = this.tusUploads.get(fileId);
+    const alreadyStarted =
+      Boolean(tusUpload?.url) ||
+      Boolean(file?.tusUploadUrl) ||
+      (file?.uploadedBytes ?? 0) > 0;
+
+    if (isTusdUnreachableError(error) && !alreadyStarted) {
+      this.tusdReachable = false;
+      if (tusUpload) {
+        void tusUpload.abort(true);
+      }
+      this.tusUploads.delete(fileId);
+      this.startDirectUpload(eventId, fileId);
+      return;
+    }
+
+    if (tusUpload) {
+      void tusUpload.abort(true);
+      this.tusUploads.delete(fileId);
+    }
+    if (isTusdUnreachableError(error)) {
+      this.tusdReachable = false;
+    }
+    const message = error instanceof Error ? error.message : 'Failed to upload';
+    this.markFailed(eventId, fileId, message);
   }
 
   public async queueFiles(
@@ -180,12 +288,6 @@ export class UploadManager {
     rootFolderId: string | null,
     items: { file: File; relativePath: string }[]
   ) {
-    if (!TUS_ENDPOINT) {
-      throw new Error(
-        'Set NEXT_PUBLIC_TUS_ENDPOINT (for local: http://localhost:1080/files/) and restart Next.js.'
-      );
-    }
-
     const store = useUploadStore.getState();
     const folderCache = new Map<string, string>();
     if (rootFolderId) folderCache.set('', rootFolderId);

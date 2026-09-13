@@ -53,15 +53,23 @@ def test_liveness_passes_sharp_color_face() -> None:
 
 
 def test_liveness_rejects_tiny_face() -> None:
-    """Face covering less than 15% of the frame should fail."""
+    """A face covering almost none of the frame should fail."""
     detector = BasicLivenessDetector(MLConfig())
-    result = detector.check(_sharp_color_image(), _face(ratio=0.05))
+    result = detector.check(_sharp_color_image(), _face(ratio=0.01))
     assert result.passed is False
     assert "face_size" in result.failed_checks
 
 
+def test_liveness_accepts_realistic_phone_selfie_bbox() -> None:
+    """Arm's-length phone selfies (~8% of the frame) must still pass size."""
+    detector = BasicLivenessDetector(MLConfig())
+    result = detector.check(_sharp_color_image(), _face(ratio=0.08))
+    assert result.passed is True
+    assert "face_size" not in result.failed_checks
+
+
 def test_liveness_rejects_low_detection_score() -> None:
-    """Selfie detection confidence must be at least 0.7."""
+    """Selfie detection confidence must be at least the configured minimum."""
     detector = BasicLivenessDetector(MLConfig())
     result = detector.check(_sharp_color_image(), _face(score=0.4))
     assert result.passed is False

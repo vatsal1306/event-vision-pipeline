@@ -67,7 +67,7 @@ class DualEmbedder:
         try:
             primary_embeddings = primary_model.extract_batch(faces, batch_size=batch_size)
         except Exception as exc:
-            if self.fallback is None:
+            if self.fallback is None or not _is_cuda_oom(exc):
                 raise
 
             logger.warning(
@@ -129,3 +129,13 @@ class DualEmbedder:
         for model in (self.primary, self.secondary, self.fallback):
             if model is not None:
                 model.close()
+
+
+def _is_cuda_oom(exc: BaseException) -> bool:
+    """Return True only for CUDA / device out-of-memory failures.
+
+    Other primary-model errors must not silently swap in MobileFaceNet, which
+    lives in a different embedding space than R100 cluster centroids.
+    """
+    message = str(exc).lower()
+    return "out of memory" in message or "cuda oom" in message

@@ -57,22 +57,31 @@ export function AnalyticsOverview({ eventId }: AnalyticsOverviewProps) {
           <div className="h-40 flex items-center justify-center text-muted-foreground animate-pulse">
             Loading top photos...
           </div>
-        ) : (
+        ) : topPhotosData?.photos.length ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {topPhotosData?.photos.map((photo: import('@/types/analytics').AnalyticsTopPhoto) => (
-              <div key={photo.photoId} className="group relative rounded-md overflow-hidden border">
-                <ResponsiveImage
-                  src={`https://picsum.photos/seed/${photo.photoId}/400/400`}
-                  alt={`Top photo ${photo.photoId}`}
-                  aspectRatio={1}
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 text-white text-xs flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+            {topPhotosData.photos.map((photo) => (
+              <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-md border">
+                {photo.proxyUrl ? (
+                  <ResponsiveImage
+                    src={photo.proxyUrl}
+                    alt={photo.filename || 'Top viewed photo'}
+                    className="absolute inset-0 h-full w-full"
+                    sizes="(max-width: 768px) 50vw, 20vw"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+                    No preview
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 text-white text-xs flex justify-between items-center">
                   <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {photo.views}</span>
                   <span className="flex items-center gap-1"><Download className="h-3 w-3" /> {photo.downloads}</span>
                 </div>
               </div>
             ))}
           </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No views yet — share the guest link to see which photos get attention.</p>
         )}
       </div>
     </div>

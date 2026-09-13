@@ -83,6 +83,14 @@ class SelfieMatcher:
             dual_model_enabled=self._config.dual_model_enabled,
         )
         if not details:
+            best = _best_similarity(selfie_embedding, clusters)
+            logger.info(
+                "selfie_no_match",
+                event_id=str(event_id),
+                cluster_count=len(clusters),
+                best_similarity=best,
+                threshold=self._config.selfie_match_threshold,
+            )
             return MatchResult(
                 status=MatchStatus.NO_MATCH,
                 selfie_embedding=selfie_embedding,
@@ -244,6 +252,17 @@ def _secondary_match_ids(
         if similarity >= threshold:
             matched.add(cluster.cluster_id)
     return matched
+
+
+def _best_similarity(
+    selfie_embedding: np.ndarray, clusters: Sequence[ClusterCentroid]
+) -> float | None:
+    """Return the highest primary cosine score, for no-match diagnostics."""
+    if not clusters:
+        return None
+    query = _l2_normalize(as_float32_vector(selfie_embedding))
+    centroids = np.stack([_l2_normalize(item.centroid) for item in clusters])
+    return float(np.max(centroids @ query))
 
 
 def _l2_normalize(vector: np.ndarray) -> np.ndarray:
