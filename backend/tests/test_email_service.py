@@ -57,6 +57,13 @@ async def test_smtp_adapter_returns_false_without_password() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smtp_password_spaces_are_stripped() -> None:
+    """Google App Passwords copied with spaces must still authenticate."""
+    settings = Settings(smtp_password="abcd efgh ijkl mnop")
+    assert settings.smtp_password == "abcdefghijklmnop"
+
+
+@pytest.mark.asyncio
 async def test_otp_email_channel_does_not_sms() -> None:
     """Photographer email OTPs go through EmailService, not SMS."""
     redis_mock = AsyncMock()

@@ -70,6 +70,20 @@ class AuthService:
         Raises:
             ConflictError: When email or phone is already registered.
         """
+        existing = await self._unverified_registration_match(request.email, request.phone)
+        if existing is not None:
+            existing.password_hash = hash_password(request.password)
+            existing.studio_name = request.studio_name
+            await self.db.flush()
+            await self._send_registration_otps(existing)
+            return RegisterResponse(
+                id=existing.id,
+                email=existing.email,
+                studio_name=existing.studio_name,
+                phone=existing.phone,
+                message="OTPs sent to your phone and email for verification",
+            )
+
         await self._ensure_unique_email_and_phone(request.email, request.phone)
 
         photographer = Photographer(
@@ -83,16 +97,7 @@ class AuthService:
         self.db.add(photographer)
         await self.db.flush()
 
-        await self.otp_service.send_otp(
-            request.phone,
-            "registration",
-            channel=OTP_CHANNEL_SMS,
-        )
-        await self.otp_service.send_otp(
-            photographer.email,
-            "registration",
-            channel=OTP_CHANNEL_EMAIL,
-        )
+        await self._send_registration_otps(photographer)
 
         return RegisterResponse(
             id=photographer.id,
@@ -389,6 +394,35 @@ class AuthService:
             exp - int(datetime.now(tz=timezone.utc).timestamp()),
         )
         await self.redis.setex(refresh_token_denylist_key(jti), remaining_seconds, "1")
+
+    async def _send_registration_otps(self, photographer: Photographer) -> None:
+        """Send independent SMS and email registration OTPs."""
+        await self.otp_service.send_otp(
+            photographer.phone,
+            "registration",
+            channel=OTP_CHANNEL_SMS,
+        )
+        await self.otp_service.send_otp(
+            photographer.email,
+            "registration",
+            channel=OTP_CHANNEL_EMAIL,
+        )
+
+    async def _unverified_registration_match(
+        self,
+        email: str,
+        phone: str,
+    ) -> Photographer | None:
+        """Return the same unfinished signup so SMTP/SMS retries can reuse it."""
+        by_email = await self._get_photographer_by_identifier(email)
+        by_phone = await self._get_photographer_by_phone(phone)
+        if by_email is None and by_phone is None:
+            return None
+        if by_email is None or by_phone is None or by_email.id != by_phone.id:
+            return None
+        if by_email.phone_verified or by_email.email_verified:
+            return None
+        return by_email
 
     async def _ensure_unique_email_and_phone(self, email: str, phone: str) -> None:
         """Raise when email or phone is already registered."""

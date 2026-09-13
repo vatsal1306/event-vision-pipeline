@@ -62,6 +62,7 @@ class SmtpEmailAdapter(EmailAdapter):
     def __init__(self, settings: Settings) -> None:
         """Bind SMTP settings for this adapter instance."""
         self._settings = settings
+        self.last_user_message: str | None = None
 
     async def send_email(
         self,
@@ -78,8 +79,13 @@ class SmtpEmailAdapter(EmailAdapter):
         Raises:
             Never raises to the caller — failures are logged and return False.
         """
+        self.last_user_message = None
         if not self._settings.smtp_user or not self._settings.smtp_password:
             logger.warning("email.smtp_credentials_missing")
+            self.last_user_message = (
+                "Email SMTP is not configured. Set SMTP_USER and SMTP_PASSWORD "
+                "(Google App Password) on the server."
+            )
             return False
 
         message = EmailMessage()
@@ -102,11 +108,24 @@ class SmtpEmailAdapter(EmailAdapter):
                 timeout=SMTP_HTTP_TIMEOUT_SECONDS,
             )
         except aiosmtplib.SMTPException as exc:
+            smtp_code = getattr(exc, "code", None)
             logger.warning(
                 "email.smtp_rejected",
                 to=to,
                 error_type=type(exc).__name__,
+                smtp_code=smtp_code,
+                smtp_message=str(exc),
+                smtp_user=self._settings.smtp_user,
+                smtp_host=self._settings.smtp_host,
+                smtp_port=self._settings.smtp_port,
             )
+            if isinstance(exc, aiosmtplib.SMTPAuthenticationError):
+                self.last_user_message = (
+                    "Gmail rejected the SMTP login. Use a Google App Password for "
+                    f"{self._settings.smtp_user}, not the normal mailbox password."
+                )
+            else:
+                self.last_user_message = "Could not send email. Please try again."
             return False
         except OSError as exc:
             logger.warning(
@@ -134,6 +153,14 @@ class EmailService:
         else:
             logger.warning("email.provider_not_configured", provider=self.settings.email_provider)
             self.adapter = LogEmailAdapter()
+
+    @property
+    def last_user_message(self) -> str | None:
+        """Client-safe reason from the last SMTP failure, if any."""
+        adapter = self.adapter
+        if isinstance(adapter, SmtpEmailAdapter):
+            return adapter.last_user_message
+        return None
 
     async def send(
         self,

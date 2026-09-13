@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -78,6 +79,22 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_use_tls: bool = True
     ses_region: str = "ap-south-1"
+
+    @field_validator("smtp_password", mode="before")
+    @classmethod
+    def strip_smtp_password_spaces(cls, value: object) -> object:
+        """Google App Passwords are often copied with spaces; SMTP rejects those."""
+        if isinstance(value, str):
+            return value.replace(" ", "").strip()
+        return value
+
+    @field_validator("smtp_user", "email_from", mode="before")
+    @classmethod
+    def strip_smtp_identity(cls, value: object) -> object:
+        """Trim accidental whitespace around the Workspace mailbox."""
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
     proxy_max_dimension: int = 2048
     proxy_quality: int = 82

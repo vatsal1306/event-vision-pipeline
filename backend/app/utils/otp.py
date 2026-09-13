@@ -133,7 +133,8 @@ class OTPService:
         await self.redis.delete(otp_key)
         await self.redis.delete(cooldown_key)
         if channel == OTP_CHANNEL_EMAIL:
-            raise EmailDeliveryError()
+            detail = getattr(self.email_service, "last_user_message", None)
+            raise EmailDeliveryError(detail) if detail else EmailDeliveryError()
         detail = self.sms_service.last_user_message
         raise SMSDeliveryError(detail) if detail else SMSDeliveryError()
 
