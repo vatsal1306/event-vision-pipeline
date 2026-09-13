@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatch
 from typing import Any
+from unittest.mock import patch
+
+from botocore.exceptions import ClientError
 
 from app.config import Settings
 from app.services.gpu_host_service import GPU_IDLE_SINCE_KEY, GpuHostService
@@ -202,6 +205,26 @@ def test_stop_if_idle_busy_when_pipeline_lock_held() -> None:
     assert service.face_work_in_progress() is True
     assert service.stop_if_idle() == "busy"
     assert ec2.stop_calls == 0
+
+
+def test_ensure_running_maps_missing_instance_to_error() -> None:
+    """Wrong account/region must not raise raw boto ClientError (no Celery retry)."""
+
+    class MissingInstanceEc2(FakeEc2):
+        def describe_instances(self, InstanceIds: list[str]) -> dict[str, Any]:
+            raise ClientError(
+                {
+                    "Error": {
+                        "Code": "InvalidInstanceID.NotFound",
+                        "Message": f"The instance ID '{InstanceIds[0]}' does not exist",
+                    }
+                },
+                "DescribeInstances",
+            )
+
+    service = _service(MissingInstanceEc2(), FakeRedis())
+    with patch.object(service, "_caller_account_id", return_value="111111111111"):
+        assert service.ensure_running() == "error"
 
 
 def test_gpu_host_tasks_route_to_photo_processing_queue() -> None:

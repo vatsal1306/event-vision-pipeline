@@ -12,6 +12,7 @@ from typing import Any
 
 import boto3
 import redis
+from botocore.exceptions import ClientError
 
 from app.config import Settings, get_settings
 from app.core.logging import get_logger
@@ -168,7 +169,10 @@ class GpuHostService:
             GpuHostError: The instance id is missing from the describe response.
         """
         instance_id = self._settings.gpu_instance_id.strip()
-        response = self._ec2_client().describe_instances(InstanceIds=[instance_id])
+        try:
+            response = self._ec2_client().describe_instances(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise self._gpu_aws_error(instance_id, "DescribeInstances", exc) from exc
         reservations = response.get("Reservations") or []
         instances = reservations[0].get("Instances") if reservations else []
         if not instances:
@@ -188,12 +192,18 @@ class GpuHostService:
     def _start_instances(self) -> None:
         """Call ``StartInstances`` for the configured GPU box."""
         instance_id = self._settings.gpu_instance_id.strip()
-        self._ec2_client().start_instances(InstanceIds=[instance_id])
+        try:
+            self._ec2_client().start_instances(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise self._gpu_aws_error(instance_id, "StartInstances", exc) from exc
 
     def _stop_instances(self) -> None:
         """Call ``StopInstances`` (EBS disk is kept; do not terminate)."""
         instance_id = self._settings.gpu_instance_id.strip()
-        self._ec2_client().stop_instances(InstanceIds=[instance_id])
+        try:
+            self._ec2_client().stop_instances(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise self._gpu_aws_error(instance_id, "StopInstances", exc) from exc
 
     def _wait_stopped(self) -> None:
         """Block until the instance reaches ``stopped``."""
@@ -235,6 +245,41 @@ class GpuHostService:
             aws_secret_access_key=secret_key,
         )
         return self._ec2
+
+    def _gpu_aws_error(
+        self,
+        instance_id: str,
+        operation: str,
+        exc: ClientError,
+    ) -> GpuHostError:
+        """Turn an EC2 ClientError into a GpuHostError with account/region context.
+
+        InvalidInstanceID.NotFound means the credentials can call EC2, but the
+        id is not in that account+region (wrong keys, wrong region, or a
+        terminated instance). VPC placement never causes this code.
+        """
+        error_code = str(exc.response.get("Error", {}).get("Code", ""))
+        region = self._settings.aws_compute_region
+        account = self._caller_account_id()
+        return GpuHostError(
+            f"{operation} failed for GPU instance {instance_id} in region "
+            f"{region} (IAM account {account}): {error_code}: {exc}"
+        )
+
+    def _caller_account_id(self) -> str:
+        """Return the AWS account id of AWS_COMPUTE_* keys, or unknown."""
+        try:
+            access_key = self._settings.aws_compute_access_key_id.strip()
+            secret_key = self._settings.aws_compute_secret_access_key.strip()
+            sts = boto3.client(
+                "sts",
+                region_name=self._settings.aws_compute_region,
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+            )
+            return str(sts.get_caller_identity().get("Account") or "unknown")
+        except ClientError:
+            return "unknown"
 
     def _locks_redis(self) -> Any:
         """Sync Redis client for application locks (db 0 by default)."""
