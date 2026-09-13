@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DownloadButton } from './download-button';
 import Image from 'next/image';
+import { shouldBypassImageOptimization, toBrowserMediaSrc } from '@/lib/media-url';
 
 interface PhotoViewerProps {
   photos: Photo[];
@@ -158,12 +159,13 @@ export function PhotoViewer({
         >
           {currentPhoto.proxyUrl ? (
             <Image
-              src={currentPhoto.proxyUrl}
+              src={toBrowserMediaSrc(currentPhoto.proxyUrl)}
               alt={currentPhoto.filename}
               fill
               sizes="100vw"
               className="object-contain"
               priority
+              unoptimized={shouldBypassImageOptimization(currentPhoto.proxyUrl)}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-white/50">

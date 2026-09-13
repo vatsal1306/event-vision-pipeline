@@ -98,3 +98,15 @@ def test_extract_batch_with_oom_retry_raises_when_size_one_still_fails() -> None
                 extract_fn=extract_fn,
                 model_name="test_model",
             )
+
+
+def test_cvlface_weight_candidates_prefer_safetensors() -> None:
+    """Corrupt zip checkpoints must not be tried before safetensors."""
+    from pathlib import Path
+
+    from app.ml.embedding.cvlface_loader import _candidate_weight_paths
+
+    model_dir = Path("/app/models/cvlface_adaface_vit_base_kprpe_webface12m")
+    candidates = _candidate_weight_paths(model_dir)
+    assert candidates[0].name == "model.safetensors"
+    assert candidates[1].name == "model.pt"

@@ -36,6 +36,31 @@ const withPWA = withPWAInit({
   },
 });
 
+function remotePatternFromBaseUrl(raw) {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const url = new URL(raw);
+    const pattern = {
+      protocol: url.protocol.replace(':', ''),
+      hostname: url.hostname,
+      pathname: '/api/**',
+    };
+    if (url.port) {
+      pattern.port = url.port;
+    }
+    return pattern;
+  } catch {
+    return null;
+  }
+}
+
+const envApiPatterns = [
+  remotePatternFromBaseUrl(process.env.NEXT_PUBLIC_APP_URL),
+  remotePatternFromBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL),
+].filter(Boolean);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -72,6 +97,7 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'platform-originals-702872201750.s3.ap-south-1.amazonaws.com',
       },
+      ...envApiPatterns,
     ],
   },
 };

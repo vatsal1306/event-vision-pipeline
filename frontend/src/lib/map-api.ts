@@ -1,5 +1,6 @@
 import { AnalyticsTopPhoto } from '@/types/analytics';
 import { Event, EventStatus, EventType, FolderNode, Photo, ProcessingStatus } from '@/types/event';
+import { resolveProxyUrl } from '@/lib/media-url';
 
 export function mapEventFromApi(raw: Record<string, unknown>): Event {
   return {
@@ -53,7 +54,9 @@ export function mapPhotoFromApi(raw: Record<string, unknown>): Photo {
     folderId: (raw.folder_id as string | null | undefined) ?? (raw.folderId as string | null) ?? null,
     filename: String(raw.filename ?? ''),
     originalS3Key: String(raw.original_s3_key ?? raw.originalS3Key ?? ''),
-    proxyUrl: (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null) ?? null,
+    proxyUrl: resolveProxyUrl(
+      (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null) ?? null
+    ),
     blurhash: (raw.blurhash as string | null) ?? null,
     width: typeof raw.width === 'number' ? raw.width : null,
     height: typeof raw.height === 'number' ? raw.height : null,
@@ -69,8 +72,9 @@ export function mapPhotoFromApi(raw: Record<string, unknown>): Photo {
 
 export function mapTopPhotoFromApi(raw: Record<string, unknown>): AnalyticsTopPhoto {
   const id = String(raw.id ?? raw.photoId ?? '');
-  const proxyUrl =
-    (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null | undefined) ?? null;
+  const proxyUrl = resolveProxyUrl(
+    (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null | undefined) ?? null
+  );
   return {
     id,
     filename: String(raw.filename ?? ''),

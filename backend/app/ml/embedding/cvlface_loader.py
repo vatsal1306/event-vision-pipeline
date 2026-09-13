@@ -18,10 +18,15 @@ _MIN_WEIGHT_BYTES = 100_000
 
 
 def _candidate_weight_paths(model_dir: Path) -> list[Path]:
-    """Return weight file candidates in preferred load order."""
+    """Return weight file candidates, preferring intact safetensors exports.
+
+    Local and Docker copies often ship truncated ``pretrained_model/model.pt``
+    files that fail zip/central-directory reads. ``model.safetensors`` is the
+    reliable source.
+    """
     return [
-        model_dir / "pretrained_model" / "model.pt",
         model_dir / "model.safetensors",
+        model_dir / "pretrained_model" / "model.pt",
     ]
 
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image, { ImageProps } from 'next/image';
 import { Blurhash } from 'react-blurhash';
+import { shouldBypassImageOptimization, toBrowserMediaSrc } from '@/lib/media-url';
 import { cn } from '@/lib/utils';
 
 interface ResponsiveImageProps extends Omit<ImageProps, 'src'> {
@@ -23,11 +24,16 @@ export function ResponsiveImage({
   imageClassName,
   width,
   height,
+  unoptimized,
   ...props
 }: ResponsiveImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const isRemoteApiImage = src.startsWith('http://localhost') || src.startsWith('http://127.0.0.1');
+  const resolvedSrc = toBrowserMediaSrc(src);
+  const bypassOptimizer =
+    unoptimized === true ||
+    shouldBypassImageOptimization(src) ||
+    shouldBypassImageOptimization(resolvedSrc);
 
   return (
     <div
@@ -38,10 +44,10 @@ export function ResponsiveImage({
       style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : undefined}
     >
       <Image
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         fill
-        unoptimized={isRemoteApiImage}
+        unoptimized={bypassOptimizer}
         className={cn(
           'object-cover transition-opacity duration-300 ease-in-out',
           isLoading && !hasError ? 'opacity-0' : 'opacity-100',
