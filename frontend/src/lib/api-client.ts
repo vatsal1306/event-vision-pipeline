@@ -26,9 +26,10 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 }
 
 import { useAuthStore } from '../stores/auth-store';
+import { resolveApiBaseUrl } from './resolve-api-base-url';
 
 class ApiClient {
-  private baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  private baseUrl = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
 
   private getToken(): string | null {
     if (typeof window !== 'undefined') {

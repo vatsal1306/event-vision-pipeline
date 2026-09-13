@@ -1,5 +1,6 @@
-import { useAuthStore } from '@/stores/auth-store';
 import { ApiError } from '@/lib/api-client';
+import { resolveApiBaseUrl } from '@/lib/resolve-api-base-url';
+import { useAuthStore } from '@/stores/auth-store';
 
 export interface DirectUploadConfig {
   eventId: string;
@@ -16,7 +17,7 @@ export interface DirectUploadConfig {
  * Returns an abort function so pause/cancel can stop the XHR.
  */
 export function startDirectPhotoUpload(config: DirectUploadConfig): () => void {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  const baseUrl = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
   form.append('file', config.file);
