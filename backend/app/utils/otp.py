@@ -101,7 +101,8 @@ class OTPService:
 
         await self.redis.delete(otp_key)
         await self.redis.delete(cooldown_key)
-        raise SMSDeliveryError()
+        detail = self.sms_service.last_user_message
+        raise SMSDeliveryError(detail) if detail else SMSDeliveryError()
 
     async def verify_otp(self, phone: str, purpose: str, otp: str) -> bool:
         """Verify an OTP against the stored value with attempt limiting.

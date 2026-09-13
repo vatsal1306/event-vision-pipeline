@@ -54,7 +54,7 @@ Same API behavior for health, error JSON, request IDs, and settings. Differences
 | | `DEBUG=true` (local) | `DEBUG=false` (server later) |
 |---|---|---|
 | Logs | Console-friendly | JSON |
-| CORS | `*` (`allow_credentials=False`) | `FRONTEND_URL` only, credentials on |
+| CORS | `*` (`allow_credentials=False`) | `FRONTEND_URL`; if `ENVIRONMENT` is not production, also laptop localhost |
 | `/docs` `/redoc` `/openapi.json` | On | Off |
 
 One `.env` file for both; flip `DEBUG` when you want to simulate the server. Leave `SENTRY_DSN` empty until a Sentry project exists.

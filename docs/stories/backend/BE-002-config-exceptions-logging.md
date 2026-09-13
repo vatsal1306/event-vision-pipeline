@@ -21,7 +21,7 @@ Production-shaped configuration and cross-cutting HTTP behavior so later stories
 - `app/core/exceptions.py` — `AppException`, `NotFoundError`, `AuthenticationError`, `AuthorizationError`, `OTPCooldownError`, `OTPMaxAttemptsError`, `StorageLimitError`, `ProcessingError`
 - `app/core/middleware.py` — request ID, timing, JSON access log
 - `app/main.py` — register exception handlers from §13.2 including Pydantic 422 shape
-- CORS: `frontend_url` only (not `*`) in non-debug
+- CORS: `frontend_url` only (not `*`) in non-debug. When `ENVIRONMENT` is not production, localhost/`127.0.0.1` (any port) are also allowed so laptop Next.js works even if `FRONTEND_URL` is the production site.
 - `app/core/constants.py` — OTP length, JWT types (`access`, `refresh`, `guest`, `couple`)
 - Sentry init if `sentry_dsn` set (no-op otherwise)
 

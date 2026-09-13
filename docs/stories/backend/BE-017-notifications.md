@@ -29,5 +29,5 @@ OTP SMS: Redis still owns the 6-digit code. Delivery is **`SMS_PROVIDER=log`** (
 ## Implementation notes (agreed deviations from original doc)
 
 - Original Phase 1 said “no paid SMS” and “do not SMS guests”. We now send real OTP SMS to **all** OTP flows when `SMS_PROVIDER=fast2sms`.
-- MSG91 is **not** wired yet; Fast2SMS Quick OTP (`POST /dev/bulkV2`, `route=otp`) is the first real provider. Message body is Fast2SMS generic `Your OTP: {code}` (no custom DLT template).
+- MSG91 is **not** wired yet; Fast2SMS is the first real provider. We POST `/dev/bulkV2` with `route=otp` first. If Fast2SMS returns KYC/DLT codes (996, 998, 408), we retry **Quick SMS** (`route=q`) with `Your verification code is: {otp}`.
 - Failed SMS: debug keeps Redis OTP + `123456`; production (`DEBUG=false`) returns `SMS_DELIVERY_FAILED` (502) and deletes the Redis OTP.

@@ -23,7 +23,11 @@ SMS_PROVIDER_LOG = "log"
 SMS_PROVIDER_FAST2SMS = "fast2sms"
 FAST2SMS_BULK_URL = "https://www.fast2sms.com/dev/bulkV2"
 FAST2SMS_OTP_ROUTE = "otp"
+FAST2SMS_QUICK_ROUTE = "q"
 FAST2SMS_HTTP_TIMEOUT_SECONDS = 30.0
+# OTP route often needs KYC (996) or is blocked (998/408); retry Quick SMS.
+FAST2SMS_OTP_FALLBACK_STATUS_CODES = frozenset({408, 996, 998})
+OTP_SMS_BODY_TEMPLATE = "Your verification code is: {otp}"
 
 REQUEST_ID_HEADER = "X-Request-ID"
 """HTTP header used to correlate logs for a single request."""

@@ -67,6 +67,47 @@ async def test_fast2sms_posts_otp_route(respx_mock) -> None:
     assert payload["route"] == "otp"
     assert payload["numbers"] == "9876543210"
     assert payload["variables_values"] == OTP
+    assert respx_mock["fast2sms"].call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_fast2sms_falls_back_to_quick_sms_after_otp_kyc(respx_mock) -> None:
+    """OTP route KYC (996) should retry Quick SMS ``route=q``."""
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        if payload.get("route") == "otp":
+            return httpx.Response(
+                400,
+                json={
+                    "return": False,
+                    "status_code": 996,
+                    "message": "Before using OTP SMS API, complete KYC.",
+                },
+            )
+        assert payload.get("route") == "q"
+        assert "482913" in payload["message"]
+        return httpx.Response(200, json={"return": True, "request_id": "quick-1"})
+
+    respx_mock["fast2sms"].mock(side_effect=_handler)
+    service = SMSService(settings=_fast2sms_settings(debug=False))
+    assert await service.send_otp(PHONE, OTP) is True
+    assert respx_mock["fast2sms"].call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fast2sms_invalid_number_sets_user_message(respx_mock) -> None:
+    """Provider status 411 should explain the number was rejected."""
+    respx_mock["fast2sms"].mock(
+        return_value=httpx.Response(
+            400,
+            json={"return": False, "status_code": 411, "message": "Invalid Numbers"},
+        )
+    )
+    service = SMSService(settings=_fast2sms_settings(debug=False))
+    assert await service.send_otp(PHONE, OTP) is False
+    assert service.last_user_message is not None
+    assert "real Indian mobile" in service.last_user_message
 
 
 @pytest.mark.asyncio
@@ -97,6 +138,7 @@ async def test_otp_send_raises_when_sms_fails_outside_debug() -> None:
     redis_mock.incr = AsyncMock(return_value=1)
     sms_mock = AsyncMock()
     sms_mock.send_otp = AsyncMock(return_value=False)
+    sms_mock.last_user_message = None
     settings = Settings(debug=False, sms_provider=SMS_PROVIDER_FAST2SMS, sms_api_key="k")
     otp_service = OTPService(redis_mock, sms_mock, settings=settings)
 
@@ -115,6 +157,7 @@ async def test_otp_send_keeps_code_when_sms_fails_in_debug() -> None:
     redis_mock.incr = AsyncMock(return_value=1)
     sms_mock = AsyncMock()
     sms_mock.send_otp = AsyncMock(return_value=False)
+    sms_mock.last_user_message = None
     settings = Settings(debug=True, sms_provider=SMS_PROVIDER_FAST2SMS, sms_api_key="k")
     otp_service = OTPService(redis_mock, sms_mock, settings=settings)
 
