@@ -37,3 +37,9 @@
 - [ ] Couple verify returns token, `needs_selfie=false`
 - [ ] Guest first verify `needs_selfie=true`; second device same phone after match false (after BE-013)
 - [ ] Expired/invalid OTP handled
+
+## Implementation notes (what we actually built)
+
+- Guest OTP/selfie/gallery already require Ready (`EVENT_NOT_READY`).
+- FE-023: couple master auth and gallery APIs use the same `EVENT_NOT_READY`
+  gate so the couple cannot browse photos before face matching finishes.

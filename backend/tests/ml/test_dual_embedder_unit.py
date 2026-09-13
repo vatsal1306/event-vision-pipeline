@@ -79,6 +79,16 @@ def test_embed_single_returns_primary_and_secondary() -> None:
     assert result.model_secondary == "adaface_vit_kprpe"
 
 
+class _BrokenPrimaryOther:
+    """Simulate a non-OOM primary failure that must not use MobileFaceNet."""
+
+    model_name = "r100"
+
+    def extract_batch(self, faces: list[np.ndarray], batch_size: int = 64) -> np.ndarray:
+        del faces, batch_size
+        raise RuntimeError("onnxruntime session crashed")
+
+
 def test_primary_failure_uses_mobilefacenet_fallback() -> None:
     """Primary OOM should swap in the TFLite fallback when configured."""
     embedder = DualEmbedder(
@@ -90,6 +100,18 @@ def test_primary_failure_uses_mobilefacenet_fallback() -> None:
     result = embedder.embed_single(_crop())
     assert result.model_primary == "mobilefacenet"
     assert result.secondary is None
+
+
+def test_primary_non_oom_failure_does_not_use_mobilefacenet() -> None:
+    """A crashed R100 session must not silently compare MBF to R100 centroids."""
+    embedder = DualEmbedder(
+        primary=_BrokenPrimaryOther(),  # type: ignore[arg-type]
+        secondary=None,
+        fallback=_FakeFallback(),  # type: ignore[arg-type]
+        config=MLConfig(embedding_model="r100", dual_model_enabled=False),
+    )
+    with pytest.raises(RuntimeError, match="session crashed"):
+        embedder.embed_single(_crop())
 
 
 def test_primary_failure_without_fallback_raises() -> None:

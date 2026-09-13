@@ -6,6 +6,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AuthorizationError, BadRequestError, StorageLimitError
@@ -126,7 +127,12 @@ class UploadService:
         if event.status in (EventStatus.DRAFT, EventStatus.READY):
             event.status = EventStatus.UPLOADING
 
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            logger.info("Upload %s already processed", upload_info.id)
+            return {"status": "accepted", "note": "already processed"}
         await self.db.refresh(photo)
 
         process_uploaded_photo.delay(str(photo.id), s3_key, str(event_id))

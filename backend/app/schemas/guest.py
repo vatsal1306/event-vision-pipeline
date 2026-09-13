@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from app.core.constants import INDIAN_PHONE_PATTERN
+from app.schemas.photo import PhotoResponse
 
 
 class GuestAuthRequest(BaseModel):
@@ -36,3 +37,4 @@ class SelfieMatchResponse(BaseModel):
     status: str
     matched_photo_ids: list[str]
     matched_photo_count: int
+    photos: list[PhotoResponse] = Field(default_factory=list)

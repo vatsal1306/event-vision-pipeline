@@ -28,6 +28,24 @@ class CoupleService:
         self.db = db_session
         self.otp_service = otp_service
 
+    @staticmethod
+    def _ensure_couple_gallery_ready(event: Event) -> None:
+        """Block the master gallery until the event is Ready (FE-023)."""
+        from app.models.enums import EventStatus
+
+        if event.status != EventStatus.READY:
+            raise AuthorizationError(
+                "This gallery is not ready yet. Please try again later.",
+                code="EVENT_NOT_READY",
+            )
+
+    async def _event_for_session(self, session: CoupleSession) -> Event:
+        """Load the session's event or raise if it is missing."""
+        event = await self.db.get(Event, session.event_id)
+        if event is None:
+            raise NotFoundError("Event")
+        return event
+
     async def request_auth(self, slug: str, name: str, phone: str) -> None:
         """Verify the event and master link, then send an OTP. Creates a pending session."""
         stmt = select(Event).where(Event.slug == slug)
@@ -41,6 +59,8 @@ class CoupleService:
 
         if event.status == EventStatus.ARCHIVED:
             raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
+        self._ensure_couple_gallery_ready(event)
 
         if not event.master_link_active:
             raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")
@@ -78,6 +98,8 @@ class CoupleService:
 
         if event.status == EventStatus.ARCHIVED:
             raise AuthorizationError("Event is archived", code="EVENT_ARCHIVED")
+
+        self._ensure_couple_gallery_ready(event)
 
         if not event.master_link_active:
             raise AuthorizationError("Master link is inactive", code="LINK_INACTIVE")
@@ -122,6 +144,9 @@ class CoupleService:
         limit: int = 50,
     ) -> PhotoListResponse:
         """Get paginated completed photos for the event."""
+        event = await self._event_for_session(session)
+        self._ensure_couple_gallery_ready(event)
+
         from sqlalchemy import func
 
         from app.models.enums import ProcessingStatus
@@ -154,6 +179,9 @@ class CoupleService:
 
     async def get_folders(self, session: CoupleSession) -> FolderTreeResponse:
         """Get the folder tree for the event."""
+        event = await self._event_for_session(session)
+        self._ensure_couple_gallery_ready(event)
+
         from app.services.folder_service import FolderService
 
         folder_service = FolderService(self.db)
@@ -161,6 +189,9 @@ class CoupleService:
 
     async def toggle_favorite(self, session: CoupleSession, photo_id: uuid.UUID) -> bool:
         """Toggle favorite status for a photo. Returns True if now favorited, False if removed."""
+        event = await self._event_for_session(session)
+        self._ensure_couple_gallery_ready(event)
+
         from app.models.enums import ProcessingStatus
         from app.models.favorite import Favorite
         from app.models.photo import Photo
@@ -196,6 +227,9 @@ class CoupleService:
         self, session: CoupleSession, offset: int = 0, limit: int = 50
     ) -> PhotoListResponse:
         """List favorited photos."""
+        event = await self._event_for_session(session)
+        self._ensure_couple_gallery_ready(event)
+
         from sqlalchemy import func
 
         from app.models.favorite import Favorite
@@ -231,7 +265,10 @@ class CoupleService:
         event_result = await self.db.execute(event_stmt)
         event = event_result.scalar_one_or_none()
 
-        if not event or not event.download_enabled:
+        if not event:
+            raise NotFoundError("Event")
+        self._ensure_couple_gallery_ready(event)
+        if not event.download_enabled:
             raise AuthorizationError("Downloads are disabled for this event", code="FORBIDDEN")
 
         stmt = select(Photo).where(Photo.id == photo_id, Photo.event_id == session.event_id)

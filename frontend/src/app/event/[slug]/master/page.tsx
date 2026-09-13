@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { EmptyState } from '@/components/shared/empty-state';
+import { GalleryNotReady } from '@/components/shared/gallery-not-ready';
 import { GalleryGrid } from '@/components/gallery/gallery-grid';
 import { GalleryHeader } from '@/components/gallery/gallery-header';
 import { FolderNav } from '@/components/gallery/folder-nav';
@@ -28,6 +29,7 @@ import {
   useMasterPhotos 
 } from '@/hooks/use-master-gallery';
 import { useFavorites, useToggleFavorite } from '@/hooks/use-couple-favorites';
+import { isGalleryReady } from '@/lib/face-processing';
 import { useMasterAuthStore } from '@/stores/master-auth-store';
 import { Lock, LogOut } from 'lucide-react';
 import { FavoritesFab } from '@/components/couple/favorites-fab';
@@ -193,6 +195,23 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   }
 
   const { event, photographer } = infoData;
+
+  if (event.status === 'archived') {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black p-4">
+        <EmptyState
+          title="Gallery Unavailable"
+          description="This gallery is no longer available."
+          icon={<Lock className="h-10 w-10 text-muted-foreground" />}
+          variant="dark"
+        />
+      </div>
+    );
+  }
+
+  if (!isGalleryReady(event.status)) {
+    return <GalleryNotReady eventName={event.name} />;
+  }
 
   if (!event.masterLinkActive) {
     return (

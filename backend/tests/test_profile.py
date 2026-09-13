@@ -92,6 +92,21 @@ async def test_update_profile(
 
 
 @pytest.mark.asyncio
+async def test_update_profile_ignores_phone_change(
+    auth_client: AsyncClient, profile_photographer: Photographer
+) -> None:
+    """Photographers cannot change their login phone from the profile form."""
+    original = profile_photographer.phone
+    response = await auth_client.put(
+        "/api/v1/profile",
+        json={"studio_name": "Studio Keep Phone", "phone": "+919876543210"},
+    )
+    assert response.status_code == 200
+    assert response.json()["phone"] == original
+    assert response.json()["studio_name"] == "Studio Keep Phone"
+
+
+@pytest.mark.asyncio
 async def test_upload_logo_success(auth_client: AsyncClient) -> None:
     """Test successful logo upload."""
     # Create fake JPEG bytes

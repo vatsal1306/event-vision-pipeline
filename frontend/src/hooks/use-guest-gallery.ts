@@ -1,6 +1,14 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { mapPhotoFromApi } from '@/lib/map-api';
+import { PaginatedResponse } from '@/types/api';
+import { Photo } from '@/types/event';
+
+/** Map a guest photo list payload into frontend Photo models. */
+function mapGuestPhotoPage(page: PaginatedResponse<Photo> | PaginatedResponse<unknown>) {
+  const items = page.items.map((item) => mapPhotoFromApi(item as unknown as Record<string, unknown>));
+  return { ...page, items };
+}
 
 export function useGuestAuth() {
   return useMutation({
@@ -17,27 +25,33 @@ export function useGuestVerify() {
 }
 
 export function useSubmitSelfie() {
+  const queryClient = useQueryClient();
   return useMutation({
-    // We send FormData for selfie upload. Data is a FormData object.
     mutationFn: ({ slug, data, token }: { slug: string; data: FormData; token: string }) =>
       api.submitSelfie(slug, data, token),
+    onSuccess: (result, { slug, token }) => {
+      const rawPhotos = result.photos ?? [];
+      if (rawPhotos.length === 0) {
+        return;
+      }
+      queryClient.setQueryData(['guestPhotos', slug, token], mapGuestPhotoPage({
+        items: rawPhotos,
+        total: result.matched_photo_count,
+        offset: 0,
+        limit: rawPhotos.length,
+      }));
+    },
   });
 }
 
 export function useGuestPhotos(slug: string, token: string | null) {
   return useQuery({
     queryKey: ['guestPhotos', slug, token],
-    // The apiClient doesn't have token in getGuestPhotos by default, but we'll modify it or just pass if needed.
-    // Assuming api.getGuestPhotos takes slug. The backend might rely on cookie or we pass the token in headers.
-    // Wait, the API client: getGuestPhotos: (slug: string) => apiClient.get<PaginatedResponse<Photo>>(`/api/event/${slug}/guest/photos`)
-    // I need to update api-client.ts to accept token for getGuestPhotos and submitSelfie.
     queryFn: async () => {
       const page = await api.getGuestPhotos(slug, token!);
-      return {
-        ...page,
-        items: page.items.map((item) => mapPhotoFromApi(item as unknown as Record<string, unknown>)),
-      };
+      return mapGuestPhotoPage(page);
     },
     enabled: !!token,
+    staleTime: 0,
   });
 }

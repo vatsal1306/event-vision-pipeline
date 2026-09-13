@@ -84,14 +84,14 @@ class MLConfig(BaseSettings):
     selfie_match_threshold: float = 0.55
     max_cluster_matches: int = 5
     selfie_pgvector_min_clusters: int = 500
-    selfie_yaw_threshold: float = 30.0
-    selfie_pitch_threshold: float = 30.0
-    selfie_roll_threshold: float = 30.0
+    selfie_yaw_threshold: float = 45.0
+    selfie_pitch_threshold: float = 35.0
+    selfie_roll_threshold: float = 45.0
 
     # Liveness
-    liveness_face_ratio_min: float = 0.15
+    liveness_face_ratio_min: float = 0.04
     liveness_face_ratio_max: float = 0.85
-    liveness_det_score_min: float = 0.7
+    liveness_det_score_min: float = 0.55
     liveness_sharpness_min: float = 50.0
     liveness_saturation_min: float = 20.0
 

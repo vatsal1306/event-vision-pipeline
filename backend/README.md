@@ -215,6 +215,7 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
   uv run uvicorn app.main:app --reload
   ```
   tusd listens on `http://localhost:1080/files/` and calls hooks on host port 8000. Set `NEXT_PUBLIC_TUS_ENDPOINT=http://localhost:1080/files/` in `frontend/.env`.
+  If tusd is not running, the dashboard falls back to `POST /api/v1/events/{id}/photos` so laptop uploads still succeed.
 
 ## Upload Pipeline (BE-010)
 - Processing migrated to use OpenCV for proxies, watermarking, and HEIC ingestion.

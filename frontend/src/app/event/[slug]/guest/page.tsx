@@ -6,6 +6,7 @@ import { useGuestAuth, useGuestVerify, useSubmitSelfie, useGuestPhotos } from '@
 import { useGuestAuthStore } from '@/stores/guest-auth-store';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { EmptyState } from '@/components/shared/empty-state';
+import { GalleryNotReady } from '@/components/shared/gallery-not-ready';
 import { Lock } from 'lucide-react';
 import { OtpForm } from '@/components/guest/otp-form';
 import { SelfieCapture } from '@/components/guest/selfie-capture';
@@ -13,6 +14,8 @@ import { ProcessingScreen } from '@/components/guest/processing-screen';
 import { PersonalizedGallery } from '@/components/guest/personalized-gallery';
 import { GallerySkeleton } from '@/components/gallery/gallery-skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
+import { isGalleryReady } from '@/lib/face-processing';
+import { guestSelfieFailureCopy, isSelfieMatchSuccess } from '@/lib/guest-selfie';
 import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -51,7 +54,14 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   }, [isVerified, sessionToken, needsSelfie, guestSession, infoData?.event, clearGuestSession]);
 
   // Authenticated Queries
-  const { data: photosData, isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
+  const {
+    data: photosData,
+    isPending: photosPending,
+    isFetching: photosFetching,
+    error: photosError,
+    refetch: refetchPhotos,
+  } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
+  const photosLoading = !photosData?.items && (photosPending || photosFetching);
 
   // Mutations
   const authMutation = useGuestAuth();
@@ -105,18 +115,17 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       const formData = new FormData();
       formData.append('file', imageBlob, 'selfie.jpg');
       
-      const { matched_photo_count } = await selfieMutation.mutateAsync({ slug, data: formData, token: sessionToken });
-      
-      // Update session to indicate selfie is no longer needed
-      setGuestSession(guestSession, sessionToken, false);
-      
-      // We will automatically transition to 'gallery' due to the useEffect watching needsSelfie,
-      // but let's do it explicitly to be sure.
-      setStep('gallery');
-      
-      if (matched_photo_count > 0) {
-        toast.success(`Found ${matched_photo_count} matching photos!`);
+      const result = await selfieMutation.mutateAsync({ slug, data: formData, token: sessionToken });
+
+      if (!isSelfieMatchSuccess(result.status, result.matched_photo_count)) {
+        toast.error(guestSelfieFailureCopy(result.status));
+        setStep('selfie');
+        return;
       }
+
+      setGuestSession(guestSession, sessionToken, false);
+      setStep('gallery');
+      toast.success(`Found ${result.matched_photo_count} matching photos!`);
     } catch (err) {
       toast.error('Failed to process selfie. Please try again.');
       setStep('selfie');
@@ -168,6 +177,23 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   }
 
   const { event, photographer } = infoData;
+
+  if (event.status === 'archived') {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-black p-4">
+        <EmptyState
+          title="Gallery Unavailable"
+          description="This gallery is no longer available."
+          icon={<Lock className="h-12 w-12 text-zinc-600" />}
+          variant="dark"
+        />
+      </div>
+    );
+  }
+
+  if (!isGalleryReady(event.status)) {
+    return <GalleryNotReady eventName={event.name} />;
+  }
 
   if (!event.guestLinkActive) {
     return (

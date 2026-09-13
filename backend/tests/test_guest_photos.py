@@ -119,6 +119,16 @@ async def test_upload_selfie_matched(
     assert data["status"] == "matched"
     assert data["matched_photo_ids"] == [str(photo.id)]
     assert data["matched_photo_count"] == 1
+    assert data["photos"][0]["id"] == str(photo.id)
+
+    listed = await db_client.get(
+        f"/api/v1/event/{event.slug}/guest/photos",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert listed.status_code == 200
+    listed_data = listed.json()
+    assert listed_data["total"] == 1
+    assert listed_data["items"][0]["id"] == str(photo.id)
 
 
 @pytest.mark.asyncio
@@ -176,6 +186,28 @@ async def test_list_guest_photos(
     assert data["total"] == 1
     assert data["items"][0]["id"] == str(photo.id)
     assert data["items"][0]["proxy_url"] is not None
+
+
+@pytest.mark.asyncio
+async def test_list_guest_photos_includes_non_completed_photos(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    guest_token: tuple[str, Any, Any, Any, Any],
+) -> None:
+    token, event, guest, photo, cluster = guest_token
+    photo.processing_status = ProcessingStatus.PENDING
+    guest.matched_cluster_ids = [cluster.id]
+    await db_session.commit()
+
+    response = await db_client.get(
+        f"/api/v1/event/{event.slug}/guest/photos",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["id"] == str(photo.id)
 
 
 @pytest.mark.asyncio

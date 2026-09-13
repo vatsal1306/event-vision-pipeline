@@ -89,7 +89,7 @@ export default function ProfilePage() {
   }
 
   const onSubmit = (data: ProfileFormValues) => {
-    updateProfile.mutate(data);
+    updateProfile.mutate({ studioName: data.studioName, email: data.email });
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,8 +220,17 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>Phone Number</FormLabel>
                         <FormControl>
-                          <Input placeholder="+919876543210" type="tel" {...field} />
+                          <Input
+                            placeholder="+919876543210"
+                            type="tel"
+                            {...field}
+                            disabled
+                            readOnly
+                          />
                         </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          Used to sign in. Contact support if you need to change it.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -256,7 +265,8 @@ export default function ProfilePage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Your current plan includes 100GB of active event storage. Archived events do not count against this limit.
+                Your current plan includes {formatBytes(profile.storage_limit_bytes, 0)} of active
+                event storage. Archived events do not count against this limit.
               </p>
             </div>
           </div>

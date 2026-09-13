@@ -142,8 +142,8 @@ export default function EventsPage() {
               <DropdownMenuRadioGroup value={filterStatus} onValueChange={(val) => setFilterStatus(val as typeof filterStatus)}>
                 <DropdownMenuRadioItem value="all">All Statuses</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="draft">Draft</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="uploading">Uploading</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="processing">Processing</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="uploading">Needs faces</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="processing">Finding faces</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="ready">Ready</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="archived">Archived</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>

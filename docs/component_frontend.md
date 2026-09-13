@@ -544,7 +544,7 @@ export const scaleIn = {
 - Event name and date
 - Photo count and folder count
 - Guest count (who have viewed)
-- Status badge: Draft (gray), Uploading (blue), Processing (yellow with %), Ready (green), Archived (muted)
+- Status badge: Draft (gray), Preparing photos / Awaiting faces (blue), Finding faces (amber), Ready (green), Archived (muted)
 - Click → navigates to Event Detail View
 
 **Actions:**
@@ -584,7 +584,7 @@ This is the main management hub for an event. It uses a tabbed layout:
 ┌──────────────────────────────────────────────────────────────┐
 │  ← Back to Events                                            │
 │                                                              │
-│  Rahul & Priya Wedding                    [⚙️ Event Settings]│
+│  Rahul & Priya Wedding   [Uploading]   [Find faces] [Options]│
 │  June 12-14, 2026 · Wedding · 3,450 photos                  │
 │                                                              │
 │  ┌────────┬──────────┬───────────┬──────────┐                │
@@ -595,6 +595,19 @@ This is the main management hub for an event. It uses a tabbed layout:
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+**Find faces (FE-023):** Primary button in the event header (all tabs) when
+`pendingFacePhotos > 0` and status is `uploading` or `ready`. Does not auto-start
+on each upload. While `processing`, the button is hidden and a progress strip
+shows percent, photo counts, and ETA from
+`GET /api/v1/events/{id}/face-processing-progress`. Dashboard polls event
+status and that progress endpoint every **60 seconds** (refresh is immediate
+after the photographer clicks). Copy: **Find faces**. Live API only (no MSW
+for this control).
+
+Guest `/event/{slug}/guest` and couple `/event/{slug}/master` show a shared
+“Photos aren't ready yet” empty state until status is `ready`. Guests are not
+sent into selfie capture.
 
 #### 5.5.1 Photos Tab (Folder Management + Photo Grid)
 

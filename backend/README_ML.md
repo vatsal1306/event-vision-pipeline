@@ -672,6 +672,21 @@ Running **every** file in `tests/ml/` in one process can SIGSEGV on interpreter 
 
 There is **no** self-hosted GPU GitHub runner. CPU (`ML_DEVICE=cpu`) is the supported local path.
 
+## Inspect clusters (repeatable CLI)
+
+After Find faces has clustered an event, export a local HTML gallery of face
+crops grouped by cluster:
+
+```bash
+cd backend
+uv run python -m app.cli.visualize_clusters --event-slug your-event-slug --open
+uv run python -m app.cli.visualize_clusters --event-id <uuid> --include-unclustered --max-faces 48
+```
+
+Output defaults to `backend/cluster-viz/<event-id>/index.html`. Re-run any time;
+the folder is overwritten. Use `--originals` if proxy WebPs are missing.
+
+
 ## Registering Models
 
 SCRFD is registered automatically via `import app.ml.detection`. Later stories add their own loaders in

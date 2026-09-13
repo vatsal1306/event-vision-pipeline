@@ -51,14 +51,11 @@ async def update_profile(
     photographer: Photographer = Depends(get_current_photographer),
     db: AsyncSession = Depends(get_db),
 ) -> PhotographerProfile:
-    """Update studio name, phone, logo, or watermark."""
+    """Update studio name, logo, or watermark. Phone cannot be changed here."""
     update_data = request.model_dump(exclude_unset=True)
 
     if "studio_name" in update_data:
         photographer.studio_name = update_data["studio_name"]
-    if "phone" in update_data and update_data["phone"] != photographer.phone:
-        photographer.phone = update_data["phone"]
-        photographer.phone_verified = False
     if "logo_url" in update_data:
         photographer.logo_url = update_data["logo_url"]
     if "watermark_url" in update_data:

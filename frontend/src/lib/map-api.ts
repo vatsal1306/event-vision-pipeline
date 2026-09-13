@@ -1,3 +1,4 @@
+import { AnalyticsTopPhoto } from '@/types/analytics';
 import { Event, EventStatus, EventType, FolderNode, Photo, ProcessingStatus } from '@/types/event';
 
 export function mapEventFromApi(raw: Record<string, unknown>): Event {
@@ -63,5 +64,18 @@ export function mapPhotoFromApi(raw: Record<string, unknown>): Photo {
     processingError: (raw.processing_error as string | null | undefined) ?? (raw.processingError as string | null) ?? null,
     uploadedAt: String(raw.uploaded_at ?? raw.uploadedAt ?? new Date().toISOString()),
     createdAt: String(raw.created_at ?? raw.createdAt ?? new Date().toISOString()),
+  };
+}
+
+export function mapTopPhotoFromApi(raw: Record<string, unknown>): AnalyticsTopPhoto {
+  const id = String(raw.id ?? raw.photoId ?? '');
+  const proxyUrl =
+    (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null | undefined) ?? null;
+  return {
+    id,
+    filename: String(raw.filename ?? ''),
+    proxyUrl,
+    views: Number(raw.views ?? 0),
+    downloads: Number(raw.downloads ?? 0),
   };
 }

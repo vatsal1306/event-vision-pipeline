@@ -941,7 +941,7 @@ class EventDetail(BaseModel):
 
 **POST `/api/v1/events/{event_id}/start-face-processing`** → Photographer trigger (ML-009). Enqueues `face_processing` and, in production, a CPU task that starts the GPU EC2 (INF-009). Does not wait for the GPU to boot. Does not start on each tus upload.
 
-**GET `/api/v1/events/{event_id}/face-processing-progress`** → Redis-backed bulk ML progress (ML-010): `pipeline_status`, photo/face counts, `eta_seconds`. Poll while `event.status` is `processing`.
+**GET `/api/v1/events/{event_id}/face-processing-progress`** → Redis-backed bulk ML progress (ML-010): `pipeline_status`, photo/face counts, `eta_seconds`. Photographer dashboard (FE-023) polls this every 60 seconds while `event.status` is `processing`.
 
 **PUT `/api/v1/events/{event_id}`** → Partial update (name, dates, description, type)
 
@@ -1113,7 +1113,14 @@ class SelfieMatchResponse(BaseModel):
 # Response: PhotoListResponse (same structure, filtered to matched photos)
 ```
 
+Guest OTP, selfie, and matched photos return `403 EVENT_NOT_READY` until the
+event status is `ready`.
+
 #### Couple Endpoints
+
+Couple OTP, photos, folders, favorites, and downloads return the same
+`403 EVENT_NOT_READY` until Ready (FE-023). Public `GET /info` still works so
+the landing page can show the not-ready empty state.
 
 **GET `/api/v1/event/{slug}/master/photos`** (couple auth required)
 

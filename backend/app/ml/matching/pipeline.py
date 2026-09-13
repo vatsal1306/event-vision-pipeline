@@ -32,7 +32,8 @@ class SelfieMatchPipeline:
     """Run the full guest selfie matching path for one event.
 
     Detects once, then reuses that face for liveness and cropping.
-    Selfie quality skips age and sunglasses and uses 30° YPR limits.
+    Selfie quality skips age and sunglasses and uses the same YPR limits
+    as event clustering.
     """
 
     def __init__(

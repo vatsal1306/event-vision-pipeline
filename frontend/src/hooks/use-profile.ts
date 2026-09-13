@@ -17,7 +17,6 @@ export function useUpdateProfile() {
     mutationFn: (data: Partial<Photographer> & { studioName?: string }) =>
       api.updateProfile({
         studio_name: data.studio_name ?? data.studioName,
-        phone: data.phone,
         watermark_url: data.watermark_url,
         logo_url: data.logo_url,
       }),

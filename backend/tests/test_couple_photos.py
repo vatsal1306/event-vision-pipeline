@@ -8,7 +8,7 @@ import pytest
 
 from app.models.analytics_event import AnalyticsEvent
 from app.models.couple_session import CoupleSession
-from app.models.enums import AnalyticsAction, ProcessingStatus
+from app.models.enums import AnalyticsAction, EventStatus, ProcessingStatus
 from app.models.favorite import Favorite
 from app.models.photo import Photo
 
@@ -244,3 +244,22 @@ async def test_download_master_photo_disabled(
 
     assert response.status_code == 403
     assert response.json()["code"] == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_list_master_photos_event_not_ready(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    couple_token: tuple[str, Any, Any, Any],
+) -> None:
+    """Existing couple tokens cannot list photos until Ready."""
+    token, event, _couple, _photo = couple_token
+    event.status = EventStatus.PROCESSING
+    await db_session.commit()
+
+    response = await db_client.get(
+        f"/api/v1/event/{event.slug}/master/photos",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+    assert response.json()["code"] == "EVENT_NOT_READY"

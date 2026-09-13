@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import Image from 'next/image';
 import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEventPhotos, useMovePhotos, useDeletePhotos } from '@/hooks/use-event-photos';
@@ -22,6 +21,9 @@ import { Loader2, Move, Trash2, X, FolderOpen, Image as ImageIcon } from 'lucide
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+const GRID_GAP_PX = 16;
+const GRID_PADDING_PX = 16;
+
 interface PhotoGridProps {
   eventId: string;
   folderId: string | null;
@@ -39,41 +41,51 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Flatten infinite query pages into a single array
   const photos = useMemo(() => {
     return data?.pages.flatMap(page => page.items) ?? [];
   }, [data]);
 
-  // Responsive columns using ResizeObserver
   const [columns, setColumns] = useState(4);
-  
+  const [viewportWidth, setViewportWidth] = useState(0);
+
   useEffect(() => {
     const scrollElement = parentRef.current;
     if (!scrollElement) return;
 
-    const updateColumns = () => {
+    const updateLayout = () => {
       const width = scrollElement.clientWidth;
+      setViewportWidth(width);
       if (width < 640) setColumns(2);
       else if (width < 1024) setColumns(3);
       else if (width < 1536) setColumns(4);
       else setColumns(6);
     };
 
-    const observer = new ResizeObserver(() => updateColumns());
+    const observer = new ResizeObserver(() => updateLayout());
     observer.observe(scrollElement);
-    updateColumns();
+    updateLayout();
 
     return () => observer.disconnect();
   }, []);
 
   const count = photos.length;
+  const innerWidth = Math.max(0, viewportWidth - GRID_PADDING_PX * 2);
+  const cellSize =
+    columns > 0 && innerWidth > 0
+      ? Math.max(80, Math.floor((innerWidth - GRID_GAP_PX * (columns - 1)) / columns))
+      : 200;
+  const rowSize = cellSize + GRID_GAP_PX;
 
   const rowVirtualizer = useVirtualizer({
-    count: Math.ceil(count / columns),
+    count: Math.ceil(count / columns) || 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 250, // Approx height of a row
+    estimateSize: () => rowSize,
     overscan: 5,
   });
+
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [rowSize, columns, count, folderId, rowVirtualizer]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -187,7 +199,7 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
   const isSelectionMode = selectedPhotoIds.size > 0;
 
   return (
-    <div className="relative h-full flex flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b">
         <div className="flex items-center gap-2">
           <Button 
@@ -210,9 +222,9 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
           )}
         </div>
       </div>
-      <div 
-        ref={parentRef} 
-        className="flex-1 overflow-auto p-4"
+      <div
+        ref={parentRef}
+        className="min-h-0 flex-1 overflow-auto p-4"
       >
         <div
           style={{
@@ -225,12 +237,12 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
             return (
               <div
                 key={virtualRow.index}
-                className="absolute top-0 left-0 w-full grid gap-4"
+                className="absolute left-0 top-0 grid w-full"
                 style={{
-                  height: `${virtualRow.size}px`,
+                  height: `${cellSize}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                   gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-                  paddingBottom: '16px'
+                  gap: `${GRID_GAP_PX}px`,
                 }}
               >
                 {Array.from({ length: columns }).map((_, colIndex) => {
@@ -244,7 +256,7 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
                   return (
                     <div 
                       key={photo.id}
-                      className="group relative aspect-square bg-muted rounded-md overflow-hidden cursor-pointer shadow-sm border border-border/50"
+                      className="group relative h-full cursor-pointer overflow-hidden rounded-md border border-border/50 bg-muted shadow-sm"
                       onClick={() => isSelectionMode ? toggleSelection(photo.id, { stopPropagation: () => {} } as any) : onPhotoClick(photo)}
                     >
                       {photo.proxyUrl && (

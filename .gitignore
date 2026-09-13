@@ -181,6 +181,7 @@ backend/**/*.pkl
 # Backend secrets and local storage
 backend/.env
 backend/.data
+backend/cluster-viz/
 
 # EC2 backup logs
 logs/

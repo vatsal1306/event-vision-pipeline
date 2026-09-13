@@ -6,7 +6,9 @@ export interface AnalyticsSummary {
 }
 
 export interface AnalyticsTopPhoto {
-  photoId: string;
+  id: string;
+  filename: string;
+  proxyUrl: string | null;
   views: number;
   downloads: number;
 }

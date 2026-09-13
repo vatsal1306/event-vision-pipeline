@@ -1208,7 +1208,9 @@ These client-side checks are UX-focused; the server-side checks above are the au
 > trigger, then **Processing**, then **Ready** when proxies *and* `faces_processed`
 > are done. `ML_FACE_PROCESSING_ENABLED` defaults false. GPU EC2 start/stop is
 > INF-009: the API returns immediately; app Celery starts `g4dn.xlarge`; beat
-> stops it after 10 minutes idle. Dashboard button is FE-023.
+> stops it after 10 minutes idle. Dashboard button is FE-023 (**Find faces**
+> in the event header; progress polled every 60s). Couple galleries are also
+> blocked until Ready (`EVENT_NOT_READY`), same as guests.
 >
 > **ML-010 implementation notes:** Bulk processing upgrades `FaceService.process_event_photos`
 > (alias `process_event_bulk`). Prefetch uses `storage_prefetch.iter_prefetched` +

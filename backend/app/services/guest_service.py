@@ -45,7 +45,10 @@ class GuestService:
         self, session: GuestSession, selfie_bytes: bytes, face_service: FaceService
     ) -> SelfieMatchResponse:
         """Process guest selfie, extract embedding, and find matching photos."""
+        from sqlalchemy.orm.attributes import flag_modified
+
         from app.schemas.guest import SelfieMatchResponse
+        from app.services.photo_service import PhotoService
 
         event = await self.db.get(Event, session.event_id)
         if event is None:
@@ -54,15 +57,16 @@ class GuestService:
 
         match_result = await face_service.match_selfie(selfie_bytes, session.event_id)
 
-        # TODO(BE-013): Upload selfie to S3 and store the key in session.selfie_s3_key
-        # TODO(BE-013): Clean up temporary selfie file if persisted to S3/DB
-
         if match_result.selfie_embedding is not None:
             session.selfie_embedding = match_result.selfie_embedding.astype(float).tolist()
         session.matched_cluster_ids = list(match_result.matched_cluster_ids)
+        flag_modified(session, "matched_cluster_ids")
         session.matched_photo_count = len(match_result.photo_ids)
         await self.db.commit()
+        await self.db.refresh(session)
 
+        photos = await self._load_photos_in_order(match_result.photo_ids)
+        photo_service = PhotoService(self.db)
         status = (
             match_result.status.value
             if hasattr(match_result.status, "value")
@@ -72,6 +76,7 @@ class GuestService:
             status=status,
             matched_photo_ids=[str(photo_id) for photo_id in match_result.photo_ids],
             matched_photo_count=len(match_result.photo_ids),
+            photos=photo_service.build_photo_responses(photos),
         )
 
     async def get_guest_photos(
@@ -82,9 +87,10 @@ class GuestService:
         folder_id: uuid.UUID | None = None,
     ) -> tuple[list[Photo], int]:
         """Get paginated photos matching the guest's face clusters."""
+        import uuid as uuid_mod
+
         from sqlalchemy import func
 
-        from app.models.enums import ProcessingStatus
         from app.models.face_embedding import FaceEmbedding
         from app.models.photo import Photo
 
@@ -93,40 +99,49 @@ class GuestService:
             raise NotFoundError("Event")
         self._ensure_guest_gallery_ready(event)
 
-        if not session.matched_cluster_ids:
+        cluster_ids = [
+            cluster_id if isinstance(cluster_id, uuid_mod.UUID) else uuid_mod.UUID(str(cluster_id))
+            for cluster_id in (session.matched_cluster_ids or [])
+        ]
+        if not cluster_ids:
             return [], 0
 
-        where_clause = [
-            Photo.event_id == session.event_id,
-            Photo.processing_status == ProcessingStatus.COMPLETED,
-            FaceEmbedding.cluster_id.in_(session.matched_cluster_ids),
-        ]
-        if folder_id:
-            where_clause.append(Photo.folder_id == folder_id)
+        photo_id_stmt = (
+            select(FaceEmbedding.photo_id)
+            .where(
+                FaceEmbedding.event_id == session.event_id,
+                FaceEmbedding.cluster_id.in_(cluster_ids),
+            )
+            .distinct()
+        )
+        filters = [Photo.id.in_(photo_id_stmt), Photo.event_id == session.event_id]
+        if folder_id is not None:
+            filters.append(Photo.folder_id == folder_id)
 
-        # Base statement to find distinct photo IDs
-        base_stmt = select(Photo.id).join(Photo.face_embeddings).where(*where_clause).distinct()
-
-        # Count total
-        count_stmt = select(func.count()).select_from(base_stmt.subquery())
-        total_result = await self.db.execute(count_stmt)
-        total = total_result.scalar_one()
-
+        count_stmt = select(func.count()).select_from(select(Photo.id).where(*filters).subquery())
+        total = await self.db.scalar(count_stmt) or 0
         if total == 0:
             return [], 0
 
-        # Get photos
         stmt = (
             select(Photo)
-            .where(Photo.id.in_(base_stmt))
+            .where(*filters)
             .order_by(Photo.uploaded_at.desc())
             .offset(offset)
             .limit(limit)
         )
         result = await self.db.execute(stmt)
-        photos = list(result.scalars().all())
+        return list(result.scalars().all()), int(total)
 
-        return photos, total
+    async def _load_photos_in_order(self, photo_ids: list[uuid.UUID]) -> list[Photo]:
+        """Load photos preserving the matcher order."""
+        from app.models.photo import Photo
+
+        if not photo_ids:
+            return []
+        result = await self.db.execute(select(Photo).where(Photo.id.in_(photo_ids)))
+        by_id = {photo.id: photo for photo in result.scalars().all()}
+        return [by_id[photo_id] for photo_id in photo_ids if photo_id in by_id]
 
     async def get_guest_photo_download(self, session: GuestSession, photo_id: uuid.UUID) -> str:
         """Get a presigned download URL for a guest's matched photo."""
