@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import AsyncIterator
+
+# FastAPI binds docs/OpenAPI at import time. Force test-safe env before ``app.main``.
+os.environ["DEBUG"] = "true"
+os.environ["SMS_PROVIDER"] = "log"
+os.environ["EMAIL_PROVIDER"] = "log"
+os.environ["SMTP_PASSWORD"] = ""
 
 import httpx
 import pytest

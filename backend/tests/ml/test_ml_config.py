@@ -66,12 +66,12 @@ def test_ml_config_defaults_match_story_spec(monkeypatch: pytest.MonkeyPatch) ->
     assert config.selfie_match_threshold == 0.55
     assert config.max_cluster_matches == 5
     assert config.selfie_pgvector_min_clusters == 500
-    assert config.selfie_yaw_threshold == 30.0
-    assert config.selfie_pitch_threshold == 30.0
-    assert config.selfie_roll_threshold == 30.0
-    assert config.liveness_face_ratio_min == 0.15
+    assert config.selfie_yaw_threshold == 45.0
+    assert config.selfie_pitch_threshold == 35.0
+    assert config.selfie_roll_threshold == 45.0
+    assert config.liveness_face_ratio_min == 0.04
     assert config.liveness_face_ratio_max == 0.85
-    assert config.liveness_det_score_min == 0.7
+    assert config.liveness_det_score_min == 0.55
     assert config.liveness_sharpness_min == 50.0
     assert config.liveness_saturation_min == 20.0
     assert config.ypr_model_type == "3ddfa"

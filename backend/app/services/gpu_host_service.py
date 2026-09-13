@@ -47,8 +47,8 @@ class GpuHostService:
         settings: Settings | None = None,
         *,
         ec2_client: Any | None = None,
-        app_redis: redis.Redis | None = None,
-        broker_redis: redis.Redis | None = None,
+        app_redis: Any | None = None,
+        broker_redis: Any | None = None,
         wait_until_stopped: Callable[[], None] | None = None,
         wait_until_running: Callable[[], None] | None = None,
         now: Callable[[], datetime] | None = None,
@@ -181,7 +181,8 @@ class GpuHostService:
             return True
         if self._scan_exists(self._locks_redis(), _CLUSTERING_LOCK_SCAN):
             return True
-        pending = int(self._queue_redis().llen(_FACE_QUEUE) or 0)
+        pending_raw: Any = self._queue_redis().llen(_FACE_QUEUE)
+        pending = int(pending_raw or 0)
         return pending > 0
 
     def _start_instances(self) -> None:
@@ -235,7 +236,7 @@ class GpuHostService:
         )
         return self._ec2
 
-    def _locks_redis(self) -> redis.Redis:
+    def _locks_redis(self) -> Any:
         """Sync Redis client for application locks (db 0 by default)."""
         if self._app_redis is None:
             self._app_redis = redis.Redis.from_url(
@@ -244,7 +245,7 @@ class GpuHostService:
             )
         return self._app_redis
 
-    def _queue_redis(self) -> redis.Redis:
+    def _queue_redis(self) -> Any:
         """Sync Redis client for the Celery broker (queue lists)."""
         if self._broker_redis is None:
             self._broker_redis = redis.Redis.from_url(
@@ -273,9 +274,9 @@ class GpuHostService:
         self._locks_redis().delete(GPU_IDLE_SINCE_KEY)
 
     @staticmethod
-    def _scan_exists(client: redis.Redis, pattern: str) -> bool:
+    def _scan_exists(client: Any, pattern: str) -> bool:
         """Return True if any key matches ``pattern``."""
-        cursor: int | str = 0
+        cursor: Any = 0
         while True:
             cursor, keys = client.scan(cursor=cursor, match=pattern, count=100)
             if keys:

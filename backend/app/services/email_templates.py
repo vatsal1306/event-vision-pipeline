@@ -32,16 +32,19 @@ def otp_email_content(
         f"This code expires in {expiry_minutes} minutes. "
         "If you did not request it, you can ignore this email.\n"
     )
-    html = f"""<!DOCTYPE html>
-<html>
-<body style="font-family: Arial, sans-serif; color: #111; line-height: 1.5;">
-  <p>Your <strong>{safe_app}</strong> {safe_purpose} code is:</p>
-  <p style="font-size: 28px; letter-spacing: 0.3em; font-weight: bold;">{safe_otp}</p>
-  <p>This code expires in {expiry_minutes} minutes.</p>
-  <p style="color: #666; font-size: 13px;">If you did not request this, you can ignore this email.</p>
-</body>
-</html>
-"""
+    html = (
+        "<!DOCTYPE html>\n"
+        "<html>\n"
+        '<body style="font-family: Arial, sans-serif; color: #111; line-height: 1.5;">\n'
+        f"  <p>Your <strong>{safe_app}</strong> {safe_purpose} code is:</p>\n"
+        '  <p style="font-size: 28px; letter-spacing: 0.3em; font-weight: bold;">'
+        f"{safe_otp}</p>\n"
+        f"  <p>This code expires in {expiry_minutes} minutes.</p>\n"
+        '<p style="color: #666; font-size: 13px;">'
+        "If you did not request this, you can ignore this email.</p>\n"
+        "</body>\n"
+        "</html>\n"
+    )
     return subject, text, html
 
 

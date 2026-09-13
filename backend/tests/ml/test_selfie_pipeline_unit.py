@@ -110,7 +110,7 @@ async def test_pipeline_liveness_failed() -> None:
 
 @pytest.mark.asyncio
 async def test_pipeline_blurry_selfie_is_low_quality() -> None:
-    """TFLite blur / 30° YPR reject maps to low_quality after liveness passes."""
+    """TFLite blur / selfie YPR reject maps to low_quality after liveness passes."""
     face = _face()
     detector = Mock()
     detector.detect.return_value = [face]
@@ -138,7 +138,7 @@ async def test_pipeline_blurry_selfie_is_low_quality() -> None:
     kwargs = quality.filter.call_args.kwargs
     assert kwargs["skip_age"] is True
     assert kwargs["skip_sunglasses"] is True
-    assert kwargs["yaw_threshold"] == 30.0
+    assert kwargs["yaw_threshold"] == 45.0
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,7 @@ import html
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 import cv2
 import numpy as np
@@ -102,7 +102,10 @@ def bbox_to_pixels(
     return x1, y1, x2, y2
 
 
-def crop_face_bgr(image_bgr: np.ndarray, face: FaceCropRecord) -> np.ndarray | None:
+BgrImage = np.ndarray[Any, Any]
+
+
+def crop_face_bgr(image_bgr: BgrImage, face: FaceCropRecord) -> BgrImage | None:
     """Crop and resize a face from a BGR image.
 
     Args:
@@ -340,7 +343,7 @@ class ClusterVisualizationService:
             max_faces_per_cluster=max_faces_per_cluster,
         )
         skipped = 0
-        image_cache: dict[uuid.UUID, np.ndarray | None] = {}
+        image_cache: dict[uuid.UUID, BgrImage | None] = {}
 
         for cluster in clusters:
             folder_name = "unclustered" if cluster.cluster_id is None else str(cluster.cluster_id)
@@ -372,10 +375,10 @@ class ClusterVisualizationService:
     async def _load_photo(
         self,
         photo_id: uuid.UUID,
-        cache: dict[uuid.UUID, np.ndarray | None],
+        cache: dict[uuid.UUID, BgrImage | None],
         *,
         prefer_proxy: bool,
-    ) -> np.ndarray | None:
+    ) -> BgrImage | None:
         """Load and decode a photo, caching by photo id."""
         if photo_id in cache:
             return cache[photo_id]
@@ -391,7 +394,7 @@ class ClusterVisualizationService:
         if not prefer_proxy and photo.proxy_s3_key:
             candidates.append((settings.s3_bucket_proxies, photo.proxy_s3_key, photo.filename))
 
-        decoded: np.ndarray | None = None
+        decoded: BgrImage | None = None
         for bucket, key, filename in candidates:
             try:
                 data = await self.storage.get_object(bucket, key)
