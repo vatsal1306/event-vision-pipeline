@@ -84,7 +84,7 @@ services:
   celery-beat:
     build: .
     env_file: .env
-    command: ["uv", "run", "celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=info"]
+    command: ["uv", "run", "celery", "-A", "app.tasks.celery_app", "beat", "--loglevel=info", "--schedule", "/tmp/celerybeat-schedule", "--pidfile", "/tmp/celerybeat.pid"]
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/photoshare
       REDIS_URL: redis://redis:6379/0
