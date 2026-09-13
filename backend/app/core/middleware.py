@@ -72,6 +72,7 @@ class RequestContextMiddleware:
                 path=request.url.path,
                 status_code=status_code,
                 elapsed_ms=elapsed_ms,
+                origin=request.headers.get("origin"),
             )
             structlog.contextvars.clear_contextvars()
 

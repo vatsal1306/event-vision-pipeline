@@ -19,7 +19,7 @@ Photographer register / login / logout / refresh / forgot-reset password / send-
 
 - `security.py` — bcrypt via passlib, `create_access_token`, `decode_jwt`, refresh tokens (store jti in Redis denylist on logout)
 - `OTPService` as specified (6 digits, 300s expiry, 3 attempts, 60s cooldown)
-- SMS: interface `SMSService.send`; **local/dev** log OTP at INFO **only when `debug=True`** and never in production settings. Real MSG91 in BE-017
+- SMS: interface `SMSService.send_otp`; **local/dev** `SMS_PROVIDER=log`. Fast2SMS Quick OTP when `SMS_PROVIDER=fast2sms` and `SMS_API_KEY` is set. When `debug=True`, `123456` still verifies and OTP may be logged at INFO (`local_only`). Never run production with `debug=True`.
 - Routes under `/api/v1/auth/*`
 - `get_current_photographer` in `app/api/deps.py`
 - Pydantic schemas in `app/schemas/auth.py`
@@ -51,3 +51,4 @@ Photographer register / login / logout / refresh / forgot-reset password / send-
 - **Forgot/reset password** uses OTP to registered phone (not email reset link). Email verification deferred to BE-017.
 - **Password**: 8–16 chars with upper, lower, digit, special — enforced in API and frontend.
 - **Phone** unique constraint on `photographers.phone`.
+- **SMS:** Fast2SMS Quick OTP (`route=otp`) for photographer, guest, and couple. Default remains `log` so tests and laptops without a key do not call a paid API.

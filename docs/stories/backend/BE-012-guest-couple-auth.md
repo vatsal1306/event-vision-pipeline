@@ -43,3 +43,4 @@
 - Guest OTP/selfie/gallery already require Ready (`EVENT_NOT_READY`).
 - FE-023: couple master auth and gallery APIs use the same `EVENT_NOT_READY`
   gate so the couple cannot browse photos before face matching finishes.
+- Guest and couple OTP use the same `OTPService` / Fast2SMS path as photographer auth.

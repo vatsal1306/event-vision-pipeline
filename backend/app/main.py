@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.api.v1.router import router as v1_router
 from app.config import Settings, get_settings
+from app.core.cors import cors_allow_origins, cors_origin_regex
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
@@ -32,7 +33,8 @@ def _configure_cors(app: FastAPI, settings: Settings) -> None:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_url],
+        allow_origins=cors_allow_origins(settings.frontend_url),
+        allow_origin_regex=cors_origin_regex(settings.environment),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

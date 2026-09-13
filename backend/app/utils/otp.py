@@ -9,7 +9,7 @@ import redis.asyncio as redis
 
 from app.config import Settings, get_settings
 from app.core.constants import OTP_LENGTH
-from app.core.exceptions import OTPCooldownError, OTPMaxAttemptsError
+from app.core.exceptions import OTPCooldownError, OTPMaxAttemptsError, SMSDeliveryError
 from app.core.logging import get_logger
 from app.services.sms_service import SMSService
 
@@ -64,6 +64,7 @@ class OTPService:
 
         Raises:
             OTPCooldownError: When another OTP was sent too recently.
+            SMSDeliveryError: When SMS delivery fails and debug mode is off.
         """
         cooldown_key = f"{OTP_COOLDOWN_PREFIX}{phone}:{purpose}"
 
@@ -83,9 +84,25 @@ class OTPService:
 
         await self.redis.delete(attempts_key)
 
-        await self.sms_service.send(phone, f"Your verification code is: {otp}")
+        delivered = await self.sms_service.send_otp(phone, otp)
         if self.settings.debug:
             logger.info("otp.dev_delivery", phone=phone, purpose=purpose, local_only=otp)
+
+        if delivered:
+            return
+
+        if self.settings.debug:
+            logger.warning(
+                "otp.sms_failed_debug_fallback",
+                phone=phone,
+                purpose=purpose,
+            )
+            return
+
+        await self.redis.delete(otp_key)
+        await self.redis.delete(cooldown_key)
+        detail = self.sms_service.last_user_message
+        raise SMSDeliveryError(detail) if detail else SMSDeliveryError()
 
     async def verify_otp(self, phone: str, purpose: str, otp: str) -> bool:
         """Verify an OTP against the stored value with attempt limiting.

@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     otp_max_attempts: int = 3
     otp_cooldown_seconds: int = 60
 
+    # log = no HTTP (local). fast2sms = Quick OTP via Fast2SMS (SMS_API_KEY required).
     sms_provider: str = "log"
     sms_api_key: str = ""
     sms_sender_id: str = "PHOTOS"

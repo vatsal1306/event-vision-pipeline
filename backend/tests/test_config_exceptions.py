@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.core.constants import REQUEST_ID_HEADER
+from app.core.cors import cors_allow_origins
 from app.core.exceptions import NotFoundError
 from app.main import create_app
 
@@ -99,6 +100,17 @@ async def test_reuses_incoming_request_id(error_client: AsyncClient) -> None:
     assert response.headers[REQUEST_ID_HEADER] == "client-trace-1"
 
 
+def test_cors_allow_origins_includes_localhost_loopback() -> None:
+    """Browsers treat localhost and 127.0.0.1 as different origins."""
+    origins = cors_allow_origins("http://localhost:3000/")
+    assert origins == ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+def test_cors_allow_origins_leaves_production_host_unchanged() -> None:
+    """Non-loopback FRONTEND_URL must not gain extra origins."""
+    assert cors_allow_origins("https://spotme.hpklabs.ai") == ["https://spotme.hpklabs.ai"]
+
+
 def test_settings_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Environment variables should override defaults (and .env) for Settings."""
     monkeypatch.setenv("FRONTEND_URL", "https://photos.example.com")
@@ -154,5 +166,116 @@ async def test_cors_allows_configured_frontend_when_not_debug(
             blocked = await client.get("/health", headers={"Origin": "https://evil.example"})
         assert allowed.headers.get("access-control-allow-origin") == "https://app.spotme.test"
         assert blocked.headers.get("access-control-allow-origin") != "https://evil.example"
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_cors_preflight_allows_localhost_loopback_when_not_debug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Register preflight from 127.0.0.1 must work when FRONTEND_URL is localhost."""
+    monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("FRONTEND_URL", "http://localhost:3000")
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            loopback = await client.options(
+                "/api/v1/auth/register",
+                headers={
+                    "Origin": "http://127.0.0.1:3000",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                },
+            )
+            named = await client.options(
+                "/api/v1/auth/register",
+                headers={
+                    "Origin": "http://localhost:3000",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                },
+            )
+            blocked = await client.options(
+                "/api/v1/auth/register",
+                headers={
+                    "Origin": "https://evil.example",
+                    "Access-Control-Request-Method": "POST",
+                },
+            )
+        assert loopback.status_code == 200
+        assert loopback.headers.get("access-control-allow-origin") == "http://127.0.0.1:3000"
+        assert named.status_code == 200
+        assert blocked.status_code == 400
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_cors_preflight_allows_local_next_in_development(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DEBUG=false + production FRONTEND_URL still allows local Next in development."""
+    monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("FRONTEND_URL", "https://spotme.hpklabs.ai")
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            local = await client.options(
+                "/api/v1/auth/register",
+                headers={
+                    "Origin": "http://localhost:3000",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                },
+            )
+            blocked = await client.options(
+                "/api/v1/auth/register",
+                headers={
+                    "Origin": "https://evil.example",
+                    "Access-Control-Request-Method": "POST",
+                },
+            )
+        assert local.status_code == 200
+        assert local.headers.get("access-control-allow-origin") == "http://localhost:3000"
+        assert blocked.status_code == 400
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_cors_preflight_blocks_localhost_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Production CORS must not allow the laptop Next origin."""
+    monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("FRONTEND_URL", "https://spotme.hpklabs.ai")
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            local = await client.options(
+                "/api/v1/auth/register",
+                headers={
+                    "Origin": "http://localhost:3000",
+                    "Access-Control-Request-Method": "POST",
+                },
+            )
+            allowed = await client.options(
+                "/api/v1/auth/register",
+                headers={
+                    "Origin": "https://spotme.hpklabs.ai",
+                    "Access-Control-Request-Method": "POST",
+                },
+            )
+        assert local.status_code == 400
+        assert allowed.status_code == 200
     finally:
         get_settings.cache_clear()
