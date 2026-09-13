@@ -54,7 +54,7 @@ async def register(
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis_dep),
 ) -> RegisterResponse:
-    """Register a photographer and send a phone verification OTP."""
+    """Register a photographer and send phone and email verification OTPs."""
     service = _build_auth_service(db, redis_client)
     return await service.register(request)
 
@@ -69,7 +69,7 @@ async def login(
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis_dep),
 ) -> LoginOtpPendingResponse:
-    """Validate credentials and send a login OTP to the registered phone."""
+    """Validate credentials and send a login OTP to the registered email."""
     service = _build_auth_service(db, redis_client)
     return await service.login(request.email_or_phone, request.password)
 
@@ -86,7 +86,7 @@ async def send_otp(
 ) -> SendOTPResponse:
     """Send or resend an OTP for registration, login, or password reset."""
     service = _build_auth_service(db, redis_client)
-    return await service.send_otp(request.phone, request.purpose)
+    return await service.send_otp(request)
 
 
 @router.post(
@@ -99,9 +99,9 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis_dep),
 ) -> TokenResponse:
-    """Verify an OTP and return JWT tokens for registration or login."""
+    """Verify OTPs and return JWT tokens for registration or login."""
     service = _build_auth_service(db, redis_client)
-    return await service.verify_otp_and_login(request.phone, request.otp, request.purpose)
+    return await service.verify_otp_and_login(request)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -137,7 +137,7 @@ async def forgot_password(
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis_dep),
 ) -> ForgotPasswordResponse:
-    """Send a password-reset OTP to the account's registered phone."""
+    """Send password-reset OTPs to the account's registered email and phone."""
     service = _build_auth_service(db, redis_client)
     return await service.forgot_password(request.email_or_phone)
 
@@ -152,10 +152,11 @@ async def reset_password(
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis_dep),
 ) -> ResetPasswordResponse:
-    """Reset password after OTP verification."""
+    """Reset password after email and SMS OTP verification."""
     service = _build_auth_service(db, redis_client)
     return await service.reset_password(
         request.email_or_phone,
-        request.otp,
+        request.phone_otp,
+        request.email_otp,
         request.new_password,
     )

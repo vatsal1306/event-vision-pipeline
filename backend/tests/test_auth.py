@@ -14,6 +14,7 @@ from app.core.redis_client import create_redis_client
 from app.main import app
 from app.services.sms_service import SMSService
 from app.utils.otp import OTPService
+from tests.auth_helpers import register_and_verify
 
 VALID_PASSWORD = "Password1!"
 REGISTER_PAYLOAD = {
@@ -62,19 +63,7 @@ async def _read_otp(redis_client, phone: str, purpose: str) -> str:
 
 
 async def _register_and_verify(auth_client: AsyncClient, redis_client) -> dict:
-    response = await auth_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
-    assert response.status_code == 201
-    otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "registration")
-    verify_response = await auth_client.post(
-        "/api/v1/auth/verify-otp",
-        json={
-            "phone": REGISTER_PAYLOAD["phone"],
-            "otp": otp,
-            "purpose": "registration",
-        },
-    )
-    assert verify_response.status_code == 200
-    return verify_response.json()
+    return await register_and_verify(auth_client, redis_client, REGISTER_PAYLOAD)
 
 
 @pytest.mark.asyncio
@@ -86,13 +75,16 @@ async def test_register_verify_login_refresh_flow(auth_client, redis_client) -> 
     assert body["email"] == REGISTER_PAYLOAD["email"]
     assert "access_token" not in body
 
-    otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "registration")
+    phone_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "registration")
+    email_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["email"], "registration")
     verify_response = await auth_client.post(
         "/api/v1/auth/verify-otp",
         json={
-            "phone": REGISTER_PAYLOAD["phone"],
-            "otp": otp,
             "purpose": "registration",
+            "phone": REGISTER_PAYLOAD["phone"],
+            "email": REGISTER_PAYLOAD["email"],
+            "phone_otp": phone_otp,
+            "email_otp": email_otp,
         },
     )
     assert verify_response.status_code == 200
@@ -100,6 +92,7 @@ async def test_register_verify_login_refresh_flow(auth_client, redis_client) -> 
     assert tokens["access_token"]
     assert tokens["refresh_token"]
     assert tokens["photographer"]["phone_verified"] is True
+    assert tokens["photographer"]["email_verified"] is True
 
     login_response = await auth_client.post(
         "/api/v1/auth/login",
@@ -111,12 +104,13 @@ async def test_register_verify_login_refresh_flow(auth_client, redis_client) -> 
     assert login_response.status_code == 200
     login_body = login_response.json()
     assert login_body["otp_sent"] is True
+    assert login_body["email"] == REGISTER_PAYLOAD["email"]
 
-    login_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "login")
+    login_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["email"], "login")
     login_verify = await auth_client.post(
         "/api/v1/auth/verify-otp",
         json={
-            "phone": REGISTER_PAYLOAD["phone"],
+            "email": REGISTER_PAYLOAD["email"],
             "otp": login_otp,
             "purpose": "login",
         },
@@ -179,26 +173,20 @@ async def test_login_before_phone_verification_returns_phone_not_verified(
 async def test_otp_reuse_after_success_fails(auth_client, redis_client) -> None:
     """A consumed OTP cannot be verified again."""
     await auth_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
-    otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "registration")
+    phone_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "registration")
+    email_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["email"], "registration")
+    payload = {
+        "purpose": "registration",
+        "phone": REGISTER_PAYLOAD["phone"],
+        "email": REGISTER_PAYLOAD["email"],
+        "phone_otp": phone_otp,
+        "email_otp": email_otp,
+    }
 
-    first = await auth_client.post(
-        "/api/v1/auth/verify-otp",
-        json={
-            "phone": REGISTER_PAYLOAD["phone"],
-            "otp": otp,
-            "purpose": "registration",
-        },
-    )
+    first = await auth_client.post("/api/v1/auth/verify-otp", json=payload)
     assert first.status_code == 200
 
-    second = await auth_client.post(
-        "/api/v1/auth/verify-otp",
-        json={
-            "phone": REGISTER_PAYLOAD["phone"],
-            "otp": otp,
-            "purpose": "registration",
-        },
-    )
+    second = await auth_client.post("/api/v1/auth/verify-otp", json=payload)
     assert second.status_code == 401
 
 
@@ -207,25 +195,18 @@ async def test_fourth_otp_attempt_returns_max_attempts(auth_client, redis_client
     """The fourth OTP verification attempt returns OTP_MAX_ATTEMPTS."""
     await auth_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
 
+    wrong = {
+        "purpose": "registration",
+        "phone": REGISTER_PAYLOAD["phone"],
+        "email": REGISTER_PAYLOAD["email"],
+        "phone_otp": "000000",
+        "email_otp": "000000",
+    }
     for _ in range(3):
-        response = await auth_client.post(
-            "/api/v1/auth/verify-otp",
-            json={
-                "phone": REGISTER_PAYLOAD["phone"],
-                "otp": "000000",
-                "purpose": "registration",
-            },
-        )
+        response = await auth_client.post("/api/v1/auth/verify-otp", json=wrong)
         assert response.status_code == 401
 
-    fourth = await auth_client.post(
-        "/api/v1/auth/verify-otp",
-        json={
-            "phone": REGISTER_PAYLOAD["phone"],
-            "otp": "000000",
-            "purpose": "registration",
-        },
-    )
+    fourth = await auth_client.post("/api/v1/auth/verify-otp", json=wrong)
     assert fourth.status_code == 429
     assert fourth.json()["code"] == "OTP_MAX_ATTEMPTS"
 
@@ -241,13 +222,16 @@ async def test_reset_password_with_otp(auth_client, redis_client) -> None:
     )
     assert forgot.status_code == 200
 
-    otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "password_reset")
+    phone_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["phone"], "password_reset")
+    email_otp = await _read_otp(redis_client, REGISTER_PAYLOAD["email"], "password_reset")
+    assert phone_otp != email_otp
     new_password = "NewPass2@"
     reset = await auth_client.post(
         "/api/v1/auth/reset-password",
         json={
             "email_or_phone": REGISTER_PAYLOAD["email"],
-            "otp": otp,
+            "phone_otp": phone_otp,
+            "email_otp": email_otp,
             "new_password": new_password,
         },
     )

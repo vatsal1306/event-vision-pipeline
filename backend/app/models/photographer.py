@@ -30,6 +30,12 @@ class Photographer(Base, UUIDPrimaryKeyMixin, CreatedAtMixin, UpdatedAtMixin):
         server_default=text("false"),
         nullable=False,
     )
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+    )
     logo_url: Mapped[str | None] = mapped_column(String(500))
     watermark_url: Mapped[str | None] = mapped_column(String(500))
 

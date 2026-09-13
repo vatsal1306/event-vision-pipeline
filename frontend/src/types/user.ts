@@ -4,6 +4,7 @@ export interface Photographer {
   studio_name: string;
   phone: string;
   phone_verified: boolean;
+  email_verified: boolean;
   logo_url: string | null;
   watermark_url: string | null;
   watermark_scale: number;

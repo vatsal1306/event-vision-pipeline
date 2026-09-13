@@ -29,7 +29,8 @@ export default function ResetPasswordPage() {
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
       email_or_phone: '',
-      otp: '',
+      phone_otp: '',
+      email_otp: '',
       new_password: '',
       confirm_password: '',
     },
@@ -46,12 +47,13 @@ export default function ResetPasswordPage() {
 
       await api.resetPassword({
         email_or_phone: emailOrPhone,
-        otp: data.otp,
+        phone_otp: data.phone_otp,
+        email_otp: data.email_otp,
         new_password: data.new_password,
       });
       setIsSubmitted(true);
     } catch (error: unknown) {
-      form.setError('otp', {
+      form.setError('email_otp', {
         message: error instanceof ApiError ? error.message : 'Failed to reset password',
       });
     } finally {
@@ -79,7 +81,7 @@ export default function ResetPasswordPage() {
       <div className="flex flex-col space-y-2 text-center mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Reset Password</h1>
         <p className="text-sm text-muted-foreground">
-          Enter the OTP sent to your registered phone and choose a new password.
+          Enter the SMS OTP and the email OTP, then choose a new password.
         </p>
       </div>
 
@@ -101,13 +103,33 @@ export default function ResetPasswordPage() {
 
           <FormField
             control={form.control}
-            name="otp"
+            name="phone_otp"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>One-Time Password</FormLabel>
+                <FormLabel>Phone OTP</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="123456"
+                    placeholder="••••••"
+                    maxLength={6}
+                    className="text-center text-lg tracking-[0.5em]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="email_otp"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email OTP</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="••••••"
                     maxLength={6}
                     className="text-center text-lg tracking-[0.5em]"
                     disabled={isLoading}

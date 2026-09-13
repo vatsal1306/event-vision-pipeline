@@ -176,7 +176,7 @@ def test_archive_event_task_execution() -> None:
 
 @pytest.mark.asyncio
 async def test_notification_service_send_archival_warning_and_complete() -> None:
-    """Test NotificationService archival warning and complete emails."""
+    """Test NotificationService archival methods do not send email."""
     mock_db = AsyncMock()
     mock_email = AsyncMock()
 
@@ -191,10 +191,8 @@ async def test_notification_service_send_archival_warning_and_complete() -> None
 
     event_id = uuid.uuid4()
     await service.send_archival_warning(event_id)
-    assert mock_email.send.call_count == 1
-
     await service.send_archival_complete(event_id)
-    assert mock_email.send.call_count == 2
+    mock_email.send.assert_not_called()
 
 
 def test_archival_tasks_execution() -> None:

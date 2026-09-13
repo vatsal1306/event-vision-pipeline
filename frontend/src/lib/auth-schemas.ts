@@ -37,10 +37,18 @@ export const otpSchema = z.object({
 
 export type OtpFormValues = z.infer<typeof otpSchema>;
 
+export const dualOtpSchema = z.object({
+  phone_otp: z.string().length(6, 'Phone OTP must be exactly 6 digits.'),
+  email_otp: z.string().length(6, 'Email OTP must be exactly 6 digits.'),
+});
+
+export type DualOtpFormValues = z.infer<typeof dualOtpSchema>;
+
 export const resetPasswordSchema = z
   .object({
     email_or_phone: z.string().min(3, 'Email or phone is required.'),
-    otp: z.string().length(6, 'OTP must be exactly 6 digits.'),
+    phone_otp: z.string().length(6, 'Phone OTP must be exactly 6 digits.'),
+    email_otp: z.string().length(6, 'Email OTP must be exactly 6 digits.'),
     new_password: passwordSchema,
     confirm_password: z.string(),
   })

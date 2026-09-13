@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
-from app.core.constants import INDIAN_PHONE_PATTERN, JWTType
+from app.core.constants import INDIAN_PHONE_PATTERN, JWTType, OTP_CHANNEL_EMAIL, OTP_CHANNEL_SMS
 from app.core.exceptions import (
     AuthenticationError,
     ConflictError,
@@ -34,8 +34,10 @@ from app.schemas.auth import (
     RegisterRequest,
     RegisterResponse,
     ResetPasswordResponse,
+    SendOTPRequest,
     SendOTPResponse,
     TokenResponse,
+    VerifyOTPRequest,
 )
 from app.utils.otp import OTPService
 
@@ -76,29 +78,39 @@ class AuthService:
             studio_name=request.studio_name,
             phone=request.phone,
             phone_verified=False,
+            email_verified=False,
         )
         self.db.add(photographer)
         await self.db.flush()
 
-        await self.otp_service.send_otp(request.phone, "registration")
+        await self.otp_service.send_otp(
+            request.phone,
+            "registration",
+            channel=OTP_CHANNEL_SMS,
+        )
+        await self.otp_service.send_otp(
+            photographer.email,
+            "registration",
+            channel=OTP_CHANNEL_EMAIL,
+        )
 
         return RegisterResponse(
             id=photographer.id,
             email=photographer.email,
             studio_name=photographer.studio_name,
             phone=photographer.phone,
-            message="OTP sent to your phone for verification",
+            message="OTPs sent to your phone and email for verification",
         )
 
     async def login(self, email_or_phone: str, password: str) -> LoginOtpPendingResponse:
-        """Validate credentials and send a login OTP to the registered phone.
+        """Validate credentials and send a login OTP to the registered email.
 
         Args:
             email_or_phone: Photographer email or ``+91`` phone number.
             password: Plaintext password.
 
         Returns:
-            OTP pending response with the registered phone for step two.
+            OTP pending response with the registered email for step two.
 
         Raises:
             AuthenticationError: When credentials are invalid.
@@ -114,50 +126,60 @@ class AuthService:
         if not photographer.is_active:
             raise AuthenticationError("Account not found or inactive")
 
-        await self.otp_service.send_otp(photographer.phone, "login")
+        await self.otp_service.send_otp(
+            photographer.email,
+            "login",
+            channel=OTP_CHANNEL_EMAIL,
+        )
 
         return LoginOtpPendingResponse(
-            phone=photographer.phone,
-            message="OTP sent to your registered phone",
+            email=photographer.email,
+            message="OTP sent to your registered email",
             expires_in=self.otp_service.otp_expiry_seconds,
         )
 
-    async def send_otp(self, phone: str, purpose: str) -> SendOTPResponse:
-        """Send or resend an OTP for the given phone and purpose.
+    async def send_otp(self, request: SendOTPRequest) -> SendOTPResponse:
+        """Send or resend an OTP for the given destination and purpose.
 
         Args:
-            phone: Registered phone number.
-            purpose: OTP purpose (registration, login, password_reset).
+            request: Channel, purpose, and phone or email.
 
         Returns:
             Dispatch acknowledgement.
 
         Raises:
-            NotFoundError: When no photographer exists for the phone (non-registration).
+            NotFoundError: When no photographer exists for a non-registration send.
         """
-        if purpose != "registration":
-            photographer = await self._get_photographer_by_phone(phone)
-            if photographer is None:
-                raise NotFoundError("Account")
+        if request.channel == OTP_CHANNEL_EMAIL:
+            destination = str(request.email).lower()
+            if request.purpose != "registration":
+                photographer = await self._get_photographer_by_identifier(destination)
+                if photographer is None:
+                    raise NotFoundError("Account")
+                destination = photographer.email
+            await self.otp_service.send_otp(
+                destination,
+                request.purpose,
+                channel=OTP_CHANNEL_EMAIL,
+            )
+        else:
+            phone = request.phone or ""
+            if request.purpose != "registration":
+                photographer = await self._get_photographer_by_phone(phone)
+                if photographer is None:
+                    raise NotFoundError("Account")
+            await self.otp_service.send_otp(phone, request.purpose, channel=OTP_CHANNEL_SMS)
 
-        await self.otp_service.send_otp(phone, purpose)
         return SendOTPResponse(
             message="OTP sent successfully",
             expires_in=self.otp_service.otp_expiry_seconds,
         )
 
-    async def verify_otp_and_login(
-        self,
-        phone: str,
-        otp: str,
-        purpose: str,
-    ) -> TokenResponse:
-        """Verify an OTP and issue JWT tokens when appropriate.
+    async def verify_otp_and_login(self, request: VerifyOTPRequest) -> TokenResponse:
+        """Verify OTPs and issue JWT tokens for registration or login.
 
         Args:
-            phone: Phone number the OTP was sent to.
-            otp: User-supplied OTP.
-            purpose: OTP purpose namespace.
+            request: Purpose-specific OTP payload.
 
         Returns:
             Token pair and photographer profile.
@@ -166,22 +188,9 @@ class AuthService:
             AuthenticationError: When OTP is invalid.
             NotFoundError: When the account does not exist.
         """
-        verified = await self.otp_service.verify_otp(phone, purpose, otp)
-        if not verified:
-            raise AuthenticationError("Invalid OTP")
-
-        photographer = await self._get_photographer_by_phone(phone)
-        if photographer is None:
-            raise NotFoundError("Account")
-
-        if purpose == "registration":
-            photographer.phone_verified = True
-            await self.db.flush()
-
-        if not photographer.is_active:
-            raise AuthenticationError("Account not found or inactive")
-
-        return await self._build_token_response(photographer)
+        if request.purpose == "registration":
+            return await self._verify_registration_otps(request)
+        return await self._verify_login_otp(request)
 
     async def refresh_tokens(self, refresh_token: str) -> TokenResponse:
         """Rotate refresh token and issue a new access/refresh pair.
@@ -209,29 +218,42 @@ class AuthService:
         await self._denylist_refresh_jti(payload["jti"], refresh_token)
 
     async def forgot_password(self, email_or_phone: str) -> ForgotPasswordResponse:
-        """Send a password-reset OTP to the account's registered phone.
+        """Send independent password-reset OTPs to email and phone.
 
         Always returns a generic message to avoid account enumeration.
         """
         photographer = await self._get_photographer_by_identifier(email_or_phone)
         if photographer is not None and photographer.phone_verified:
-            await self.otp_service.send_otp(photographer.phone, "password_reset")
+            await self.otp_service.send_otp(
+                photographer.phone,
+                "password_reset",
+                channel=OTP_CHANNEL_SMS,
+            )
+            await self.otp_service.send_otp(
+                photographer.email,
+                "password_reset",
+                channel=OTP_CHANNEL_EMAIL,
+            )
 
         return ForgotPasswordResponse(
-            message="If an account exists, an OTP has been sent to the registered phone",
+            message=(
+                "If an account exists, OTPs have been sent to the registered email and phone"
+            ),
         )
 
     async def reset_password(
         self,
         email_or_phone: str,
-        otp: str,
+        phone_otp: str,
+        email_otp: str,
         new_password: str,
     ) -> ResetPasswordResponse:
-        """Reset password after OTP verification.
+        """Reset password after both email and SMS OTPs succeed.
 
         Args:
             email_or_phone: Account email or phone used in forgot-password step.
-            otp: OTP sent to the registered phone.
+            phone_otp: OTP sent via SMS.
+            email_otp: OTP sent via email.
             new_password: New plaintext password.
 
         Returns:
@@ -245,7 +267,13 @@ class AuthService:
         if photographer is None:
             raise NotFoundError("Account")
 
-        verified = await self.otp_service.verify_otp(photographer.phone, "password_reset", otp)
+        verified = await self.otp_service.verify_otp_pair(
+            phone=photographer.phone,
+            phone_otp=phone_otp,
+            email=photographer.email,
+            email_otp=email_otp,
+            purpose="password_reset",
+        )
         if not verified:
             raise AuthenticationError("Invalid OTP")
 
@@ -255,9 +283,58 @@ class AuthService:
             raise BadRequestError("New password cannot be the same as the current password")
 
         photographer.password_hash = hash_password(new_password)
+        photographer.email_verified = True
         await self.db.flush()
 
         return ResetPasswordResponse(message="Password reset successfully")
+
+    async def _verify_registration_otps(self, request: VerifyOTPRequest) -> TokenResponse:
+        """Consume phone and email registration OTPs, then issue tokens."""
+        phone = request.phone or ""
+        email = str(request.email).lower()
+        photographer = await self._get_photographer_by_phone(phone)
+        if photographer is None:
+            raise NotFoundError("Account")
+        if photographer.email != email:
+            raise AuthenticationError("Invalid OTP")
+
+        verified = await self.otp_service.verify_otp_pair(
+            phone=phone,
+            phone_otp=request.phone_otp or "",
+            email=email,
+            email_otp=request.email_otp or "",
+            purpose="registration",
+        )
+        if not verified:
+            raise AuthenticationError("Invalid OTP")
+
+        photographer.phone_verified = True
+        photographer.email_verified = True
+        await self.db.flush()
+
+        if not photographer.is_active:
+            raise AuthenticationError("Account not found or inactive")
+
+        return await self._build_token_response(photographer)
+
+    async def _verify_login_otp(self, request: VerifyOTPRequest) -> TokenResponse:
+        """Consume the email login OTP and issue tokens."""
+        email = str(request.email).lower()
+        photographer = await self._get_photographer_by_identifier(email)
+        if photographer is None:
+            raise NotFoundError("Account")
+        if not photographer.phone_verified:
+            raise PhoneNotVerifiedError()
+        if not photographer.is_active:
+            raise AuthenticationError("Account not found or inactive")
+
+        verified = await self.otp_service.verify_otp(email, "login", request.otp or "")
+        if not verified:
+            raise AuthenticationError("Invalid OTP")
+
+        photographer.email_verified = True
+        await self.db.flush()
+        return await self._build_token_response(photographer)
 
     async def get_photographer_by_id(self, photographer_id: UUID) -> Photographer | None:
         """Load a photographer by primary key."""

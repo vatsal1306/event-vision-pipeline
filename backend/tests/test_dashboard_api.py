@@ -12,8 +12,7 @@ from app.api.deps import get_redis_dep
 from app.core.database import get_db
 from app.core.redis_client import create_redis_client
 from app.main import app
-from app.services.sms_service import SMSService
-from app.utils.otp import OTPService
+from tests.auth_helpers import register_and_verify
 
 REGISTER_PAYLOAD = {
     "email": "events@example.com",
@@ -49,23 +48,7 @@ async def authed_client(db_session, redis_client) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_redis_dep] = override_get_redis
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http_client:
-        register = await http_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
-        assert register.status_code == 201
-
-        otp_service = OTPService(redis_client, SMSService())
-        otp = await otp_service.peek_otp(REGISTER_PAYLOAD["phone"], "registration")
-        assert otp is not None
-
-        verify = await http_client.post(
-            "/api/v1/auth/verify-otp",
-            json={
-                "phone": REGISTER_PAYLOAD["phone"],
-                "otp": otp,
-                "purpose": "registration",
-            },
-        )
-        assert verify.status_code == 200
-        tokens = verify.json()
+        tokens = await register_and_verify(http_client, redis_client, REGISTER_PAYLOAD)
         http_client.headers.update({"Authorization": f"Bearer {tokens['access_token']}"})
         yield http_client
     app.dependency_overrides.clear()
@@ -79,6 +62,7 @@ async def test_get_profile_returns_authenticated_photographer(authed_client: Asy
     body = response.json()
     assert body["email"] == REGISTER_PAYLOAD["email"]
     assert body["phone_verified"] is True
+    assert body["email_verified"] is True
 
 
 @pytest.mark.asyncio

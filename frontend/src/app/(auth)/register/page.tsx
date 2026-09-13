@@ -20,9 +20,9 @@ import { Input } from '@/components/ui/input';
 import { api, ApiError } from '@/lib/api-client';
 import {
   registerSchema,
-  otpSchema,
+  dualOtpSchema,
   type RegisterFormValues,
-  type OtpFormValues,
+  type DualOtpFormValues,
 } from '@/lib/auth-schemas';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [registeredPhone, setRegisteredPhone] = useState('');
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -48,10 +49,11 @@ export default function RegisterPage() {
     },
   });
 
-  const otpForm = useForm<OtpFormValues>({
-    resolver: zodResolver(otpSchema),
+  const otpForm = useForm<DualOtpFormValues>({
+    resolver: zodResolver(dualOtpSchema),
     defaultValues: {
-      otp: '',
+      phone_otp: '',
+      email_otp: '',
     },
   });
 
@@ -66,7 +68,8 @@ export default function RegisterPage() {
         phone,
       });
       setRegisteredPhone(phone);
-      toast.success('OTP sent to your mobile number');
+      setRegisteredEmail(data.email);
+      toast.success('OTPs sent to your phone and email');
       setStep(2);
     } catch (error: unknown) {
       toast.error(error instanceof ApiError ? error.message : 'Failed to register');
@@ -75,13 +78,15 @@ export default function RegisterPage() {
     }
   }
 
-  async function onOtpSubmit(data: OtpFormValues) {
+  async function onOtpSubmit(data: DualOtpFormValues) {
     setIsLoading(true);
     try {
       const response = await api.verifyOtp({
-        phone: registeredPhone,
-        otp: data.otp,
         purpose: 'registration',
+        phone: registeredPhone,
+        email: registeredEmail,
+        phone_otp: data.phone_otp,
+        email_otp: data.email_otp,
       });
 
       setSession(response.photographer, response.access_token, response.refresh_token);
@@ -98,12 +103,12 @@ export default function RegisterPage() {
     <>
       <div className="flex flex-col space-y-2 text-center mb-8">
         <h1 className="text-2xl font-bold tracking-tight">
-          {step === 1 ? 'Create Your Account' : 'Verify Mobile Number'}
+          {step === 1 ? 'Create Your Account' : 'Verify phone and email'}
         </h1>
         <p className="text-sm text-muted-foreground">
           {step === 1
             ? 'Start delivering photos instantly to your clients.'
-            : `We sent a 6-digit code to ${maskPhone(registeredPhone)}`}
+            : `We sent different 6-digit codes to ${maskPhone(registeredPhone)} and ${maskPhone(registeredEmail)}`}
         </p>
       </div>
 
@@ -241,7 +246,7 @@ export default function RegisterPage() {
 
             <Button type="submit" className="w-full mt-2" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send OTP to Mobile
+              Send OTPs
             </Button>
           </form>
         </Form>
@@ -250,13 +255,32 @@ export default function RegisterPage() {
           <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
             <FormField
               control={otpForm.control}
-              name="otp"
+              name="phone_otp"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>One-Time Password</FormLabel>
+                  <FormLabel>Phone OTP</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="123456"
+                      placeholder="••••••"
+                      maxLength={6}
+                      className="text-center text-lg tracking-[0.5em]"
+                      disabled={isLoading}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={otpForm.control}
+              name="email_otp"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email OTP</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="••••••"
                       maxLength={6}
                       className="text-center text-lg tracking-[0.5em]"
                       disabled={isLoading}

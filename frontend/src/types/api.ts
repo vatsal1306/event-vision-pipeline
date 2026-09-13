@@ -26,7 +26,7 @@ export interface RegisterResponse {
 
 export interface LoginOtpPendingResponse {
   otp_sent: boolean;
-  phone: string;
+  email: string;
   message: string;
   expires_in: number;
 }

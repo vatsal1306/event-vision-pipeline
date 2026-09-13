@@ -47,8 +47,10 @@ def mock_external_http(respx_mock) -> None:
 
 @pytest.fixture(autouse=True)
 def isolate_runtime_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep tests off the laptop Fast2SMS key and DEBUG=false from ``backend/.env``."""
+    """Keep tests off the laptop Fast2SMS key, SMTP, and DEBUG=false from ``backend/.env``."""
     monkeypatch.setenv("SMS_PROVIDER", "log")
+    monkeypatch.setenv("EMAIL_PROVIDER", "log")
+    monkeypatch.setenv("SMTP_PASSWORD", "")
     monkeypatch.setenv("DEBUG", "true")
     get_settings.cache_clear()
     yield

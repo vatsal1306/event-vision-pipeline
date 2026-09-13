@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.core.constants import (
     INDIAN_PHONE_PATTERN,
@@ -44,7 +44,7 @@ class RegisterRequest(PasswordFieldMixin):
 
 
 class RegisterResponse(BaseModel):
-    """Registration response before phone verification completes."""
+    """Registration response before phone and email verification complete."""
 
     id: UUID
     email: str
@@ -61,19 +61,30 @@ class LoginRequest(BaseModel):
 
 
 class LoginOtpPendingResponse(BaseModel):
-    """Returned after valid credentials; OTP is sent to the registered phone."""
+    """Returned after valid credentials; OTP is sent to the registered email."""
 
     otp_sent: bool = True
-    phone: str
+    email: str
     message: str
     expires_in: int
 
 
 class SendOTPRequest(BaseModel):
-    """Request to (re)send an OTP for a given purpose."""
+    """Request to (re)send an OTP for a given purpose and channel."""
 
-    phone: str = Field(pattern=INDIAN_PHONE_PATTERN)
     purpose: OtpPurpose
+    channel: Literal["sms", "email"] = "sms"
+    phone: str | None = Field(default=None, pattern=INDIAN_PHONE_PATTERN)
+    email: EmailStr | None = None
+
+    @model_validator(mode="after")
+    def require_destination_for_channel(self) -> SendOTPRequest:
+        """SMS needs a phone; email needs an address."""
+        if self.channel == "sms" and not self.phone:
+            raise ValueError("phone is required when channel is sms")
+        if self.channel == "email" and not self.email:
+            raise ValueError("email is required when channel is email")
+        return self
 
 
 class SendOTPResponse(BaseModel):
@@ -84,11 +95,29 @@ class SendOTPResponse(BaseModel):
 
 
 class VerifyOTPRequest(BaseModel):
-    """Verify an OTP and optionally complete auth flows."""
+    """Verify OTPs and complete photographer login or registration."""
 
-    phone: str = Field(pattern=INDIAN_PHONE_PATTERN)
-    otp: str = Field(min_length=6, max_length=6)
     purpose: OtpPurpose
+    phone: str | None = Field(default=None, pattern=INDIAN_PHONE_PATTERN)
+    email: EmailStr | None = None
+    otp: str | None = Field(default=None, min_length=6, max_length=6)
+    phone_otp: str | None = Field(default=None, min_length=6, max_length=6)
+    email_otp: str | None = Field(default=None, min_length=6, max_length=6)
+
+    @model_validator(mode="after")
+    def require_fields_for_purpose(self) -> VerifyOTPRequest:
+        """Login uses email OTP; registration requires both channels."""
+        if self.purpose == "login":
+            if not self.email or not self.otp:
+                raise ValueError("Login verification requires email and otp")
+        elif self.purpose == "registration":
+            if not self.phone or not self.email or not self.phone_otp or not self.email_otp:
+                raise ValueError(
+                    "Registration verification requires phone, email, phone_otp, and email_otp"
+                )
+        elif self.purpose == "password_reset":
+            raise ValueError("Use /auth/reset-password to submit password-reset OTPs")
+        return self
 
 
 class RefreshTokenRequest(BaseModel):
@@ -116,10 +145,11 @@ class ForgotPasswordResponse(BaseModel):
 
 
 class ResetPasswordRequest(PasswordFieldMixin):
-    """Forgot password step two: OTP plus new password."""
+    """Forgot password step two: email OTP, SMS OTP, and new password."""
 
     email_or_phone: str = Field(min_length=3, max_length=255)
-    otp: str = Field(min_length=6, max_length=6)
+    phone_otp: str = Field(min_length=6, max_length=6)
+    email_otp: str = Field(min_length=6, max_length=6)
     new_password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
 
 
@@ -139,6 +169,7 @@ class PhotographerProfile(BaseModel):
     studio_name: str
     phone: str
     phone_verified: bool
+    email_verified: bool
     logo_url: str | None
     watermark_url: str | None
     watermark_scale: float

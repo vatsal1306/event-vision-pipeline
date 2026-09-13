@@ -60,13 +60,13 @@ export default function ForgotPasswordPage() {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 text-center">
         <CheckCircle2 className="h-12 w-12 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight">Check your phone</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Check your email and phone</h1>
         <p className="text-sm text-muted-foreground mb-4">
-          If an account exists, we sent an OTP to the registered phone number for{' '}
+          If an account exists, we sent different OTPs to the registered email and phone for{' '}
           <span className="font-medium text-foreground">{form.getValues('email_or_phone')}</span>.
         </p>
         <Button asChild className="w-full">
-          <Link href="/reset-password">Enter OTP and reset password</Link>
+          <Link href="/reset-password">Enter OTPs and reset password</Link>
         </Button>
         <Button asChild variant="ghost" className="w-full">
           <Link href="/login">Return to log in</Link>
@@ -80,7 +80,8 @@ export default function ForgotPasswordPage() {
       <div className="flex flex-col space-y-2 text-center mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Forgot Password</h1>
         <p className="text-sm text-muted-foreground">
-          Enter your email or phone number and we&apos;ll send an OTP to your registered phone.
+          Enter your email or phone number. We&apos;ll send one OTP to your email and a different
+          OTP to your registered phone.
         </p>
       </div>
 
@@ -107,7 +108,7 @@ export default function ForgotPasswordPage() {
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Send OTP
+            Send OTPs
           </Button>
         </form>
       </Form>

@@ -15,8 +15,7 @@ from app.core.redis_client import create_redis_client
 from app.main import app
 from app.models.folder import Folder
 from app.models.photo import Photo
-from app.services.sms_service import SMSService
-from app.utils.otp import OTPService
+from tests.auth_helpers import register_and_verify
 
 VALID_PASSWORD = "Password1!"
 PRIMARY_REGISTER = {
@@ -44,20 +43,7 @@ async def _verify_registration(
     redis_client,
     payload: dict,
 ) -> dict:
-    """Register a photographer and complete OTP verification."""
-    register = await client.post("/api/v1/auth/register", json=payload)
-    assert register.status_code == 201, register.text
-
-    otp_service = OTPService(redis_client, SMSService())
-    otp = await otp_service.peek_otp(payload["phone"], "registration")
-    assert otp is not None
-
-    verify = await client.post(
-        "/api/v1/auth/verify-otp",
-        json={"phone": payload["phone"], "otp": otp, "purpose": "registration"},
-    )
-    assert verify.status_code == 200, verify.text
-    return verify.json()
+    return await register_and_verify(client, redis_client, payload)
 
 
 @pytest_asyncio.fixture

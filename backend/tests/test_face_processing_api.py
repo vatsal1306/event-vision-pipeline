@@ -17,8 +17,7 @@ from app.ml.config import get_ml_config
 from app.models.enums import EventStatus, ProcessingStatus
 from app.models.event import Event
 from app.models.photo import Photo
-from app.services.sms_service import SMSService
-from app.utils.otp import OTPService
+from tests.auth_helpers import register_and_verify
 
 VALID_PASSWORD = "Password1!"
 REGISTER = {
@@ -48,17 +47,7 @@ async def redis_client() -> AsyncIterator:
 
 
 async def _verify_registration(client: AsyncClient, redis_client: object, payload: dict) -> dict:
-    register = await client.post("/api/v1/auth/register", json=payload)
-    assert register.status_code == 201, register.text
-    otp_service = OTPService(redis_client, SMSService())  # type: ignore[arg-type]
-    otp = await otp_service.peek_otp(payload["phone"], "registration")
-    assert otp is not None
-    verify = await client.post(
-        "/api/v1/auth/verify-otp",
-        json={"phone": payload["phone"], "otp": otp, "purpose": "registration"},
-    )
-    assert verify.status_code == 200, verify.text
-    return verify.json()
+    return await register_and_verify(client, redis_client, payload)
 
 
 @pytest_asyncio.fixture

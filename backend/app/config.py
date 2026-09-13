@@ -71,6 +71,12 @@ class Settings(BaseSettings):
 
     email_provider: str = "none"
     email_from: str = "noreply@platform.com"
+    email_from_name: str = "SpotMe"
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
     ses_region: str = "ap-south-1"
 
     proxy_max_dimension: int = 2048

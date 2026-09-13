@@ -26,7 +26,7 @@ import { maskPhone } from '@/lib/utils';
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
-  const [registeredPhone, setRegisteredPhone] = useState('');
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const setSession = useAuthStore((state) => state.setSession);
@@ -60,8 +60,8 @@ export default function LoginPage() {
         password: data.password,
       });
 
-      setRegisteredPhone(response.phone);
-      toast.success('OTP sent to your registered phone');
+      setRegisteredEmail(response.email);
+      toast.success('OTP sent to your registered email');
       setStep(2);
     } catch (error: unknown) {
       toast.error(error instanceof ApiError ? error.message : 'Invalid email or password');
@@ -74,7 +74,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const response = await api.verifyOtp({
-        phone: registeredPhone,
+        email: registeredEmail,
         otp: data.otp,
         purpose: 'login',
       });
@@ -98,7 +98,7 @@ export default function LoginPage() {
         <p className="text-sm text-muted-foreground">
           {step === 1
             ? 'Sign in with your email or phone number and password.'
-            : `Enter the 6-digit code sent to ${maskPhone(registeredPhone)}`}
+            : `Enter the 6-digit code sent to ${maskPhone(registeredEmail)}`}
         </p>
       </div>
 

@@ -29,6 +29,14 @@ FAST2SMS_HTTP_TIMEOUT_SECONDS = 30.0
 FAST2SMS_OTP_FALLBACK_STATUS_CODES = frozenset({408, 996, 998})
 OTP_SMS_BODY_TEMPLATE = "Your verification code is: {otp}"
 
+OTP_CHANNEL_SMS = "sms"
+OTP_CHANNEL_EMAIL = "email"
+
+EMAIL_PROVIDER_NONE = "none"
+EMAIL_PROVIDER_LOG = "log"
+EMAIL_PROVIDER_SMTP = "smtp"
+SMTP_HTTP_TIMEOUT_SECONDS = 30.0
+
 REQUEST_ID_HEADER = "X-Request-ID"
 """HTTP header used to correlate logs for a single request."""
 

@@ -6,6 +6,7 @@ export const mockProfile: Photographer = {
   studio_name: 'Vatsal Studio',
   phone: '+919876543210',
   phone_verified: true,
+  email_verified: true,
   logo_url: 'https://picsum.photos/seed/logo/200/200',
   watermark_url: 'https://picsum.photos/seed/watermark/400/200',
   watermark_scale: 0.20,

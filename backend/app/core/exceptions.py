@@ -86,6 +86,13 @@ class SMSDeliveryError(AppException):
         super().__init__(message, "SMS_DELIVERY_FAILED", 502)
 
 
+class EmailDeliveryError(AppException):
+    """Raised when the email provider rejects or fails a send."""
+
+    def __init__(self, message: str = "Could not send email. Please try again.") -> None:
+        super().__init__(message, "EMAIL_DELIVERY_FAILED", 502)
+
+
 class StorageLimitError(AppException):
     """Raised when a photographer exceeds their storage quota."""
 

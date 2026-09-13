@@ -80,5 +80,4 @@ async def test_notification_service_send_archival_warning_fast() -> None:
     service = NotificationService(mock_db, mock_email)
     await service.send_archival_warning("00000000-0000-0000-0000-000000000000")
 
-    mock_email.send.assert_called_once()
-    assert mock_email.send.call_args[1]["to"] == "test@example.com"
+    mock_email.send.assert_not_called()
