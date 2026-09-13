@@ -8,6 +8,7 @@ dependencies = [
     "celery[redis]>=5.4,<6",
     "email-validator>=2.2,<3",
     "fastapi>=0.115,<1",
+    "httpx>=0.28,<1",
     "passlib[bcrypt]>=1.7,<2",
     "bcrypt>=4.0.1,<4.1",
     "pydantic-settings>=2.6,<3",
@@ -31,7 +32,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "httpx>=0.28,<1",
     "mypy>=1.13,<2",
     "pytest>=8.3,<9",
     "pytest-asyncio>=0.24,<1",

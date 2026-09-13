@@ -1937,6 +1937,7 @@ dependencies = [
     { name = "celery", extra = ["redis"] },
     { name = "email-validator" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "passlib", extra = ["bcrypt"] },
@@ -1955,7 +1956,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -2001,7 +2001,7 @@ requires-dist = [
     { name = "easydict", marker = "extra == 'ml'", specifier = ">=1.13" },
     { name = "email-validator", specifier = ">=2.2,<3" },
     { name = "fastapi", specifier = ">=0.115,<1" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28,<1" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13,<2" },
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "omegaconf", marker = "extra == 'ml'", specifier = ">=2.3,<3" },
