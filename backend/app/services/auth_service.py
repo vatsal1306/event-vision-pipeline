@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
-from app.core.constants import INDIAN_PHONE_PATTERN, JWTType, OTP_CHANNEL_EMAIL, OTP_CHANNEL_SMS
+from app.core.constants import INDIAN_PHONE_PATTERN, OTP_CHANNEL_EMAIL, OTP_CHANNEL_SMS, JWTType
 from app.core.exceptions import (
     AuthenticationError,
     ConflictError,
@@ -236,9 +236,7 @@ class AuthService:
             )
 
         return ForgotPasswordResponse(
-            message=(
-                "If an account exists, OTPs have been sent to the registered email and phone"
-            ),
+            message=("If an account exists, OTPs have been sent to the registered email and phone"),
         )
 
     async def reset_password(
