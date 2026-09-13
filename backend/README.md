@@ -110,7 +110,7 @@ docker compose exec db psql -U postgres -d photoshare -c "\\dt"
 - Business logic: `app/services/auth_service.py`. OTP: `app/utils/otp.py` + Redis. JWT/password: `app/core/security.py`.
 - Dependency: `get_current_photographer` in `app/api/deps.py` — requires JWT `type=access`.
 - Redis client: `app/core/redis_client.py` (`get_redis` / `get_redis_dep`). Used for OTP keys and refresh-token denylist (`jwt:denylist:{jti}`).
-- SMS: `app/services/sms_service.py` logs messages locally (`sms_provider=log`). Real MSG91 in BE-017.
+- SMS: `app/services/sms_service.py`. Default `SMS_PROVIDER=log` (no HTTP). Set `SMS_PROVIDER=fast2sms` and `SMS_API_KEY` to send a real OTP via Fast2SMS Quick OTP (`Your OTP: {code}`). When `DEBUG=true`, `123456` still verifies. When `DEBUG=false`, a failed SMS returns `SMS_DELIVERY_FAILED` (502).
 - Schemas: `app/schemas/auth.py`. Password: 8–16 chars with upper, lower, digit, special (`PASSWORD_PATTERN` in constants).
 - Phone numbers are unique on `photographers.phone` (migration `add_unique_photographers_phone`).
 
@@ -125,7 +125,24 @@ docker compose exec db psql -U postgres -d photoshare -c "\\dt"
 
 OTP: 6 digits, 300s expiry, 3 attempts, 60s send cooldown (Redis). Fourth verify attempt → `OTP_MAX_ATTEMPTS`.
 
-When `DEBUG=true`, OTP is logged at INFO as `local_only` on event `otp.dev_delivery` (for local testing only).
+When `DEBUG=true`, OTP is logged at INFO as `local_only` on event `otp.dev_delivery` (for local testing only). `123456` also verifies in debug.
+
+### Fast2SMS (real SMS on your laptop)
+
+1. Sign up at [Fast2SMS](https://www.fast2sms.com/) (new accounts usually get a small test credit).
+2. Open **Dev API** and copy the **authorization** key.
+3. In `backend/.env` (restart the API after saving):
+
+```bash
+SMS_PROVIDER=fast2sms
+SMS_API_KEY=paste-your-key-here
+DEBUG=true
+```
+
+4. Trigger any OTP flow with a real `+91` 10-digit number. The phone should get `Your OTP: {code}`. In debug you can still type `123456`.
+5. Keep `DEBUG=true` until Fast2SMS works. Then you can set `DEBUG=false` to disable the shortcut (failed SMS then returns HTTP 502 `SMS_DELIVERY_FAILED`).
+
+Do not commit `SMS_API_KEY`. Tests never call Fast2SMS; they mock HTTP.
 
 ### Auth integration tests
 

@@ -124,7 +124,7 @@
 | **FastAPI Application** | REST API, authentication, business logic, database operations, S3 presigned URL generation |
 | **tusd Upload Server** | Handles tus protocol chunked/resumable uploads directly to S3. Sends webhook to FastAPI on upload completion. |
 | **PostgreSQL + pgvector** | Runs in Docker on the app EC2 (not RDS) |
-| **Redis** | Docker on the app EC2 (not ElastiCache). OTP may be logged in dev instead of SMS |
+| **Redis** | Docker on the app EC2 (not ElastiCache). OTP stored here; SMS is log or Fast2SMS |
 | **Celery Workers** | CPU only: resize, watermark. Do not load InsightFace on this box |
 | **AWS S3** | Separate storage account, same region `ap-south-1`. tusd uploads originals here |
 
@@ -631,7 +631,7 @@ Email verification via link: deferred until BE-017 (real email provider).
 
 **Phone uniqueness:** `photographers.phone` is unique (`+91` + 10 digits).
 
-**Local/dev OTP/SMS:** Redis-backed OTP; SMS adapter logs messages. When `DEBUG=true`, OTP is also logged at INFO under `local_only` (never in production logging policy).
+**Local/dev OTP/SMS:** Redis-backed OTP. `SMS_PROVIDER=log` writes a delivery log and does not call a vendor. `SMS_PROVIDER=fast2sms` sends Quick OTP via Fast2SMS (`Your OTP: {code}`) using `SMS_API_KEY`. When `DEBUG=true`, `123456` still verifies and the generated code is logged at INFO as `local_only` on `otp.dev_delivery` (never enable this in production). When `DEBUG=false`, a failed SMS send returns `SMS_DELIVERY_FAILED` and the Redis OTP is discarded.
 
 **JWT Structure:**
 ```json
@@ -1575,25 +1575,16 @@ class WatermarkService:
 
 ### 10.2 SMS Provider
 
-For OTP and SMS notifications, use an SMS gateway that supports Indian numbers:
+OTP SMS uses **Fast2SMS Quick OTP** (`POST https://www.fast2sms.com/dev/bulkV2`, `route=otp`). We generate the 6-digit code (Redis) and pass it as `variables_values`. Fast2SMS delivers a generic template: `Your OTP: {code}`. Numbers are sent as 10-digit national format (no `+91`).
+
+`SMS_PROVIDER=log` skips HTTP (local default). `SMS_PROVIDER=fast2sms` requires `SMS_API_KEY`. Guest, couple, and photographer OTP all use the same `SMSService.send_otp` path.
 
 ```python
 class SMSService:
-    """SMS delivery via provider API (MSG91, Twilio, or AWS SNS)."""
+    """SMS delivery: log adapter or Fast2SMS Quick OTP."""
 
-    async def send(self, phone: str, message: str) -> bool:
-        """Send SMS to phone number."""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.provider_url}/sms/send",
-                json={
-                    "to": phone,
-                    "message": message,
-                    "sender_id": self.sender_id,
-                },
-                headers={"Authorization": f"Bearer {self.api_key}"},
-            )
-            return response.status_code == 200
+    async def send_otp(self, phone: str, otp: str) -> bool:
+        """Send numeric OTP. Returns True when the provider accepted it."""
 ```
 
 ### 10.3 Email Service
@@ -1917,6 +1908,10 @@ class OTPMaxAttemptsError(AppException):
     def __init__(self, message: str = "Too many attempts"):
         super().__init__(message, "OTP_MAX_ATTEMPTS", 429)
 
+class SMSDeliveryError(AppException):
+    def __init__(self, message: str = "Could not send OTP. Please try again."):
+        super().__init__(message, "SMS_DELIVERY_FAILED", 502)
+
 class StorageLimitError(AppException):
     def __init__(self):
         super().__init__("Storage limit exceeded", "STORAGE_LIMIT", 402)
@@ -2055,7 +2050,7 @@ class Settings(BaseSettings):
     otp_cooldown_seconds: int = 60
 
     # SMS Provider
-    sms_provider: str = "log"  # log | msg91 | twilio — Phase 1: log OTP
+    sms_provider: str = "log"  # log | fast2sms
     sms_api_key: str = ""
     sms_sender_id: str = "PHOTOS"
 

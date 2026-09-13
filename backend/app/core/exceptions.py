@@ -79,6 +79,13 @@ class OTPMaxAttemptsError(AppException):
         super().__init__(message, "OTP_MAX_ATTEMPTS", 429)
 
 
+class SMSDeliveryError(AppException):
+    """Raised when the SMS provider rejects or fails an OTP send."""
+
+    def __init__(self, message: str = "Could not send OTP. Please try again.") -> None:
+        super().__init__(message, "SMS_DELIVERY_FAILED", 502)
+
+
 class StorageLimitError(AppException):
     """Raised when a photographer exceeds their storage quota."""
 

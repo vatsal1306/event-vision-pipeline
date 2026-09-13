@@ -145,7 +145,8 @@ chmod 600 .env
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:<POSTGRES_PASSWORD>@db:5432/photoshare` |
 | `REDIS_URL`, `CELERY_*` | Copy from `.env.prod.example` (`redis` / `db` = Docker hostnames) |
 | `FRONTEND_URL`, `NEXT_PUBLIC_*` | `https://spotme.hpklabs.ai` and `https://spotme.hpklabs.ai/api` |
-| `SMS_PROVIDER` | `log` |
+| `SMS_PROVIDER` | `log` locally. `fast2sms` for real OTP SMS (needs `SMS_API_KEY`) |
+| `SMS_API_KEY` | Fast2SMS authorization key from the Dev API page |
 | `ENVIRONMENT` / `DEBUG` | `production` / `false` |
 | `ML_FACE_PROCESSING_ENABLED` | `true` when GPU lifecycle is configured (INF-009) |
 | `ML_DEVICE` | `cpu` on this host (guest selfie). `cuda` only on the GPU box |

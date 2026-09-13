@@ -11,6 +11,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.constants import FAST2SMS_BULK_URL
 from app.core.database import get_db
 from app.core.redis_client import close_redis
 from app.main import app
@@ -30,7 +31,16 @@ celery_app.conf.update(
 
 @pytest.fixture(autouse=True)
 def mock_external_http(respx_mock) -> None:
-    """Mock external HTTP calls (like SMS) globally using respx."""
+    """Mock external HTTP. Fast2SMS is registered first so tests can override it.
+
+    respx matches the first route; a catch-all must not swallow Fast2SMS.
+    """
+    respx_mock.post(FAST2SMS_BULK_URL, name="fast2sms").mock(
+        return_value=httpx.Response(
+            200,
+            json={"return": False, "message": "fast2sms not mocked for this test"},
+        )
+    )
     respx_mock.route().mock(return_value=httpx.Response(200, json={"status": "mocked"}))
 
 
