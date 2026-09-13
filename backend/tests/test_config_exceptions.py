@@ -130,6 +130,7 @@ def test_settings_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
         assert settings.gpu_instance_id == "i-0123456789abcdef0"
         assert settings.aws_compute_region == "ap-south-1"
         assert settings.gpu_idle_stop_minutes == 15
+        assert settings.ops_alert_emails == []
     finally:
         get_settings.cache_clear()
 

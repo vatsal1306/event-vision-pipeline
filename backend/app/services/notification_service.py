@@ -11,7 +11,10 @@ from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
 from app.models.event import Event
 from app.services.email_service import EmailService
-from app.services.email_templates import processing_complete_email_content
+from app.services.email_templates import (
+    face_processing_stalled_ops_email_content,
+    processing_complete_email_content,
+)
 
 logger = get_logger()
 
@@ -90,6 +93,52 @@ class NotificationService:
         logger.info(
             "notification.archival_complete_email_disabled",
             event_id=str(event_id),
+        )
+
+    async def send_face_processing_stalled_ops(
+        self,
+        *,
+        event_id: UUID,
+        event_name: str,
+        reason: str,
+    ) -> None:
+        """Email every address in ``OPS_ALERT_EMAIL`` after stall give-up.
+
+        Args:
+            event_id: Stalled event.
+            event_name: Event title for the subject line.
+            reason: Short stall reason recorded on the progress hash.
+        """
+        settings = get_settings()
+        recipients = settings.ops_alert_emails
+        if not recipients:
+            logger.warning(
+                "notification.face_processing_stalled_ops_skipped_no_recipients",
+                event_id=str(event_id),
+            )
+            return
+
+        event_url = f"{settings.frontend_url.rstrip('/')}/dashboard/events/{event_id}"
+        subject, text, html = face_processing_stalled_ops_email_content(
+            event_name=event_name,
+            event_id=str(event_id),
+            event_url=event_url,
+            stall_minutes=settings.face_processing_stall_minutes,
+            reason=reason,
+            app_name=settings.app_name,
+        )
+        for to in recipients:
+            await self.email.send(
+                to=to,
+                subject=subject,
+                body=text,
+                html_body=html,
+            )
+        logger.info(
+            "notification.face_processing_stalled_ops_sent",
+            event_id=str(event_id),
+            recipients=recipients,
+            reason=reason,
         )
 
 

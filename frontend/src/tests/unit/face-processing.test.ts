@@ -59,4 +59,8 @@ describe('faceProcessingStatusCopy', () => {
   it('should describe clustering in photographer language', () => {
     expect(faceProcessingStatusCopy('clustering')).toContain('Grouping people');
   });
+
+  it('should tell the photographer they can retry after a pipeline error', () => {
+    expect(faceProcessingStatusCopy('error')).toContain('try again');
+  });
 });

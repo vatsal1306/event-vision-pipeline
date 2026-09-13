@@ -19,6 +19,7 @@ from app.ml.clustering.locks import FACE_PIPELINE_LOCK_KEY_TEMPLATE, EventCluste
 from app.ml.clustering.types import ClusteringResult
 from app.ml.config import MLConfig, get_ml_config
 from app.ml.exceptions import ClusteringLockBusyError, ClusteringLockError
+from app.ml.face_processing_watch import FaceProcessingWatch
 from app.ml.face_rows import (
     FAILED_FACE_PLACEHOLDER_EMBEDDING,
     FaceCropWithMeta,
@@ -294,7 +295,20 @@ class FaceService:
             if self._redis is not None
             else None
         )
+        watch = (
+            FaceProcessingWatch(
+                self._redis,
+                event_id,
+                ttl_seconds=self._config.processing_progress_ttl_seconds,
+            )
+            if self._redis is not None
+            else None
+        )
+        stop_pulse = asyncio.Event()
+        pulse_task = asyncio.create_task(self._pulse_pipeline_lock(lock, watch, stop_pulse))
         try:
+            if watch is not None:
+                await watch.record_heartbeat()
             pending = await self._load_pending_photos(event_id)
             if tracker is not None:
                 await tracker.start(len(pending))
@@ -417,6 +431,12 @@ class FaceService:
                 await tracker.mark_error("bulk_pipeline_failed")
             raise
         finally:
+            stop_pulse.set()
+            pulse_task.cancel()
+            try:
+                await pulse_task
+            except asyncio.CancelledError:
+                pass
             await lock.release()
 
         return EventFacePipelineResult(
@@ -629,6 +649,26 @@ class FaceService:
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, 8.0)
         raise ClusteringLockBusyError(str(event_id))
+
+    async def _pulse_pipeline_lock(
+        self,
+        lock: EventClusteringLock,
+        watch: FaceProcessingWatch | None,
+        stop: asyncio.Event,
+    ) -> None:
+        """Extend the pipeline lock and heartbeat until ``stop`` is set.
+
+        Long photo batches and clustering must not look stalled. If this worker
+        dies, the task dies with it and the lock expires on TTL.
+        """
+        while True:
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=60.0)
+                return
+            except asyncio.TimeoutError:
+                await lock.extend()
+                if watch is not None:
+                    await watch.record_heartbeat()
 
     def _registry_or_default(self) -> ModelRegistry:
         """Return the injected registry or the process singleton."""

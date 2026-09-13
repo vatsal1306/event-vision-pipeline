@@ -43,3 +43,28 @@ def ensure_gpu_host_running(self: Any) -> str:
 def stop_idle_gpu_host() -> str:
     """Beat task: stop the GPU box after locks + queue stay idle."""
     return GpuHostService().stop_if_idle()
+
+
+@celery_app.task(
+    queue="photo_processing",
+    name="app.tasks.gpu_host_tasks.reconcile_face_processing",
+)  # type: ignore[untyped-decorator]
+def reconcile_face_processing() -> list[str]:
+    """Beat task: recover stalled Find-faces jobs or revert after 30 minutes."""
+    import asyncio
+
+    from app.core.database import async_session_factory
+    from app.core.redis_client import create_redis_client
+    from app.services.face_processing_reconciler import FaceProcessingReconciler
+
+    async def _run() -> list[str]:
+        redis_client = create_redis_client()
+        try:
+            async with async_session_factory() as db:
+                reconciler = FaceProcessingReconciler(db, redis_client)
+                return await reconciler.reconcile_all()
+        finally:
+            await redis_client.aclose()
+
+    logger.info("reconcile_face_processing_started")
+    return asyncio.run(_run())

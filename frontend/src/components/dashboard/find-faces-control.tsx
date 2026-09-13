@@ -2,8 +2,8 @@
 
 import { ScanFace } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useStartFaceProcessing } from '@/hooks/use-face-processing';
-import { shouldShowFindFacesButton } from '@/lib/face-processing';
+import { useFaceProcessingProgress, useStartFaceProcessing } from '@/hooks/use-face-processing';
+import { faceProcessingStatusCopy, shouldShowFindFacesButton } from '@/lib/face-processing';
 import { Event } from '@/types/event';
 
 interface FindFacesControlProps {
@@ -17,6 +17,9 @@ interface FindFacesControlProps {
 export function FindFacesControl({ event }: FindFacesControlProps) {
   const startMutation = useStartFaceProcessing(event.id);
   const isProcessing = event.status === 'processing' || startMutation.isPending;
+  const pendingFaces = event.pendingFacePhotos ?? 0;
+  const progress = useFaceProcessingProgress(event.id, isProcessing || pendingFaces > 0);
+  const pipelineFailed = progress.data?.pipeline_status === 'error' && !isProcessing;
   const showButton = shouldShowFindFacesButton(event) && !isProcessing;
 
   return (
@@ -32,9 +35,15 @@ export function FindFacesControl({ event }: FindFacesControlProps) {
             <ScanFace />
             {startMutation.isPending ? 'Starting…' : 'Find faces'}
           </Button>
-          <p className="max-w-xs text-right text-xs text-muted-foreground">
-            When uploads are done, we group people so guests can find themselves.
-          </p>
+          {pipelineFailed ? (
+            <p className="max-w-xs text-right text-xs font-medium text-destructive">
+              {faceProcessingStatusCopy('error')}
+            </p>
+          ) : (
+            <p className="max-w-xs text-right text-xs text-muted-foreground">
+              When uploads are done, we group people so guests can find themselves.
+            </p>
+          )}
         </div>
       ) : null}
 

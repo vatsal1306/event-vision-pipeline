@@ -59,11 +59,11 @@ export function useStartFaceProcessing(eventId: string) {
 /**
  * Poll Redis-backed bulk progress while the event is Processing.
  */
-export function useFaceProcessingProgress(eventId: string, isProcessing: boolean) {
+export function useFaceProcessingProgress(eventId: string, enabled: boolean) {
   return useQuery({
     queryKey: ['face-processing-progress', eventId],
     queryFn: () => api.getFaceProcessingProgress(eventId),
-    enabled: Boolean(eventId) && isProcessing,
-    refetchInterval: isProcessing ? EVENT_STATUS_POLL_INTERVAL_MS : false,
+    enabled: Boolean(eventId) && enabled,
+    refetchInterval: enabled ? EVENT_STATUS_POLL_INTERVAL_MS : false,
   });
 }

@@ -93,3 +93,58 @@ def processing_complete_email_content(
 </html>
 """
     return subject, text, html
+
+
+def face_processing_stalled_ops_email_content(
+    *,
+    event_name: str,
+    event_id: str,
+    event_url: str,
+    stall_minutes: int,
+    reason: str,
+    app_name: str,
+) -> tuple[str, str, str]:
+    """Return subject, plaintext, and HTML for ops stall alerts.
+
+    Args:
+        event_name: Photographer-facing event title.
+        event_id: Event UUID as a string.
+        event_url: Dashboard URL for the event.
+        stall_minutes: No-heartbeat window that triggered give-up.
+        reason: Short machine-readable stall reason.
+        app_name: Product name shown in the footer.
+
+    Returns:
+        Tuple of subject, plaintext body, and HTML body.
+    """
+    safe_event = escape(event_name)
+    safe_url = escape(event_url, quote=True)
+    safe_reason = escape(reason)
+    safe_app = escape(app_name)
+    subject = f"[SpotMe] Face processing stalled: {event_name}"
+    text = (
+        f"Face processing did not get a worker heartbeat for {stall_minutes} minutes.\n\n"
+        f"Event: {event_name}\n"
+        f"Event ID: {event_id}\n"
+        f"Reason: {reason}\n"
+        f"Dashboard: {event_url}\n\n"
+        "The event was reverted so the photographer can click Find faces again. "
+        "Remaining unprocessed photos will resume on retry.\n"
+    )
+    html = (
+        "<!DOCTYPE html>\n"
+        "<html>\n"
+        '<body style="font-family: Arial, sans-serif; color: #111; line-height: 1.5;">\n'
+        f"  <p>Face processing did not get a worker heartbeat for "
+        f"<strong>{stall_minutes}</strong> minutes.</p>\n"
+        f"  <p>Event: <strong>{safe_event}</strong><br>"
+        f"Event ID: {escape(event_id)}<br>"
+        f"Reason: {safe_reason}</p>\n"
+        f'  <p><a href="{safe_url}">Open event dashboard</a></p>\n'
+        "  <p>The event was reverted so the photographer can click Find faces again. "
+        "Remaining unprocessed photos will resume on retry.</p>\n"
+        f'  <p style="color: #666; font-size: 13px;">— {safe_app}</p>\n'
+        "</body>\n"
+        "</html>\n"
+    )
+    return subject, text, html

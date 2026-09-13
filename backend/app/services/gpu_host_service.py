@@ -68,6 +68,19 @@ class GpuHostService:
         """True when an instance id is set so AWS calls are allowed."""
         return bool(self._settings.gpu_instance_id.strip())
 
+    def is_reachable(self) -> bool:
+        """True when no GPU is configured (laptop) or the instance is booting/up.
+
+        Start retries must only run when this is False.
+        """
+        if not self.is_configured:
+            return True
+        try:
+            state = self.describe_state()
+        except GpuHostError:
+            return False
+        return state in {_RUNNING, _PENDING}
+
     def ensure_running(self) -> str:
         """Start the GPU instance if it is stopped. Never blocks the HTTP API.
 

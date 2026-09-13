@@ -1,6 +1,7 @@
 """Fast tests for notification-related code (no DB required)."""
 
 from unittest.mock import AsyncMock
+from uuid import UUID
 
 import pytest
 
@@ -81,3 +82,25 @@ async def test_notification_service_send_archival_warning_fast() -> None:
     await service.send_archival_warning("00000000-0000-0000-0000-000000000000")
 
     mock_email.send.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notification_service_sends_stalled_ops_to_each_recipient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OPS_ALERT_EMAIL comma list should get one send per address."""
+    monkeypatch.setenv("OPS_ALERT_EMAIL", "ops1@hpk.ai, ops2@hpk.ai")
+    get_settings.cache_clear()
+    from app.services.notification_service import NotificationService
+
+    mock_email = AsyncMock()
+    service = NotificationService(AsyncMock(), mock_email)
+    await service.send_face_processing_stalled_ops(
+        event_id=UUID("00000000-0000-0000-0000-000000000000"),
+        event_name="Sharma Wedding",
+        reason="no_worker_heartbeat",
+    )
+    assert mock_email.send.await_count == 2
+    sent_to = [call.kwargs["to"] for call in mock_email.send.await_args_list]
+    assert sent_to == ["ops1@hpk.ai", "ops2@hpk.ai"]
+    get_settings.cache_clear()

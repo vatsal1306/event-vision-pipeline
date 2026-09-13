@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequestError, FaceProcessingDisabledError
 from app.ml.clustering.locks import FACE_PIPELINE_LOCK_KEY_TEMPLATE, EventClusteringLock
 from app.ml.config import get_ml_config
+from app.ml.face_processing_watch import FaceProcessingWatch
 from app.ml.processing_progress import ProcessingProgressTracker
 from app.models.enums import EventStatus
 from app.models.event import Event
@@ -68,6 +69,12 @@ class FaceProcessingService:
             ttl_seconds=self._config.processing_progress_ttl_seconds,
         )
         await tracker.start(pending)
+        watch = FaceProcessingWatch(
+            self._redis,
+            event.id,
+            ttl_seconds=self._config.processing_progress_ttl_seconds,
+        )
+        await watch.mark_started()
 
         from app.tasks.face_tasks import process_event_photos
 
@@ -123,6 +130,28 @@ class FaceProcessingService:
             started_at=snapshot.started_at,
             eta_seconds=snapshot.eta_seconds,
         )
+
+    async def revert_stalled_processing(self, event: Event, *, reason: str) -> None:
+        """Leave ``processing`` so Find faces can be clicked again.
+
+        Remaining photos stay ``faces_processed=false`` and resume on retry.
+
+        Args:
+            event: Event stuck in processing with no worker heartbeat.
+            reason: Recorded on the Redis progress hash for the dashboard.
+        """
+        pending = await self._pending_face_photo_count(event.id)
+        if pending == 0:
+            event.status = EventStatus.READY
+        else:
+            event.status = EventStatus.UPLOADING
+        await self.db.commit()
+        tracker = ProcessingProgressTracker(
+            self._redis,
+            event.id,
+            ttl_seconds=self._config.processing_progress_ttl_seconds,
+        )
+        await tracker.mark_error(reason)
 
     async def _pending_face_photo_count(self, event_id: UUID) -> int:
         """Count photos that have not completed face extraction."""

@@ -56,5 +56,9 @@ celery_app.conf.update(
             "task": "app.tasks.gpu_host_tasks.stop_idle_gpu_host",
             "schedule": timedelta(minutes=1),
         },
+        "reconcile-face-processing": {
+            "task": "app.tasks.gpu_host_tasks.reconcile_face_processing",
+            "schedule": timedelta(minutes=1),
+        },
     },
 )

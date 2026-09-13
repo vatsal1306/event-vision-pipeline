@@ -138,6 +138,20 @@ def test_ensure_running_noop_when_already_running() -> None:
     assert ec2.start_calls == 0
 
 
+def test_is_reachable_true_when_running_or_unconfigured() -> None:
+    """Laptop (no instance id) and a running box must not trigger start retries."""
+    running = _service(FakeEc2("running"), FakeRedis())
+    assert running.is_reachable() is True
+    laptop = _service(FakeEc2("stopped"), FakeRedis(), gpu_instance_id="")
+    assert laptop.is_reachable() is True
+
+
+def test_is_reachable_false_when_stopped() -> None:
+    """Stopped GPU is the only case that should retry StartInstances."""
+    service = _service(FakeEc2("stopped"), FakeRedis())
+    assert service.is_reachable() is False
+
+
 def test_ensure_running_waits_if_stopping() -> None:
     """If AWS is still stopping, wait then start."""
     ec2 = FakeEc2("stopping")

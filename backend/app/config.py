@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     aws_compute_region: str = "ap-south-1"
     gpu_instance_id: str = ""
     gpu_idle_stop_minutes: int = 10
+    # Comma-separated ops inboxes for stalled face-processing alerts.
+    ops_alert_email: str = ""
+    face_processing_stall_minutes: int = 30
+    face_processing_requeue_seconds: int = 120
+    # Heartbeats older than this are "worker missing" but not yet give-up.
+    face_processing_heartbeat_fresh_seconds: int = 180
     s3_bucket_originals: str = "platform-originals"
     s3_bucket_proxies: str = "platform-proxies"
     s3_bucket_assets: str = "platform-assets"
@@ -88,7 +94,7 @@ class Settings(BaseSettings):
             return value.replace(" ", "").strip()
         return value
 
-    @field_validator("smtp_user", "email_from", mode="before")
+    @field_validator("smtp_user", "email_from", "ops_alert_email", mode="before")
     @classmethod
     def strip_smtp_identity(cls, value: object) -> object:
         """Trim accidental whitespace around the Workspace mailbox."""
@@ -107,6 +113,19 @@ class Settings(BaseSettings):
     def jwt_couple_token_expire_days(self) -> int:
         """Couple gallery JWTs share the guest session lifetime (30 days by default)."""
         return self.jwt_guest_token_expire_days
+
+    @property
+    def ops_alert_emails(self) -> list[str]:
+        """Parse ``OPS_ALERT_EMAIL`` into unique, non-empty addresses."""
+        seen: set[str] = set()
+        emails: list[str] = []
+        for part in self.ops_alert_email.split(","):
+            address = part.strip()
+            if not address or address.lower() in seen:
+                continue
+            seen.add(address.lower())
+            emails.append(address)
+        return emails
 
 
 @lru_cache
