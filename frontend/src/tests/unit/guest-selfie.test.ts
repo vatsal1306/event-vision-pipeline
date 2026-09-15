@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { guestSelfieFailureCopy, isSelfieMatchSuccess } from '@/lib/guest-selfie';
+import { guestSelfieFailureCopy, canProceedToGallery } from '@/lib/guest-selfie';
 
 describe('guestSelfieFailureCopy', () => {
   it('should explain liveness failures instead of saying no photos', () => {
@@ -11,11 +11,10 @@ describe('guestSelfieFailureCopy', () => {
   });
 });
 
-describe('isSelfieMatchSuccess', () => {
-  it('should require a matched status and at least one photo', () => {
-    expect(isSelfieMatchSuccess('matched', 4)).toBe(true);
-    expect(isSelfieMatchSuccess('matched', 0)).toBe(false);
-    expect(isSelfieMatchSuccess('no_match', 0)).toBe(false);
-    expect(isSelfieMatchSuccess('liveness_failed', 0)).toBe(false);
+describe('canProceedToGallery', () => {
+  it('should allow matched and no_match statuses', () => {
+    expect(canProceedToGallery('matched')).toBe(true);
+    expect(canProceedToGallery('no_match')).toBe(true);
+    expect(canProceedToGallery('liveness_failed')).toBe(false);
   });
 });

@@ -149,8 +149,8 @@ class GuestService:
         from app.models.face_embedding import FaceEmbedding
         from app.models.photo import Photo
 
-        if not session.matched_cluster_ids:
-            raise AuthorizationError("Guest has no matched photos", code="FORBIDDEN")
+        if not session.matched_cluster_ids and not event.guest_link_active:
+            raise AuthorizationError("Guest has no matched photos and highlights are unavailable", code="FORBIDDEN")
 
         # Get event to check download setting
         event_stmt = select(Event).where(Event.id == session.event_id)
@@ -160,14 +160,19 @@ class GuestService:
         if not event or not event.download_enabled:
             raise AuthorizationError("Downloads are disabled for this event", code="FORBIDDEN")
 
-        # Verify photo belongs to guest's matched clusters
+        import sqlalchemy as sa
+        
+        or_conds = [Photo.shared_with_guests.is_(True)]
+        if session.matched_cluster_ids:
+            or_conds.append(Photo.face_embeddings.any(FaceEmbedding.cluster_id.in_(session.matched_cluster_ids)))
+
+        # Verify photo belongs to guest's matched clusters or is shared
         stmt = (
             select(Photo)
-            .join(Photo.face_embeddings)
             .where(
                 Photo.id == photo_id,
                 Photo.event_id == session.event_id,
-                FaceEmbedding.cluster_id.in_(session.matched_cluster_ids),
+                sa.or_(*or_conds),
             )
         )
         result = await self.db.execute(stmt)
@@ -200,11 +205,13 @@ class GuestService:
         session: GuestSession,
         offset: int = 0,
         limit: int = 50,
-    ) -> tuple[list[Photo], int]:
-        """Get paginated photos shared by the couple with all guests."""
+    ) -> "PhotoListResponse":
+        """Get paginated photos shared with all guests for this event."""
         from sqlalchemy import func
-
         from app.models.photo import Photo
+        from app.models.enums import ProcessingStatus
+        from app.schemas.shared import PhotoListResponse
+        from app.services.photo_service import PhotoService
 
         event = await self.db.get(Event, session.event_id)
         if event is None:
@@ -214,14 +221,14 @@ class GuestService:
         filters = [
             Photo.event_id == session.event_id,
             Photo.shared_with_guests.is_(True),
+            Photo.processing_status == ProcessingStatus.COMPLETED
         ]
 
-        count_stmt = select(func.count()).select_from(
-            select(Photo.id).where(*filters).subquery()
-        )
+        count_stmt = select(func.count()).select_from(Photo).where(*filters)
         total = await self.db.scalar(count_stmt) or 0
+
         if total == 0:
-            return [], 0
+            return PhotoListResponse(items=[], total=0, offset=offset, limit=limit)
 
         stmt = (
             select(Photo)
@@ -231,7 +238,17 @@ class GuestService:
             .limit(limit)
         )
         result = await self.db.execute(stmt)
-        return list(result.scalars().all()), int(total)
+        photos = list(result.scalars().all())
+
+        photo_service = PhotoService(self.db)
+        photo_responses = photo_service.build_photo_responses(photos)
+
+        return PhotoListResponse(
+            items=photo_responses,
+            total=int(total),
+            offset=offset,
+            limit=limit,
+        )
 
     async def request_auth(self, slug: str, name: str, phone: str) -> None:
         """Verify the event and guest link, then send an OTP. Creates a pending session."""

@@ -264,7 +264,7 @@ class EventService:
         guest_count = await self.db.scalar(
             select(func.count()).select_from(GuestSession).where(GuestSession.event_id == event_id)
         )
-        print(f"DATABASE URL: {self.db.bind.url}"); pending_faces = await self.db.scalar(
+        pending_faces = await self.db.scalar(
             select(func.count())
             .select_from(Photo)
             .where(Photo.event_id == event_id, Photo.faces_processed.is_(False))

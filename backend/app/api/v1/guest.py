@@ -180,20 +180,8 @@ async def list_guest_highlights(
     guest_service: GuestService = Depends(get_guest_service),
 ) -> PhotoListResponse:
     """List photos shared by the couple (highlights)."""
-    photos, total = await guest_service.get_highlights(
+    return await guest_service.get_highlights(
         session=guest_session,
-        offset=offset,
-        limit=limit,
-    )
-
-    from app.services.photo_service import PhotoService
-
-    photo_service = PhotoService(guest_service.db)
-    photo_responses = photo_service.build_photo_responses(photos)
-
-    return PhotoListResponse(
-        items=photo_responses,
-        total=total,
         offset=offset,
         limit=limit,
     )
