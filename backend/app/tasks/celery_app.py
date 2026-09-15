@@ -3,11 +3,27 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import task_prerun
 
 from app.config import get_settings
+
+
+@task_prerun.connect  # type: ignore[untyped-decorator]
+def dispose_engine_before_task(*args: Any, **kwargs: Any) -> None:
+    """Clear SQLAlchemy connection pool before every task runs.
+
+    This fixes the `RuntimeError: got Future attached to a different loop`
+    caused when `asyncio.run()` destroys the event loop but the global
+    engine holds onto the dead connections.
+    """
+    from app.core.database import engine
+
+    engine.sync_engine.dispose(close=False)
+
 
 settings = get_settings()
 

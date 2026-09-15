@@ -85,8 +85,8 @@ export function EventCard({ event }: EventCardProps) {
             <div>
               <h3 className="font-semibold truncate">{event.name}</h3>
               <p className="text-sm text-muted-foreground">
-                {dateRange} · {event.eventType.charAt(0).toUpperCase() + event.eventType.slice(1)} ·{' '}
-                {event.totalPhotos.toLocaleString()} photos · {event.folderCount} folders
+                {dateRange}{' · '}<span className="capitalize">{event.eventType}</span>{' · '}
+                {(event.totalPhotos || 0).toLocaleString()} photos{' · '}{(event.folderCount || 0)} folders
               </p>
             </div>
             <div className="flex items-center gap-4">

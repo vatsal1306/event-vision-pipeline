@@ -113,7 +113,7 @@ async def archive_event(
     if event.status == EventStatus.ARCHIVED:
         raise HTTPException(status_code=409, detail="Event is already archived")
 
-    event.status = EventStatus.ARCHIVED
+    event.status = EventStatus.PROCESSING
     await db.commit()
 
     from app.tasks.archival_tasks import archive_event_task
@@ -136,7 +136,7 @@ async def restore_event(
     if event.status != EventStatus.ARCHIVED:
         raise HTTPException(status_code=409, detail="Event is not archived")
 
-    event.status = EventStatus.READY
+    event.status = EventStatus.PROCESSING
     await db.commit()
 
     from app.tasks.archival_tasks import restore_event_task

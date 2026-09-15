@@ -131,6 +131,10 @@ class SMSService:
         """
         self.last_user_message = None
         provider = self.settings.sms_provider
+        if self.settings.environment.lower() == "development":
+            logger.info("sms.otp_log_dev", phone=phone, otp=otp)
+            return True
+
         if provider == SMS_PROVIDER_LOG:
             logger.info("sms.otp_log", phone=phone, provider=SMS_PROVIDER_LOG)
             return True
