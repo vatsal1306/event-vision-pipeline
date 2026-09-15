@@ -52,9 +52,7 @@ async def _send_test(to: str) -> int:
     print(f"  TO={to}")
 
     service = EmailService(settings)
-    body = (
-        "SpotMe SMTP probe. If you received this, registration email OTPs can send.\n"
-    )
+    body = "SpotMe SMTP probe. If you received this, registration email OTPs can send.\n"
     html = "<p>SpotMe SMTP probe. If you received this, registration email OTPs can send.</p>"
     ok = await service.send(
         to=to,
@@ -66,7 +64,9 @@ async def _send_test(to: str) -> int:
         print("RESULT=ok  Check the inbox (and spam) for subject: SpotMe SMTP probe")
         return 0
 
-    hint = service.last_user_message or "SMTP send returned false. See backend logs for smtp_message."
+    hint = service.last_user_message or (
+        "SMTP send returned false. See backend logs for smtp_message."
+    )
     print(f"RESULT=fail  {hint}")
     return 1
 

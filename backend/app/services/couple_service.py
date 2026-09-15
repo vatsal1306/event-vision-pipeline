@@ -266,9 +266,7 @@ class CoupleService:
             Photo.shared_with_guests.is_(True),
         ]
 
-        count_stmt = select(func.count()).select_from(
-            select(Photo.id).where(*filters).subquery()
-        )
+        count_stmt = select(func.count()).select_from(select(Photo.id).where(*filters).subquery())
         total = await self.db.scalar(count_stmt) or 0
 
         stmt = (

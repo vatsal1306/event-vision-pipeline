@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
     from app.models.photo import Photo
     from app.schemas.guest import SelfieMatchResponse
+    from app.schemas.photo import PhotoListResponse
     from app.services.face_service import FaceService
     from app.utils.otp import OTPService
 
@@ -149,9 +150,6 @@ class GuestService:
         from app.models.face_embedding import FaceEmbedding
         from app.models.photo import Photo
 
-        if not session.matched_cluster_ids and not event.guest_link_active:
-            raise AuthorizationError("Guest has no matched photos and highlights are unavailable", code="FORBIDDEN")
-
         # Get event to check download setting
         event_stmt = select(Event).where(Event.id == session.event_id)
         event_result = await self.db.execute(event_stmt)
@@ -160,20 +158,21 @@ class GuestService:
         if not event or not event.download_enabled:
             raise AuthorizationError("Downloads are disabled for this event", code="FORBIDDEN")
 
+        from typing import Any
+
         import sqlalchemy as sa
-        
-        or_conds = [Photo.shared_with_guests.is_(True)]
+
+        or_conds: list[Any] = [Photo.shared_with_guests.is_(True)]
         if session.matched_cluster_ids:
-            or_conds.append(Photo.face_embeddings.any(FaceEmbedding.cluster_id.in_(session.matched_cluster_ids)))
+            or_conds.append(
+                Photo.face_embeddings.any(FaceEmbedding.cluster_id.in_(session.matched_cluster_ids))
+            )
 
         # Verify photo belongs to guest's matched clusters or is shared
-        stmt = (
-            select(Photo)
-            .where(
-                Photo.id == photo_id,
-                Photo.event_id == session.event_id,
-                sa.or_(*or_conds),
-            )
+        stmt = select(Photo).where(
+            Photo.id == photo_id,
+            Photo.event_id == session.event_id,
+            sa.or_(*or_conds),
         )
         result = await self.db.execute(stmt)
         photo = result.scalar_one_or_none()
@@ -205,12 +204,13 @@ class GuestService:
         session: GuestSession,
         offset: int = 0,
         limit: int = 50,
-    ) -> "PhotoListResponse":
+    ) -> PhotoListResponse:
         """Get paginated photos shared with all guests for this event."""
         from sqlalchemy import func
-        from app.models.photo import Photo
+
         from app.models.enums import ProcessingStatus
-        from app.schemas.shared import PhotoListResponse
+        from app.models.photo import Photo
+        from app.schemas.photo import PhotoListResponse
         from app.services.photo_service import PhotoService
 
         event = await self.db.get(Event, session.event_id)
@@ -221,7 +221,7 @@ class GuestService:
         filters = [
             Photo.event_id == session.event_id,
             Photo.shared_with_guests.is_(True),
-            Photo.processing_status == ProcessingStatus.COMPLETED
+            Photo.processing_status == ProcessingStatus.COMPLETED,
         ]
 
         count_stmt = select(func.count()).select_from(Photo).where(*filters)
