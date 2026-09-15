@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
+import { getInitials } from '@/lib/utils';
 
 interface ProcessingScreenProps {
   photographerName?: string;
@@ -27,8 +28,8 @@ export function ProcessingScreen({ photographerName, photographerLogo }: Process
         </motion.div>
 
         <div className="space-y-4 max-w-sm mx-auto">
-          <h2 className="text-2xl font-bold text-white">We&apos;re gathering your memories...</h2>
-          <p className="text-zinc-400 leading-relaxed">
+          <h2 className="text-2xl font-bold text-zinc-900">We&apos;re gathering your memories...</h2>
+          <p className="text-zinc-500 leading-relaxed">
             This might take a moment. You can close this page and come back later — just log in with your mobile number.
           </p>
         </div>
@@ -40,8 +41,8 @@ export function ProcessingScreen({ photographerName, photographerLogo }: Process
           {photographerLogo ? (
             <img src={photographerLogo} alt={photographerName || 'Studio'} className="h-6 w-auto" />
           ) : (
-            <div className="h-6 w-6 rounded-sm bg-primary flex items-center justify-center font-bold text-xs">
-              {photographerName?.charAt(0) || 'P'}
+            <div className="h-6 w-6 rounded-sm bg-zinc-900 text-white flex items-center justify-center font-bold text-xs uppercase">
+              {getInitials(photographerName || 'P')}
             </div>
           )}
           {photographerName && <span className="text-sm font-medium tracking-wide">{photographerName}</span>}

@@ -41,3 +41,15 @@ class ToggleFavoriteResponse(BaseModel):
     """Response returned upon toggling favorite status."""
 
     is_favorite: bool
+
+
+class ToggleShareRequest(BaseModel):
+    """Request to toggle shared-with-guests status for a photo."""
+
+    photo_id: UUID
+
+
+class ToggleShareResponse(BaseModel):
+    """Response returned upon toggling shared-with-guests status."""
+
+    is_shared: bool

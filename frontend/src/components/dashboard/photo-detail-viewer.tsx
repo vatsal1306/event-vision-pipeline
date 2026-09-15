@@ -75,8 +75,8 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
       <SheetContent className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl overflow-y-auto">
         <SheetHeader className="mb-6">
           <SheetTitle className="truncate">{photo.filename}</SheetTitle>
-          <SheetDescription>
-            Metadata Inspector
+          <SheetDescription className="hidden">
+            Photo Details
           </SheetDescription>
         </SheetHeader>
 
@@ -117,10 +117,6 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
             <h4 className="font-semibold text-sm border-b pb-2">Properties</h4>
             
             <div className="grid grid-cols-3 gap-y-4 gap-x-2 text-sm">
-              <div className="col-span-1 text-muted-foreground flex items-center gap-2">
-                <Hash className="h-4 w-4" /> ID
-              </div>
-              <div className="col-span-2 font-mono text-xs break-all">{photo.id}</div>
 
               <div className="col-span-1 text-muted-foreground flex items-center gap-2">
                 <FolderOpen className="h-4 w-4" /> Folder
@@ -151,13 +147,7 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
             </div>
           </div>
 
-          {/* S3 info (internal) */}
-          <div className="bg-muted/30 rounded-lg p-4">
-             <h4 className="font-semibold text-sm border-b pb-2 mb-3">Storage Link</h4>
-             <p className="font-mono text-[10px] break-all text-muted-foreground">
-               {photo.originalS3Key}
-             </p>
-          </div>
+
         </div>
       </SheetContent>
     </Sheet>

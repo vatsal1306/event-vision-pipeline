@@ -1,6 +1,6 @@
 {
-  "name": "PhotoShare",
-  "short_name": "PhotoShare",
+  "name": "SpotMe",
+  "short_name": "SpotMe",
   "description": "Find and download your event photos instantly",
   "start_url": "/",
   "display": "standalone",

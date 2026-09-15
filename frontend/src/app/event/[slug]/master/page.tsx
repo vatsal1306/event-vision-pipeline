@@ -28,10 +28,12 @@ import {
   useMasterFolders, 
   useMasterPhotos 
 } from '@/hooks/use-master-gallery';
+import { getInitials } from '@/lib/utils';
 import { useFavorites, useToggleFavorite } from '@/hooks/use-couple-favorites';
+import { useSharedPhotos, useToggleShare } from '@/hooks/use-couple-shares';
 import { isGalleryReady } from '@/lib/face-processing';
 import { useMasterAuthStore } from '@/stores/master-auth-store';
-import { Lock, LogOut } from 'lucide-react';
+import { Lock, LogOut, Users } from 'lucide-react';
 import { FavoritesFab } from '@/components/couple/favorites-fab';
 
 const PhotoViewer = dynamic(
@@ -84,13 +86,16 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   const { data: folders = [], isLoading: foldersLoading } = useMasterFolders(slug, isAuth ? token : null);
   const { data: photos = [], isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = useMasterPhotos(slug, isAuth ? token : null);
   const { data: favoritePhotos = [] } = useFavorites(slug, isAuth ? token : null);
+  const { data: sharedPhotos = [] } = useSharedPhotos(slug, isAuth ? token : null);
 
   const favoritePhotoIds = useMemo(() => new Set(favoritePhotos.map(p => p.id)), [favoritePhotos]);
+  const sharedPhotoIds = useMemo(() => new Set(sharedPhotos.map(p => p.id)), [sharedPhotos]);
 
   // Mutations
   const authMutation = useMasterAuth();
   const verifyMutation = useMasterVerify();
   const toggleFavoriteMutation = useToggleFavorite(slug, isAuth ? token : null);
+  const toggleShareMutation = useToggleShare(slug, isAuth ? token : null);
 
   // Forms
   const form = useForm<z.infer<typeof authSchema>>({
@@ -164,12 +169,11 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   if (infoError) {
     return (
-      <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 text-zinc-900 flex items-center justify-center">
         <EmptyState
           title="Gallery Unavailable"
           description="This gallery isn't available. Check the link from your photographer."
           icon={<AlertCircle className="h-8 w-8" />}
-          variant="dark"
         />
       </div>
     );
@@ -177,8 +181,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   if (infoLoading) {
     return (
-      <div className="dark min-h-screen bg-background text-foreground flex flex-col">
-        <div className="h-16 w-full bg-card border-b animate-pulse" />
+      <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 text-zinc-900 flex flex-col">
+        <div className="h-16 w-full bg-white border-b animate-pulse" />
         <div className="p-6">
           <GallerySkeleton count={10} />
         </div>
@@ -188,8 +192,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   if (!infoData?.event) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <EmptyState title="Event Not Found" description="The event you are looking for does not exist." variant="dark" />
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100">
+        <EmptyState title="Event Not Found" description="The event you are looking for does not exist." />
       </div>
     );
   }
@@ -198,12 +202,11 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   if (event.status === 'archived') {
     return (
-      <div className="flex h-screen items-center justify-center bg-black p-4">
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 p-4">
         <EmptyState
           title="Gallery Unavailable"
           description="This gallery is no longer available."
-          icon={<Lock className="h-10 w-10 text-muted-foreground" />}
-          variant="dark"
+          icon={<Lock className="h-10 w-10 text-zinc-400" />}
         />
       </div>
     );
@@ -215,12 +218,11 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   if (!event.masterLinkActive) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100">
         <EmptyState 
           title="Link Inactive" 
           description="The master gallery link for this event is currently inactive." 
-          icon={<Lock className="h-10 w-10 text-muted-foreground" />}
-          variant="dark"
+          icon={<Lock className="h-10 w-10 text-zinc-400" />}
         />
       </div>
     );
@@ -228,14 +230,14 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   if (step === 'auth' || step === 'otp') {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-8 bg-zinc-900 p-8 rounded-xl border border-white/10">
+      <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 text-zinc-900 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-xl ring-1 ring-zinc-950/5">
           <div className="text-center">
             {photographer.logo_url ? (
               <img src={photographer.logo_url} alt={photographer.studio_name} className="h-12 w-auto mx-auto mb-4" />
             ) : (
-              <div className="h-12 w-12 rounded-md bg-primary flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-                {photographer.studio_name.charAt(0)}
+              <div className="h-12 w-12 rounded-md bg-zinc-900 text-white flex items-center justify-center mx-auto mb-4 font-bold text-xl uppercase">
+                {getInitials(photographer.studio_name)}
               </div>
             )}
             <h2 className="text-2xl font-bold tracking-tight">{event.name}</h2>
@@ -252,7 +254,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
                     <FormItem>
                       <FormLabel>Your Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="John Doe" className="bg-zinc-800 border-zinc-700" {...field} />
+                        <Input placeholder="John Doe" className="bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-zinc-950/20" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -266,10 +268,10 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
                       <FormLabel>Phone Number</FormLabel>
                       <FormControl>
                         <div className="flex gap-2">
-                          <div className="bg-zinc-800 border border-zinc-700 rounded-md px-4 flex items-center justify-center text-sm font-medium text-zinc-300 w-[70px]">
+                          <div className="bg-zinc-50 border border-zinc-200 rounded-md px-4 flex items-center justify-center text-sm font-medium text-zinc-900 w-[70px]">
                             +91
                           </div>
-                          <Input placeholder="98765 43210" className="bg-zinc-800 border-zinc-700 flex-1" {...field} />
+                          <Input placeholder="98765 43210" className="bg-zinc-50 border-zinc-200 flex-1 text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-zinc-950/20" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -284,7 +286,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           ) : (
             <Form {...otpForm}>
               <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
-                <div className="text-sm text-center text-zinc-400 mb-4">
+                <div className="text-sm text-center text-zinc-500 mb-4">
                   Enter the 6-digit code sent to your phone.
                 </div>
                 <FormField
@@ -294,7 +296,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
                     <FormItem>
                       <FormLabel>OTP Code</FormLabel>
                       <FormControl>
-                        <Input placeholder="••••••" className="bg-zinc-800 border-zinc-700 text-center tracking-widest text-lg" {...field} />
+                        <Input placeholder="••••••" className="bg-zinc-50 border-zinc-200 text-center tracking-widest text-lg text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-zinc-950/20" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -318,7 +320,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   return (
     <ErrorBoundary>
-    <div className="dark min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <GalleryHeader 
         event={event} 
         photographer={photographer} 
@@ -327,10 +329,18 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           toast.success('Gallery link copied to clipboard!');
         }}
         rightActions={
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            {sharedPhotoIds.size > 0 && (
+              <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                <Users className="h-3.5 w-3.5" />
+                {sharedPhotoIds.size} Highlights
+              </div>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         }
       />
 
@@ -351,7 +361,6 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
               description="There was an issue loading the photos. Please try again."
               icon={<AlertCircle className="h-8 w-8" />}
               action={<Button onClick={() => refetchPhotos()} variant="outline">Try again</Button>}
-              variant="dark"
             />
           </div>
         ) : foldersLoading || photosLoading ? (
@@ -374,6 +383,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
               layoutMode="couple"
               favoritePhotoIds={favoritePhotoIds}
               onToggleFavorite={(id) => toggleFavoriteMutation.mutate(id)}
+              sharedPhotoIds={sharedPhotoIds}
+              onToggleShare={(id) => toggleShareMutation.mutate(id)}
               className="flex-1"
             />
           </LayoutGroup>
@@ -389,6 +400,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
         downloadEnabled={event.downloadEnabled}
         favoritePhotoIds={favoritePhotoIds}
         onToggleFavorite={(id) => toggleFavoriteMutation.mutate(id)}
+        sharedPhotoIds={sharedPhotoIds}
+        onToggleShare={(id) => toggleShareMutation.mutate(id)}
       />
 
       <FavoritesFab

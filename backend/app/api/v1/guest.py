@@ -167,6 +167,38 @@ async def download_guest_photo(
     return DownloadPhotoResponse(url=url)
 
 
+@router.get(
+    "/guest/highlights",
+    response_model=PhotoListResponse,
+    dependencies=[Depends(rate_limit("photo_list", limit=60, window=60))],
+)
+async def list_guest_highlights(
+    slug: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    guest_session: GuestSession = Depends(get_guest_session_for_slug),
+    guest_service: GuestService = Depends(get_guest_service),
+) -> PhotoListResponse:
+    """List photos shared by the couple (highlights)."""
+    photos, total = await guest_service.get_highlights(
+        session=guest_session,
+        offset=offset,
+        limit=limit,
+    )
+
+    from app.services.photo_service import PhotoService
+
+    photo_service = PhotoService(guest_service.db)
+    photo_responses = photo_service.build_photo_responses(photos)
+
+    return PhotoListResponse(
+        items=photo_responses,
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+
 @router.post("/photos/{photo_id}/view", status_code=status.HTTP_204_NO_CONTENT, tags=["Analytics"])
 async def record_photo_view(
     slug: str,

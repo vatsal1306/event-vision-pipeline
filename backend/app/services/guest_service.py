@@ -195,6 +195,44 @@ class GuestService:
         photo_service = PhotoService(self.db)
         return await photo_service.get_download_url(session.event_id, photo_id)
 
+    async def get_highlights(
+        self,
+        session: GuestSession,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[Photo], int]:
+        """Get paginated photos shared by the couple with all guests."""
+        from sqlalchemy import func
+
+        from app.models.photo import Photo
+
+        event = await self.db.get(Event, session.event_id)
+        if event is None:
+            raise NotFoundError("Event")
+        self._ensure_guest_gallery_ready(event)
+
+        filters = [
+            Photo.event_id == session.event_id,
+            Photo.shared_with_guests.is_(True),
+        ]
+
+        count_stmt = select(func.count()).select_from(
+            select(Photo.id).where(*filters).subquery()
+        )
+        total = await self.db.scalar(count_stmt) or 0
+        if total == 0:
+            return [], 0
+
+        stmt = (
+            select(Photo)
+            .where(*filters)
+            .order_by(Photo.uploaded_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all()), int(total)
+
     async def request_auth(self, slug: str, name: str, phone: str) -> None:
         """Verify the event and guest link, then send an OTP. Creates a pending session."""
         stmt = select(Event).where(Event.slug == slug)

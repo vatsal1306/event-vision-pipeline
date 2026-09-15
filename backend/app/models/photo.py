@@ -76,6 +76,11 @@ class Photo(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
         server_default=text("NOW()"),
         nullable=False,
     )
+    shared_with_guests: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=text("false"),
+        nullable=False,
+    )
 
     event: Mapped[Event] = relationship("Event", back_populates="photos", lazy="selectin")
     folder: Mapped[Folder | None] = relationship("Folder", back_populates="photos", lazy="selectin")

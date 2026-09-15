@@ -4,7 +4,7 @@ import { Photo } from '@/types/event';
 import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { Heart } from 'lucide-react';
+import { Heart, Share2 } from 'lucide-react';
 import { DownloadButton } from './download-button';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,6 +18,8 @@ interface GalleryGridProps {
   layoutMode?: 'guest' | 'couple' | 'dashboard';
   favoritePhotoIds?: Set<string>;
   onToggleFavorite?: (photoId: string) => void;
+  sharedPhotoIds?: Set<string>;
+  onToggleShare?: (photoId: string) => void;
 }
 
 function VirtualColumn({ 
@@ -25,13 +27,17 @@ function VirtualColumn({
   onPhotoClick,
   downloadEnabled,
   favoritePhotoIds,
-  onToggleFavorite
+  onToggleFavorite,
+  sharedPhotoIds,
+  onToggleShare
 }: { 
   photos: { photo: Photo, originalIndex: number }[], 
   onPhotoClick: (idx: number) => void,
   downloadEnabled: boolean,
   favoritePhotoIds?: Set<string>,
-  onToggleFavorite?: (id: string) => void
+  onToggleFavorite?: (id: string) => void,
+  sharedPhotoIds?: Set<string>,
+  onToggleShare?: (id: string) => void
 }) {
   const virtualizer = useWindowVirtualizer({
     count: photos.length,
@@ -49,6 +55,7 @@ function VirtualColumn({
         const { photo, originalIndex } = photos[virtualItem.index];
         const aspectRatio = photo.width && photo.height ? photo.width / photo.height : 1;
         const isFavorite = favoritePhotoIds?.has(photo.id);
+        const isShared = sharedPhotoIds?.has(photo.id);
 
         return (
           <div
@@ -107,6 +114,30 @@ function VirtualColumn({
                 </div>
               )}
               
+              {onToggleShare && (
+                <div className={cn(
+                  "absolute top-2 right-12 transition-opacity duration-300",
+                  isShared ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className={cn(
+                      "rounded-full shadow-lg h-8 w-8",
+                      isShared 
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                        : "bg-background/80 hover:bg-background text-foreground backdrop-blur-md"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleShare(photo.id);
+                    }}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              
               {downloadEnabled && (
                 <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <DownloadButton
@@ -134,7 +165,9 @@ export function GalleryGrid({
   downloadEnabled = true,
   layoutMode = 'dashboard',
   favoritePhotoIds,
-  onToggleFavorite
+  onToggleFavorite,
+  sharedPhotoIds,
+  onToggleShare
 }: GalleryGridProps) {
   const [columns, setColumns] = useState(3);
 
@@ -194,6 +227,8 @@ export function GalleryGrid({
           downloadEnabled={downloadEnabled}
           favoritePhotoIds={favoritePhotoIds}
           onToggleFavorite={onToggleFavorite}
+          sharedPhotoIds={sharedPhotoIds}
+          onToggleShare={onToggleShare}
         />
       ))}
     </div>
