@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from 'react';
 import { Photo } from '@/types/event';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, Heart, Share2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Heart, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DownloadButton } from './download-button';
@@ -88,7 +88,7 @@ export function PhotoViewer({
                 className={cn(
                   "rounded-full transition-colors",
                   isFavorite 
-                    ? "text-primary hover:text-primary hover:bg-white/10" 
+                    ? "text-white bg-white/20 hover:bg-white/30 hover:text-white" 
                     : "text-white hover:bg-white/20 hover:text-white"
                 )}
                 onClick={() => onToggleFavorite(currentPhoto.id)}
@@ -103,12 +103,12 @@ export function PhotoViewer({
                 className={cn(
                   "rounded-full transition-colors",
                   isShared 
-                    ? "text-primary hover:text-primary hover:bg-white/10" 
+                    ? "text-black bg-white hover:bg-white/90 hover:text-black" 
                     : "text-white hover:bg-white/20 hover:text-white"
                 )}
                 onClick={() => onToggleShare(currentPhoto.id)}
               >
-                <Share2 className="h-6 w-6" />
+                <Users className={cn("h-6 w-6", isShared && "fill-current")} />
               </Button>
             )}
             {downloadEnabled && (

@@ -177,9 +177,9 @@ export default function EventDetailPage() {
                 new Date(event.dateEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
               }` : (
                 event.dateStart ? new Date(event.dateStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD'
-              )} · 
-              <span className="capitalize">{event.eventType}</span> · 
-              {event.totalPhotos.toLocaleString()} photos
+              )}{' · '}
+              <span className="capitalize">{event.eventType}</span>{' · '}
+              {(event.totalPhotos || 0).toLocaleString()} photos
             </p>
           </div>
           <div className="flex flex-none items-start gap-3">

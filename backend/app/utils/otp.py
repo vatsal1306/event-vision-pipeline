@@ -152,7 +152,9 @@ class OTPService:
         Raises:
             OTPMaxAttemptsError: When verification attempts are exhausted.
         """
-        if self.settings.debug and otp == "123456":
+        if (
+            self.settings.debug or self.settings.environment.lower() == "development"
+        ) and otp == "123456":
             return True
 
         attempts_key = f"{OTP_ATTEMPTS_PREFIX}{destination}:{purpose}"
@@ -195,7 +197,11 @@ class OTPService:
         Raises:
             OTPMaxAttemptsError: When either destination has exhausted attempts.
         """
-        if self.settings.debug and phone_otp == "123456" and email_otp == "123456":
+        if (
+            (self.settings.debug or self.settings.environment.lower() == "development")
+            and phone_otp == "123456"
+            and email_otp == "123456"
+        ):
             return True
 
         phone_attempts_key = f"{OTP_ATTEMPTS_PREFIX}{phone}:{purpose}"

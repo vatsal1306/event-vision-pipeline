@@ -31,13 +31,14 @@ export default function EventsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'uploading' | 'processing' | 'ready' | 'archived'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'uploading' | 'processing' | 'ready'>('all');
 
   const { data: events = [], isLoading, error, refetch } = useEvents();
   const createEventMutation = useCreateEvent();
 
   const filteredEvents = events
     .filter((event) => {
+      if (event.status === 'archived') return false; // Strictly exclude archived
       const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = filterStatus === 'all' || event.status === filterStatus;
       return matchesSearch && matchesStatus;
@@ -145,7 +146,6 @@ export default function EventsPage() {
                 <DropdownMenuRadioItem value="uploading">Needs faces</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="processing">Finding faces</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="ready">Ready</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="archived">Archived</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>

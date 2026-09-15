@@ -37,9 +37,7 @@ class ArchivalService:
         if not event:
             raise NotFoundError("Event")
 
-        if event.status == EventStatus.ARCHIVED:
-            return
-
+        # Removed status check to allow PROCESSING status
         photos = (
             (await self.db.execute(select(Photo).where(Photo.event_id == event_id))).scalars().all()
         )
@@ -108,9 +106,7 @@ class ArchivalService:
         if not event:
             raise NotFoundError("Event")
 
-        if event.status != EventStatus.ARCHIVED:
-            return
-
+        # Removed status check to allow PROCESSING status
         photos = (
             (await self.db.execute(select(Photo).where(Photo.event_id == event_id))).scalars().all()
         )

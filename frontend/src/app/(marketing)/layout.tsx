@@ -46,6 +46,12 @@ export default function MarketingLayout({
               ©️ {new Date().getFullYear()} HPK AI Labs. All rights reserved
             </span>
           </div>
+          <div className="text-sm text-ink/60 font-medium">
+            Contact Us:{' '}
+            <a href="mailto:spotme@hpklabs.ai" className="hover:text-ink transition-colors underline underline-offset-2">
+              spotme@hpklabs.ai
+            </a>
+          </div>
         </div>
       </footer>
     </div>
