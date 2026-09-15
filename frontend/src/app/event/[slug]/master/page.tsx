@@ -330,12 +330,10 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
         }}
         rightActions={
           <div className="flex items-center gap-2">
-            {sharedPhotoIds.size > 0 && (
               <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
                 <Users className="h-3.5 w-3.5" />
                 {sharedPhotoIds.size} Highlights
               </div>
-            )}
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
               <LogOut className="h-4 w-4 mr-2" />
               Logout

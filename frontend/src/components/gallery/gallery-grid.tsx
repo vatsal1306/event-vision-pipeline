@@ -4,7 +4,7 @@ import { Photo } from '@/types/event';
 import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { Heart, Share2 } from 'lucide-react';
+import { Heart, Users } from 'lucide-react';
 import { DownloadButton } from './download-button';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useState } from 'react';
@@ -133,7 +133,7 @@ function VirtualColumn({
                       onToggleShare(photo.id);
                     }}
                   >
-                    <Share2 className="h-4 w-4" />
+                    <Users className="h-4 w-4" />
                   </Button>
                 </div>
               )}
