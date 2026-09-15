@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useEventInfo } from '@/hooks/use-master-gallery';
-import { useGuestAuth, useGuestVerify, useSubmitSelfie, useGuestPhotos } from '@/hooks/use-guest-gallery';
+import { useGuestAuth, useGuestVerify, useSubmitSelfie, useGuestPhotos, useGuestHighlights } from '@/hooks/use-guest-gallery';
 import { useGuestAuthStore } from '@/stores/guest-auth-store';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -14,8 +14,9 @@ import { ProcessingScreen } from '@/components/guest/processing-screen';
 import { PersonalizedGallery } from '@/components/guest/personalized-gallery';
 import { GallerySkeleton } from '@/components/gallery/gallery-skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
+import { getInitials } from '@/lib/utils';
 import { isGalleryReady } from '@/lib/face-processing';
-import { guestSelfieFailureCopy, isSelfieMatchSuccess } from '@/lib/guest-selfie';
+import { guestSelfieFailureCopy, canProceedToGallery } from '@/lib/guest-selfie';
 import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -62,6 +63,15 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
     refetch: refetchPhotos,
   } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
   const photosLoading = !photosData?.items && (photosPending || photosFetching);
+
+  const {
+    data: highlightsData,
+    isPending: highlightsPending,
+    isFetching: highlightsFetching,
+    error: highlightsError,
+    refetch: refetchHighlights,
+  } = useGuestHighlights(slug, isVerified ? sessionToken : null);
+  const highlightsLoading = !highlightsData?.items && (highlightsPending || highlightsFetching);
 
   // Mutations
   const authMutation = useGuestAuth();
@@ -117,7 +127,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       
       const result = await selfieMutation.mutateAsync({ slug, data: formData, token: sessionToken });
 
-      if (!isSelfieMatchSuccess(result.status, result.matched_photo_count)) {
+      if (!canProceedToGallery(result.status)) {
         toast.error(guestSelfieFailureCopy(result.status));
         setStep('selfie');
         return;
@@ -125,7 +135,12 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
       setGuestSession(guestSession, sessionToken, false);
       setStep('gallery');
-      toast.success(`Found ${result.matched_photo_count} matching photos!`);
+      
+      if (result.matched_photo_count > 0) {
+        toast.success(`Found ${result.matched_photo_count} matching photos!`);
+      } else {
+        toast.info("No face matches found, but you can view the highlights!");
+      }
     } catch (err) {
       toast.error('Failed to process selfie. Please try again.');
       setStep('selfie');
@@ -141,12 +156,11 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   if (infoError) {
     return (
-      <div className="flex h-[100dvh] items-center justify-center bg-black">
+      <div className="flex h-[100dvh] items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100">
         <EmptyState
           title="Gallery Unavailable"
           description="This gallery isn't available. Check the link from your photographer."
           icon={<AlertCircle className="h-8 w-8" />}
-          variant="dark"
         />
       </div>
     );
@@ -154,14 +168,14 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   if (infoLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 text-zinc-900 flex flex-col">
         <div className="w-full flex-1 p-4 max-w-md mx-auto space-y-8 mt-12 animate-pulse">
-           <div className="h-12 w-12 bg-zinc-800 rounded-md mx-auto" />
-           <div className="h-8 w-3/4 bg-zinc-800 rounded mx-auto" />
-           <div className="h-4 w-1/2 bg-zinc-800 rounded mx-auto" />
+           <div className="h-12 w-12 bg-zinc-200/50 rounded-md mx-auto" />
+           <div className="h-8 w-3/4 bg-zinc-200/50 rounded mx-auto" />
+           <div className="h-4 w-1/2 bg-zinc-200/50 rounded mx-auto" />
            <div className="space-y-4 pt-8">
-             <div className="h-12 bg-zinc-800 rounded" />
-             <div className="h-12 bg-zinc-800 rounded" />
+             <div className="h-12 bg-zinc-200/50 rounded" />
+             <div className="h-12 bg-zinc-200/50 rounded" />
            </div>
         </div>
       </div>
@@ -170,7 +184,7 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   if (!infoData?.event) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100">
         <EmptyState title="Event Not Found" description="The event you are looking for does not exist." />
       </div>
     );
@@ -180,12 +194,11 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   if (event.status === 'archived') {
     return (
-      <div className="flex h-[100dvh] items-center justify-center bg-black p-4">
+      <div className="flex h-[100dvh] items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 p-4">
         <EmptyState
           title="Gallery Unavailable"
           description="This gallery is no longer available."
-          icon={<Lock className="h-12 w-12 text-zinc-600" />}
-          variant="dark"
+          icon={<Lock className="h-12 w-12 text-zinc-400" />}
         />
       </div>
     );
@@ -197,11 +210,11 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   if (!event.guestLinkActive) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 p-4">
         <EmptyState 
           title="Gallery Unavailable" 
           description="The guest link for this event is currently inactive." 
-          icon={<Lock className="h-12 w-12 text-zinc-600" />} 
+          icon={<Lock className="h-12 w-12 text-zinc-400" />} 
         />
       </div>
     );
@@ -212,8 +225,8 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
       {photographer.logo_url ? (
         <img src={photographer.logo_url} alt={photographer.studio_name} className="h-12 w-auto mx-auto mb-4" />
       ) : (
-        <div className="h-12 w-12 rounded-md bg-primary flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-          {photographer.studio_name.charAt(0)}
+        <div className="h-12 w-12 rounded-md bg-zinc-900 text-white flex items-center justify-center mx-auto mb-4 font-bold text-xl uppercase">
+          {getInitials(photographer.studio_name)}
         </div>
       )}
       <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
@@ -223,13 +236,13 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
   return (
     <ErrorBoundary>
-    <div className="min-h-screen bg-black text-white flex flex-col items-center">
+    <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 text-zinc-900 flex flex-col items-center">
       {step === 'auth' && (
         <div className="w-full flex-1 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-md space-y-8 bg-zinc-900 p-8 rounded-xl border border-white/10">
+          <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-xl ring-1 ring-zinc-950/5">
             {branding}
-            <div className="pt-4 border-t border-white/10">
-              <p className="text-sm text-zinc-400 mb-6 text-center">
+            <div className="pt-4 border-t border-zinc-100">
+              <p className="text-sm text-zinc-500 mb-6 text-center">
                 Enter your details below to see the photos you appear in.
               </p>
               <OtpForm 
@@ -262,22 +275,23 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
 
       {step === 'gallery' && (
         <div className="w-full flex-1 flex flex-col">
-          {photosError ? (
+          {photosError || highlightsError ? (
             <div className="flex-1 flex items-center justify-center p-6">
               <EmptyState
                 title="Failed to load photos"
-                description={photosError.message}
+                description={photosError?.message || highlightsError?.message || "An unknown error occurred."}
                 icon={<AlertCircle className="h-8 w-8 text-destructive" />}
-                action={<Button onClick={() => refetchPhotos()}>Try again</Button>}
+                action={<Button onClick={() => { refetchPhotos(); refetchHighlights(); }}>Try again</Button>}
               />
             </div>
-          ) : photosLoading ? (
+          ) : photosLoading || highlightsLoading ? (
             <div className="flex-1 p-6">
               <GallerySkeleton count={12} className="opacity-50" />
             </div>
           ) : (
             <PersonalizedGallery 
-              photos={photosData?.items || []} 
+              photos={photosData?.items || []}
+              highlightPhotos={highlightsData?.items || []}
               guestName={guestSession?.name || 'Guest'} 
               onRetakeSelfie={handleRetakeSelfie}
               downloadEnabled={event.downloadEnabled}

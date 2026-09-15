@@ -86,7 +86,6 @@ services:
             - -hooks-http-retry=3
             - -behind-proxy
             - -base-path=/files/
-            - -max-size=52428800
         ulimits:
             nofile:
                 soft: 65535

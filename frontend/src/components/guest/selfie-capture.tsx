@@ -42,11 +42,11 @@ export function SelfieCapture({ onCapture, isLoading }: SelfieCaptureProps) {
   return (
     <div className="w-full flex flex-col items-center space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-white tracking-tight">Almost there!</h2>
-        <p className="text-zinc-400">Take a quick selfie so we can find your photos.</p>
+        <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">Almost there!</h2>
+        <p className="text-zinc-500">Take a quick selfie so we can find your photos.</p>
       </div>
 
-      <div className="relative w-full max-w-sm aspect-[3/4] bg-zinc-900 rounded-2xl overflow-hidden border-2 border-zinc-800">
+      <div className="relative w-full max-w-sm aspect-[3/4] bg-zinc-50 rounded-2xl overflow-hidden shadow-lg border-2 border-zinc-200">
         <AnimatePresence mode="wait">
           {!imgSrc ? (
             <motion.div
@@ -78,17 +78,17 @@ export function SelfieCapture({ onCapture, isLoading }: SelfieCaptureProps) {
                     </mask>
                   </defs>
                   {/* The semi-transparent overlay everywhere except the hole */}
-                  <rect width="100%" height="100%" fill="rgba(0,0,0,0.5)" mask="url(#face-hole)" />
+                  <rect width="100%" height="100%" fill="rgba(255,255,255,0.7)" mask="url(#face-hole)" />
                   {/* The border of the guide */}
-                  <ellipse cx="50%" cy="45%" rx="35%" ry="30%" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeDasharray="6 6" />
+                  <ellipse cx="50%" cy="45%" rx="35%" ry="30%" fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="2" strokeDasharray="6 6" />
                 </svg>
               </div>
 
               {hasPermission === false && (
-                <div className="absolute inset-0 bg-zinc-900 flex flex-col items-center justify-center p-6 text-center z-10">
+                <div className="absolute inset-0 bg-zinc-50 flex flex-col items-center justify-center p-6 text-center z-10">
                   <Camera className="w-12 h-12 text-zinc-500 mb-4" />
-                  <p className="text-white font-medium mb-2">Camera Access Denied</p>
-                  <p className="text-zinc-400 text-sm">Please allow camera access in your browser settings to take a selfie.</p>
+                  <p className="text-zinc-900 font-medium mb-2">Camera Access Denied</p>
+                  <p className="text-zinc-500 text-sm">Please allow camera access in your browser settings to take a selfie.</p>
                 </div>
               )}
             </motion.div>

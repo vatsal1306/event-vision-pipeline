@@ -55,3 +55,16 @@ export function useGuestPhotos(slug: string, token: string | null) {
     staleTime: 0,
   });
 }
+
+export function useGuestHighlights(slug: string, token: string | null) {
+  return useQuery({
+    queryKey: ['guestHighlights', slug, token],
+    queryFn: async () => {
+      const page = await api.getGuestHighlights(slug, token!);
+      return mapGuestPhotoPage(page);
+    },
+    enabled: !!token,
+    staleTime: 0,
+  });
+}
+

@@ -147,9 +147,8 @@ class PhotoService:
             raise BadRequestError("Uploaded file is empty")
 
         settings = get_settings()
+
         size = len(payload)
-        if size > settings.max_upload_size_bytes:
-            raise BadRequestError("File too large")
 
         if photographer.storage_used_bytes + size > photographer.storage_limit_bytes:
             raise StorageLimitError()

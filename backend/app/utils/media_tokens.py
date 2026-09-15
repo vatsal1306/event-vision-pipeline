@@ -27,8 +27,7 @@ def build_photo_preview_url(event_id: UUID, photo_id: UUID) -> str:
     # Relative path so the browser hits Caddy `/api/*` instead of an internal
     # Docker hostname or localhost baked into API_BASE_URL.
     return (
-        f"/api/v1/events/{event_id}/photos/{photo_id}"
-        f"/preview?expires={expires_at}&sig={signature}"
+        f"/api/v1/events/{event_id}/photos/{photo_id}/preview?expires={expires_at}&sig={signature}"
     )
 
 

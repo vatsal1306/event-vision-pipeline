@@ -97,6 +97,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'platform-originals-702872201750.s3.ap-south-1.amazonaws.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'platform-assets-702872201750.s3.amazonaws.com',
+      },
       ...envApiPatterns,
     ],
   },

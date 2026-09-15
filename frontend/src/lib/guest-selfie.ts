@@ -23,6 +23,8 @@ export function guestSelfieFailureCopy(status: string | undefined): string {
 }
 
 /** Whether the guest should proceed to their personalized gallery. */
-export function isSelfieMatchSuccess(status: string | undefined, matchedPhotoCount: number): boolean {
-  return status === 'matched' && matchedPhotoCount > 0;
+export function canProceedToGallery(status: string | undefined): boolean {
+  // They can proceed if they matched photos OR if their face was valid but matched 0 photos (no_match).
+  // If their face was invalid (no face, low quality, etc), they should not proceed.
+  return status === 'matched' || status === 'no_match';
 }

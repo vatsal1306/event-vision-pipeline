@@ -25,3 +25,10 @@ export function maskPhone(phone: string) {
   const prefix = phone.startsWith('+') ? phone.slice(0, 3) : '';
   return `${prefix} ******${last4}`;
 }
+
+export function getInitials(name: string) {
+  if (!name) return '';
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0].charAt(0).toUpperCase();
+  return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+}

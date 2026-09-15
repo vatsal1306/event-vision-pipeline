@@ -60,11 +60,11 @@ export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-zinc-400">Name</FormLabel>
+                <FormLabel className="text-zinc-700">Name</FormLabel>
                 <FormControl>
                   <Input 
                     placeholder="Enter your name" 
-                    className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 h-12" 
+                    className="bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 h-12 focus-visible:ring-zinc-950/20" 
                     {...field} 
                   />
                 </FormControl>
@@ -77,16 +77,16 @@ export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
             name="phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-zinc-400">Mobile</FormLabel>
+                <FormLabel className="text-zinc-700">Mobile</FormLabel>
                 <FormControl>
                   <div className="flex gap-2">
-                    <div className="bg-zinc-800/50 border border-zinc-700 rounded-md px-4 flex items-center justify-center text-sm font-medium text-zinc-300 w-[70px] h-12">
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-md px-4 flex items-center justify-center text-sm font-medium text-zinc-900 w-[70px] h-12">
                       +91
                     </div>
                     <Input 
                       placeholder="98765 43210" 
                       type="tel"
-                      className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 h-12 flex-1" 
+                      className="bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 h-12 flex-1 focus-visible:ring-zinc-950/20" 
                       {...field} 
                     />
                   </div>
@@ -115,12 +115,12 @@ export function OtpForm({ onSendOtp, onVerifyOtp, isLoading }: OtpFormProps) {
           name="otp"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-zinc-400">OTP</FormLabel>
+              <FormLabel className="text-zinc-700">OTP</FormLabel>
               <FormControl>
                 <Input 
                   placeholder="Enter 6-digit OTP" 
                   maxLength={6}
-                  className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-center text-lg tracking-[0.5em] h-14" 
+                  className="bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 text-center text-lg tracking-[0.5em] h-14 focus-visible:ring-zinc-950/20" 
                   {...field} 
                 />
               </FormControl>

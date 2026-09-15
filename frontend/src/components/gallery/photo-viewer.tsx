@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from 'react';
 import { Photo } from '@/types/event';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Heart, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DownloadButton } from './download-button';
@@ -18,6 +18,8 @@ interface PhotoViewerProps {
   downloadEnabled?: boolean;
   favoritePhotoIds?: Set<string>;
   onToggleFavorite?: (photoId: string) => void;
+  sharedPhotoIds?: Set<string>;
+  onToggleShare?: (photoId: string) => void;
 }
 
 export function PhotoViewer({
@@ -28,10 +30,13 @@ export function PhotoViewer({
   onChangeIndex,
   downloadEnabled = true,
   favoritePhotoIds,
-  onToggleFavorite
+  onToggleFavorite,
+  sharedPhotoIds,
+  onToggleShare
 }: PhotoViewerProps) {
   const currentPhoto = photos[currentIndex];
   const isFavorite = currentPhoto ? favoritePhotoIds?.has(currentPhoto.id) : false;
+  const isShared = currentPhoto ? sharedPhotoIds?.has(currentPhoto.id) : false;
   const prefersReducedMotion = useReducedMotion();
 
   const handlePrevious = useCallback(() => {
@@ -89,6 +94,21 @@ export function PhotoViewer({
                 onClick={() => onToggleFavorite(currentPhoto.id)}
               >
                 <Heart className={cn("h-6 w-6", isFavorite && "fill-current")} />
+              </Button>
+            )}
+            {onToggleShare && currentPhoto && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "rounded-full transition-colors",
+                  isShared 
+                    ? "text-primary hover:text-primary hover:bg-white/10" 
+                    : "text-white hover:bg-white/20 hover:text-white"
+                )}
+                onClick={() => onToggleShare(currentPhoto.id)}
+              >
+                <Share2 className="h-6 w-6" />
               </Button>
             )}
             {downloadEnabled && (

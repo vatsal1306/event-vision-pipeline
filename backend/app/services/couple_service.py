@@ -223,6 +223,69 @@ class CoupleService:
             await self.db.commit()
             return True
 
+    async def toggle_share(self, session: CoupleSession, photo_id: uuid.UUID) -> bool:
+        """Toggle shared_with_guests status for a photo. Returns True if now shared."""
+        from app.models.enums import ProcessingStatus
+        from app.models.photo import Photo
+
+        event = await self._event_for_session(session)
+        self._ensure_couple_gallery_ready(event)
+
+        stmt = select(Photo).where(
+            Photo.id == photo_id,
+            Photo.event_id == session.event_id,
+            Photo.processing_status == ProcessingStatus.COMPLETED,
+        )
+        result = await self.db.execute(stmt)
+        photo = result.scalar_one_or_none()
+        if not photo:
+            raise NotFoundError("Completed photo not found in this event")
+
+        photo.shared_with_guests = not photo.shared_with_guests
+        await self.db.commit()
+        return photo.shared_with_guests
+
+    async def get_shared_photos(
+        self,
+        session: CoupleSession,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> PhotoListResponse:
+        """Get paginated photos shared with guests for the event."""
+        from sqlalchemy import func
+
+        from app.models.enums import ProcessingStatus
+        from app.models.photo import Photo
+
+        event = await self._event_for_session(session)
+        self._ensure_couple_gallery_ready(event)
+
+        filters = [
+            Photo.event_id == session.event_id,
+            Photo.processing_status == ProcessingStatus.COMPLETED,
+            Photo.shared_with_guests.is_(True),
+        ]
+
+        count_stmt = select(func.count()).select_from(select(Photo.id).where(*filters).subquery())
+        total = await self.db.scalar(count_stmt) or 0
+
+        stmt = (
+            select(Photo)
+            .where(*filters)
+            .order_by(Photo.uploaded_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        photos = result.scalars().all()
+
+        from app.services.photo_service import PhotoService
+
+        photo_service = PhotoService(self.db)
+        items = photo_service.build_photo_responses(list(photos))
+
+        return PhotoListResponse(items=items, total=total, offset=offset, limit=limit)
+
     async def get_favorites(
         self, session: CoupleSession, offset: int = 0, limit: int = 50
     ) -> PhotoListResponse:

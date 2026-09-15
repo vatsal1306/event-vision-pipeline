@@ -16,6 +16,8 @@ from app.schemas.couple import (
     CoupleVerifyRequest,
     ToggleFavoriteRequest,
     ToggleFavoriteResponse,
+    ToggleShareRequest,
+    ToggleShareResponse,
 )
 from app.schemas.folder import FolderTreeResponse
 from app.schemas.photo import DownloadPhotoResponse, PhotoListResponse
@@ -132,6 +134,34 @@ async def list_favorites(
 ) -> PhotoListResponse:
     """List favorited photos."""
     return await couple_service.get_favorites(session, offset, limit)
+
+
+@router.post("/share", response_model=ToggleShareResponse)
+async def toggle_share(
+    slug: str,
+    request: ToggleShareRequest,
+    session: CoupleSession = Depends(get_couple_session_for_slug),
+    couple_service: CoupleService = Depends(get_couple_service),
+) -> ToggleShareResponse:
+    """Toggle the shared-with-guests status of a photo."""
+    is_shared = await couple_service.toggle_share(session, request.photo_id)
+    return ToggleShareResponse(is_shared=is_shared)
+
+
+@router.get(
+    "/shared",
+    response_model=PhotoListResponse,
+    dependencies=[Depends(rate_limit("photo_list", limit=60, window=60))],
+)
+async def list_shared_photos(
+    slug: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    session: CoupleSession = Depends(get_couple_session_for_slug),
+    couple_service: CoupleService = Depends(get_couple_service),
+) -> PhotoListResponse:
+    """List photos shared with guests."""
+    return await couple_service.get_shared_photos(session, offset, limit)
 
 
 @router.get(

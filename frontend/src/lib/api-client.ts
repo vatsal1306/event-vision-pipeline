@@ -300,6 +300,22 @@ export const api = {
       `/api/v1/event/${slug}/master/favorites`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
+  toggleShare: (slug: string, data: { photo_id: string }, token?: string) =>
+    apiClient.post<{ is_shared: boolean }>(
+      `/api/v1/event/${slug}/master/share`,
+      data,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    ),
+  getSharedPhotos: (slug: string, token?: string) =>
+    apiClient.get<PaginatedResponse<Photo>>(
+      `/api/v1/event/${slug}/master/shared`,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    ),
+  getGuestHighlights: (slug: string, token?: string) =>
+    apiClient.get<PaginatedResponse<Photo>>(
+      `/api/v1/event/${slug}/guest/highlights`,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    ),
   downloadGuestPhoto: (slug: string, photoId: string) =>
     apiClient.get<{ url: string }>(`/api/v1/event/${slug}/photos/${photoId}/download`),
 
