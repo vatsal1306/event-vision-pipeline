@@ -7,8 +7,7 @@ import { X, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DownloadButton } from './download-button';
-import Image from 'next/image';
-import { shouldBypassImageOptimization, toBrowserMediaSrc } from '@/lib/media-url';
+import { toBrowserMediaSrc } from '@/lib/media-url';
 
 interface PhotoViewerProps {
   photos: Photo[];
@@ -158,14 +157,11 @@ export function PhotoViewer({
           }}
         >
           {currentPhoto.proxyUrl ? (
-            <Image
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
               src={toBrowserMediaSrc(currentPhoto.proxyUrl)}
               alt={currentPhoto.filename}
-              fill
-              sizes="100vw"
-              className="object-contain"
-              priority
-              unoptimized={shouldBypassImageOptimization(currentPhoto.proxyUrl)}
+              className="max-h-full max-w-full object-contain"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-white/50">

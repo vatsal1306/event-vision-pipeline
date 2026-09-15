@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Image, { ImageProps } from 'next/image';
 import { Blurhash } from 'react-blurhash';
-import { shouldBypassImageOptimization, toBrowserMediaSrc } from '@/lib/media-url';
+import { toBrowserMediaSrc } from '@/lib/media-url';
 import { cn } from '@/lib/utils';
 
-interface ResponsiveImageProps extends Omit<ImageProps, 'src'> {
+interface ResponsiveImageProps {
   src: string;
   alt: string;
   blurhash?: string | null;
@@ -15,6 +14,10 @@ interface ResponsiveImageProps extends Omit<ImageProps, 'src'> {
   imageClassName?: string;
 }
 
+/**
+ * Event photo preview. Uses a plain img so signed `/api/.../preview` URLs
+ * are requested by the browser (Caddy → FastAPI) instead of `/_next/image`.
+ */
 export function ResponsiveImage({
   src,
   alt,
@@ -22,34 +25,22 @@ export function ResponsiveImage({
   aspectRatio,
   className,
   imageClassName,
-  width,
-  height,
-  unoptimized,
-  ...props
 }: ResponsiveImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const resolvedSrc = toBrowserMediaSrc(src);
-  const bypassOptimizer =
-    unoptimized === true ||
-    shouldBypassImageOptimization(src) ||
-    shouldBypassImageOptimization(resolvedSrc);
 
   return (
     <div
-      className={cn(
-        'relative overflow-hidden bg-muted',
-        className
-      )}
+      className={cn('relative overflow-hidden bg-muted', className)}
       style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : undefined}
     >
-      <Image
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={resolvedSrc}
         alt={alt}
-        fill
-        unoptimized={bypassOptimizer}
         className={cn(
-          'object-cover transition-opacity duration-300 ease-in-out',
+          'absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-in-out',
           isLoading && !hasError ? 'opacity-0' : 'opacity-100',
           imageClassName
         )}
@@ -58,9 +49,8 @@ export function ResponsiveImage({
           setIsLoading(false);
           setHasError(true);
         }}
-        {...props}
       />
-      
+
       {isLoading && blurhash && !hasError && (
         <div className="absolute inset-0 z-0">
           <Blurhash

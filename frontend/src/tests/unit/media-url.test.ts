@@ -1,31 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  resolveProxyUrl,
-  shouldBypassImageOptimization,
-  toBrowserMediaSrc,
-} from '@/lib/media-url';
+import { extractApiMediaPath, resolveProxyUrl, toBrowserMediaSrc } from '@/lib/media-url';
 
-describe('shouldBypassImageOptimization', () => {
-  it('should bypass the optimizer for signed API preview URLs', () => {
-    const src =
-      'https://spotme.hpklabs.ai/api/v1/events/abc/photos/def/preview?expires=1&sig=deadbeef';
-    expect(shouldBypassImageOptimization(src)).toBe(true);
+describe('extractApiMediaPath', () => {
+  it('should keep a relative API path', () => {
+    expect(extractApiMediaPath('/api/v1/events/a/photos/b/preview?expires=1&sig=x')).toBe(
+      '/api/v1/events/a/photos/b/preview?expires=1&sig=x'
+    );
   });
 
-  it('should bypass the optimizer for same-origin relative preview paths', () => {
+  it('should strip any host from an API preview URL', () => {
     expect(
-      shouldBypassImageOptimization('/api/v1/events/abc/photos/def/preview?expires=1&sig=abc')
-    ).toBe(true);
+      extractApiMediaPath('http://localhost:8000/api/v1/events/a/photos/b/preview?expires=1&sig=x')
+    ).toBe('/api/v1/events/a/photos/b/preview?expires=1&sig=x');
   });
 
-  it('should bypass the optimizer for local API hosts', () => {
-    expect(
-      shouldBypassImageOptimization('http://localhost:8000/api/v1/events/a/photos/b/preview?expires=1&sig=x')
-    ).toBe(true);
-  });
-
-  it('should keep optimization for public mock CDNs', () => {
-    expect(shouldBypassImageOptimization('https://picsum.photos/seed/1/800/600')).toBe(false);
+  it('should ignore non-API URLs', () => {
+    expect(extractApiMediaPath('https://picsum.photos/seed/1/800/600')).toBeNull();
   });
 });
 
@@ -34,21 +24,20 @@ describe('toBrowserMediaSrc', () => {
     vi.unstubAllEnvs();
   });
 
-  it('should rewrite configured same-host API URLs to relative paths', () => {
+  it('should use a relative path when the app and API share a public host', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://spotme.hpklabs.ai');
     vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', 'https://spotme.hpklabs.ai');
-    const src =
-      'https://spotme.hpklabs.ai/api/v1/events/abc/photos/def/preview?expires=1&sig=deadbeef';
-    expect(toBrowserMediaSrc(src)).toBe(
-      '/api/v1/events/abc/photos/def/preview?expires=1&sig=deadbeef'
-    );
+    expect(
+      toBrowserMediaSrc('http://localhost:8000/api/v1/events/abc/photos/def/preview?expires=1&sig=deadbeef')
+    ).toBe('/api/v1/events/abc/photos/def/preview?expires=1&sig=deadbeef');
   });
 
-  it('should leave a different-origin API URL absolute', () => {
-    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://spotme.hpklabs.ai');
-    vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', 'https://spotme.hpklabs.ai');
-    const src = 'https://api.example.com/api/v1/events/abc/photos/def/preview?expires=1&sig=x';
-    expect(toBrowserMediaSrc(src)).toBe(src);
+  it('should prefix the local API origin when frontend and API ports differ', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
+    vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', 'http://localhost:8000');
+    expect(
+      toBrowserMediaSrc('http://backend:8000/api/v1/events/abc/photos/def/preview?expires=1&sig=x')
+    ).toBe('http://localhost:8000/api/v1/events/abc/photos/def/preview?expires=1&sig=x');
   });
 
   it('should pass through nullish proxy URLs', () => {

@@ -34,8 +34,10 @@ def test_preview_signature_rejects_tampering() -> None:
 
 
 def test_build_photo_preview_url_contains_query() -> None:
-    """Preview URLs include expiry and signature query params."""
+    """Preview URLs are same-origin paths with expiry and signature params."""
     url = build_photo_preview_url(uuid4(), uuid4())
+    assert url.startswith("/api/v1/events/")
     assert "/preview?" in url
     assert "expires=" in url
     assert "sig=" in url
+    assert "://" not in url

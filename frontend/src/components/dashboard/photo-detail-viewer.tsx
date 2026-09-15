@@ -91,7 +91,6 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
                 aspectRatio={photo.width && photo.height ? photo.width / photo.height : 4/3}
                 className="w-full h-auto max-h-[60vh]"
                 imageClassName="object-contain"
-                unoptimized
               />
             ) : (
               <ImageIcon className="h-12 w-12 text-muted-foreground" />

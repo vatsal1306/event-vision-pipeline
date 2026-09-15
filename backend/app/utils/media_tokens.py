@@ -19,13 +19,15 @@ def build_photo_preview_url(event_id: UUID, photo_id: UUID) -> str:
         photo_id: Photo to preview.
 
     Returns:
-        Absolute URL including ``expires`` and ``sig`` query parameters.
+        Same-origin path including ``expires`` and ``sig`` query parameters.
     """
     settings = get_settings()
     expires_at = int(time.time()) + settings.s3_presigned_url_expiry
     signature = sign_photo_preview(event_id, photo_id, expires_at)
+    # Relative path so the browser hits Caddy `/api/*` instead of an internal
+    # Docker hostname or localhost baked into API_BASE_URL.
     return (
-        f"{settings.api_base_url}/api/v1/events/{event_id}/photos/{photo_id}"
+        f"/api/v1/events/{event_id}/photos/{photo_id}"
         f"/preview?expires={expires_at}&sig={signature}"
     )
 

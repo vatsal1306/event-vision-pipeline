@@ -268,8 +268,6 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
                           imageClassName={cn(
                             isSelected ? "scale-95 brightness-90" : "group-hover:scale-105"
                           )}
-                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 16vw"
-                          unoptimized // for picsum mocks
                         />
                       )}
                       

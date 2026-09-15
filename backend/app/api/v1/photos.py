@@ -129,4 +129,8 @@ async def get_photo_preview(
     """Stream a preview image using a signed URL (no Authorization header)."""
     verify_photo_preview_signature(event_id, photo_id, expires, sig)
     data, media_type = await PhotoService(db).stream_preview(event_id, photo_id)
-    return Response(content=data, media_type=media_type)
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Cache-Control": "private, max-age=300"},
+    )

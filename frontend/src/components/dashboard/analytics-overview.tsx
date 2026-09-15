@@ -66,7 +66,6 @@ export function AnalyticsOverview({ eventId }: AnalyticsOverviewProps) {
                     src={photo.proxyUrl}
                     alt={photo.filename || 'Top viewed photo'}
                     className="absolute inset-0 h-full w-full"
-                    sizes="(max-width: 768px) 50vw, 20vw"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground">
