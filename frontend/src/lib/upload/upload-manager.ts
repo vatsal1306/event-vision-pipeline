@@ -47,8 +47,18 @@ export class UploadManager {
       const queuedFiles = evState.files.filter((file) => file.status === 'queued');
 
       for (const file of queuedFiles) {
-        if (useUploadStore.getState().activeUploads >= maxConcurrent) break;
+        // Use in-memory in-flight set only. Zustand persist used to restore
+        // `activeUploads: 6` with no real transfers, which blocked the queue at 0%.
+        if (this.activeUploads.size >= maxConcurrent) break;
         if (this.activeUploads.has(file.id)) continue;
+        if (!file.file) {
+          this.markFailed(
+            eventId,
+            file.id,
+            'Cannot start upload without a valid file. Cancel the batch and re-select the photos.'
+          );
+          continue;
+        }
 
         this.activeUploads.add(file.id);
         void this.routeUpload(eventId, file.id);
