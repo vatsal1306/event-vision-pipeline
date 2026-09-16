@@ -139,7 +139,9 @@ class ArchivalService:
         from app.tasks.photo_tasks import process_uploaded_photo
 
         for photo in photos:
-            process_uploaded_photo.delay(str(photo.id), photo.original_s3_key, str(event_id))
+            process_uploaded_photo.delay(
+                str(photo.id), photo.original_s3_key, str(event_id), is_unarchive=True
+            )
 
         logger.info("archival.event_restored", event_id=str(event_id))
 
@@ -176,11 +178,13 @@ class ArchivalService:
 
     async def recalculate_photographer_storage(self, photographer_id: UUID) -> None:
         """Recalculate total storage used by a photographer."""
-        total = await self.db.scalar(
-            select(func.coalesce(func.sum(Photo.file_size_bytes), 0))
-            .join(Event, Photo.event_id == Event.id)
-            .where(Event.photographer_id == photographer_id)
-        )
+        total = (
+            await self.db.scalar(
+                select(func.coalesce(func.sum(Photo.file_size_bytes + Photo.proxy_file_size_bytes), 0))
+                .join(Event, Photo.event_id == Event.id)
+                .where(Event.photographer_id == photographer_id)
+            )
+        ) or 0
         await self.db.execute(
             update(Photographer)
             .where(Photographer.id == photographer_id)

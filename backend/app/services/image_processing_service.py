@@ -32,7 +32,7 @@ class ImageProcessingService:
         interpolation: int = cv2.INTER_LANCZOS4,
         original_filename: str | None = None,
         mime_type: str | None = None,
-    ) -> str:
+    ) -> tuple[str, int]:
         """Download original, generate optimized proxy, upload to hot storage."""
         original_bucket = self.settings.s3_bucket_originals
         proxy_bucket = self.settings.s3_bucket_proxies
@@ -84,7 +84,7 @@ class ImageProcessingService:
             storage_class="STANDARD",
         )
 
-        return proxy_s3_key
+        return proxy_s3_key, len(proxy_buffer)
 
     async def generate_blurhash_and_dimensions(
         self, proxy_s3_key: str, interpolation: int = cv2.INTER_LANCZOS4

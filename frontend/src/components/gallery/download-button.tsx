@@ -15,6 +15,7 @@ interface DownloadButtonProps {
   variant?: 'default' | 'outline' | 'ghost' | 'secondary';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   label?: string;
+  iconClassName?: string;
 }
 
 export function DownloadButton({
@@ -25,6 +26,7 @@ export function DownloadButton({
   variant = 'outline',
   size = 'default',
   label = 'Download',
+  iconClassName = 'h-4 w-4',
 }: DownloadButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -54,9 +56,9 @@ export function DownloadButton({
       title="Download Original"
     >
       {isDownloading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 className={cn("animate-spin", iconClassName)} />
       ) : (
-        <Download className="h-4 w-4" />
+        <Download className={iconClassName} />
       )}
       {size !== 'icon' && <span className="ml-2">{label}</span>}
     </Button>

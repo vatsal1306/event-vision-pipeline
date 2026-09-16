@@ -46,7 +46,9 @@ def _build_session_factory() -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: str) -> None:
+async def _process_uploaded_photo_async(
+    photo_id: str, s3_key: str, event_id: str, is_unarchive: bool = False
+) -> None:
     """Async implementation of photo processing."""
     start_time = time.perf_counter()
     storage = get_storage_service()
@@ -60,12 +62,14 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
             logger.error("Photo %s not found", photo_id, photo_id=photo_id, event_id=event_id)
             # Update event status even if photo is missing, to not leave event hanging
             event_service = EventService(db)
-            await event_service.update_event_processing_status(UUID(event_id))
+            await event_service.update_event_processing_status(
+                UUID(event_id), skip_notification=is_unarchive
+            )
             return
 
         try:
             # Step 1: Generate web-proxy
-            proxy_s3_key = await image_service.generate_web_proxy(
+            proxy_s3_key, proxy_size_bytes = await image_service.generate_web_proxy(
                 s3_key, event_id, original_filename=photo.filename, mime_type=photo.mime_type
             )
 
@@ -101,6 +105,7 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
 
             # Step 5: Update photo record
             photo.proxy_s3_key = proxy_s3_key
+            photo.proxy_file_size_bytes = proxy_size_bytes
             photo.blurhash = blurhash
             photo.width = width
             photo.height = height
@@ -146,7 +151,9 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
 
         # Step 7: Update event processing status
         event_service = EventService(db)
-        await event_service.update_event_processing_status(UUID(event_id))
+        await event_service.update_event_processing_status(
+            UUID(event_id), skip_notification=is_unarchive
+        )
 
         duration_ms = int((time.perf_counter() - start_time) * 1000)
         logger.info(
@@ -158,10 +165,14 @@ async def _process_uploaded_photo_async(photo_id: str, s3_key: str, event_id: st
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[untyped-decorator]
-def process_uploaded_photo(self: Any, photo_id: str, s3_key: str, event_id: str) -> None:
+def process_uploaded_photo(
+    self: Any, photo_id: str, s3_key: str, event_id: str, is_unarchive: bool = False
+) -> None:
     """Orchestrates the full processing chain for an uploaded photo."""
     logger.info("Starting task process_uploaded_photo", photo_id=photo_id, event_id=event_id)
     try:
-        asyncio.run(_process_uploaded_photo_async(photo_id, s3_key, event_id))
+        asyncio.run(
+            _process_uploaded_photo_async(photo_id, s3_key, event_id, is_unarchive=is_unarchive)
+        )
     except StorageError as exc:
         raise self.retry(exc=exc)

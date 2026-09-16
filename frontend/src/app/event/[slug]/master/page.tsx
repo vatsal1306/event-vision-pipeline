@@ -28,7 +28,7 @@ import {
   useMasterFolders, 
   useMasterPhotos 
 } from '@/hooks/use-master-gallery';
-import { getInitials } from '@/lib/utils';
+import { getInitials, cn } from '@/lib/utils';
 import { useFavorites, useToggleFavorite } from '@/hooks/use-couple-favorites';
 import { useSharedPhotos, useToggleShare } from '@/hooks/use-couple-shares';
 import { isGalleryReady } from '@/lib/face-processing';
@@ -67,6 +67,7 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   // Gallery state
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showHighlightsOnly, setShowHighlightsOnly] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
 
@@ -139,12 +140,16 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
       filtered = filtered.filter(p => favoritePhotoIds.has(p.id));
     }
     
+    if (showHighlightsOnly) {
+      filtered = filtered.filter(p => sharedPhotoIds.has(p.id));
+    }
+    
     if (selectedFolderId) {
       filtered = filtered.filter(p => p.folderId === selectedFolderId);
     }
     
     return filtered;
-  }, [selectedFolderId, showFavoritesOnly, photos, favoritePhotoIds]);
+  }, [selectedFolderId, showFavoritesOnly, showHighlightsOnly, photos, favoritePhotoIds, sharedPhotoIds]);
 
   const handlePhotoClick = (index: number) => {
     setViewerIndex(index);
@@ -330,10 +335,20 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
         }}
         rightActions={
           <div className="flex items-center gap-2">
-              <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
+              <Button
+                variant={showHighlightsOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowHighlightsOnly(!showHighlightsOnly)}
+                className={cn(
+                  "hidden md:flex items-center gap-1.5 rounded-full text-xs font-medium h-8 border-transparent",
+                  showHighlightsOnly 
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                    : "bg-primary/10 text-primary hover:bg-primary/20"
+                )}
+              >
                 <Users className="h-3.5 w-3.5" />
                 {sharedPhotoIds.size} Highlights
-              </div>
+              </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -370,6 +385,13 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
             <EmptyState 
               title="No favorites yet" 
               description="Tap the ♡ on any photo to save it here."
+            />
+          </div>
+        ) : showHighlightsOnly && displayedPhotos.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState 
+              title="No highlights yet" 
+              description="No photos have been highlighted for this event."
             />
           </div>
         ) : (

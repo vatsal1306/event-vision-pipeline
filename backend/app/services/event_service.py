@@ -184,7 +184,9 @@ class EventService:
             raise NotFoundError("Event")
         return event
 
-    async def update_event_processing_status(self, event_id: UUID) -> None:
+    async def update_event_processing_status(
+        self, event_id: UUID, skip_notification: bool = False
+    ) -> None:
         """Refresh photo counters and photographer-facing event status.
 
         Preview (WebP) completion alone never marks an event Ready. Ready
@@ -211,7 +213,7 @@ class EventService:
             event.status = EventStatus.DRAFT
         elif faces_finished and proxies_finished:
             event.status = EventStatus.READY
-            if previous_status != EventStatus.READY:
+            if previous_status != EventStatus.READY and not skip_notification:
                 from app.tasks.notification_tasks import notify_processing_complete_task
 
                 notify_processing_complete_task.delay(str(event_id))
