@@ -77,6 +77,10 @@ Local/dev: no GPU instance. Run the face worker on the laptop
 - Type: **`g4dn.xlarge`** (T4 16 GB) in **ap-south-1**, **100 GB gp3**, same VPC as the app, **no EIP**, **no NAT**.
 - **Stop**, do not hibernate or terminate. Disk stays attached.
 - API does **not** wait for boot. Face job sits in Redis until systemd worker starts.
+- On boot, `ExecStartPre` runs `scripts/sync-gpu-face-worker.sh`: fetch `main`,
+  skip if already current, else pull + `uv sync --extra ml` + CUDA torch /
+  `onnxruntime-gpu`. Worker starts only after sync succeeds.
+- TODO(OBS-002): `gpu_sync_failed` Slack when sync script exits non-zero.
 - Compute IAM keys: `AWS_COMPUTE_ACCESS_KEY_ID` / `AWS_COMPUTE_SECRET_ACCESS_KEY` on the **app** `.env` only. Policy: `infrastructure/compute/gpu-lifecycle-iam-policy.json`.
 - App Compose publishes 5432/6379; SG allows them only from `platform-ml-gpu-sg`. Redis `--protected-mode no`.
 - `celery-beat` added to `docker-compose.prod.yml` for idle stop + existing archival schedules.

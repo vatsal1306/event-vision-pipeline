@@ -11,6 +11,13 @@ if [ ! -f "$UNIT_SRC" ]; then
   exit 1
 fi
 
+SYNC_SCRIPT="${REPO_DIR}/scripts/sync-gpu-face-worker.sh"
+if [ ! -f "$SYNC_SCRIPT" ]; then
+  echo "Sync script not found: ${SYNC_SCRIPT}" >&2
+  exit 1
+fi
+chmod +x "$SYNC_SCRIPT"
+
 sudo cp "$UNIT_SRC" "$UNIT_DST"
 sudo systemctl daemon-reload
 sudo systemctl enable spotme-face-worker.service
