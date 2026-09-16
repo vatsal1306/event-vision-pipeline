@@ -16,4 +16,6 @@
 | INF-008 | Disk/SSH/S3 spend | INF-005 |
 | INF-009 | On-demand GPU ML host start/stop | INF-004, ML-009 |
 
+**Observability** (Grafana Cloud + Slack pager, including disk and S3 spend alerts) is **`OBS-*`**, not INF-008. See `docs/component_observability.md` and `docs/stories/observability/`.
+
 Full architecture: `docs/component_infrastructure.md` v2.

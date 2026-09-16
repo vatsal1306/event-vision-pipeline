@@ -21,7 +21,7 @@
 9. [Networking and TLS](#9-networking-and-tls)
 10. [ML host (on-demand GPU)](#10-ml-host-on-demand-gpu)
 11. [CI/CD](#11-cicd)
-12. [Monitoring](#12-monitoring)
+12. [Observability](#12-observability)
 13. [Security](#13-security)
 14. [Backups](#14-backups)
 15. [Terraform layout](#15-terraform-layout)
@@ -221,13 +221,13 @@ ML code lives in `backend/app/ml/` (see `docs/component_ai_ml.md` and `backend/R
 
 ---
 
-## 12. Monitoring
+## 12. Observability
 
-- `docker compose logs`, Ubuntu `journalctl`
-- Disk alarm: gp3 > 80% (tus + Postgres)
-- Optional: CloudWatch agent on EC2 (compute account) for disk/CPU — skip if you watch manually
-- Sentry on the app if DSN set
-- **Storage account:** S3 Storage Lens or a monthly bucket-size check so you do not blow $60/year
+Production paging, metrics, and logs live in **`docs/component_observability.md`** (stories `OBS-001`–`OBS-005`). Slack is the phone pager. Grafana Cloud Free is the chart store. Alloy ships telemetry; it does **not** run on the 16 GB app box as a full Prometheus/Loki/Grafana stack.
+
+On-box debugging still works: `docker compose logs`, Ubuntu `journalctl`.
+
+INF-008 (fail2ban / unattended-upgrades) is **not** the observability backlog. Sentry remains optional and unused until a DSN is set. Do not install the CloudWatch Agent.
 
 ---
 

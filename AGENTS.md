@@ -57,7 +57,8 @@ event-vision-pipeline/
 │   ├── component_frontend.md
 │   ├── component_backend.md
 │   ├── component_ai_ml.md
-│   └── component_infrastructure.md
+│   ├── component_infrastructure.md
+│   └── component_observability.md
 │
 └── AGENTS.md                  # This file — project-wide rules
 ```
@@ -90,6 +91,7 @@ Before writing code for any component, **always read** the corresponding documen
 - `docs/component_backend.md` — API endpoints, database schema, upload pipeline, Celery tasks
 - `docs/component_ai_ml.md` — Face detection/embedding/clustering pipeline (based on PicSee)
 - `docs/component_infrastructure.md` — AWS architecture, storage tiers, CI/CD, cost optimization
+- `docs/component_observability.md` — Grafana Cloud, Slack pager, Alloy, product events, GPU cost alerts
 
 ---
 
@@ -153,3 +155,4 @@ Before writing code for any component, **always read** the corresponding documen
 2. **Backend** (FastAPI + database + upload pipeline)
 3. **AI/ML Pipeline** (integrate PicSee into backend)
 4. **Infrastructure** (S3 + one EC2 Compose stack; ML host later)
+5. **Observability** (Grafana Cloud Free + Slack; after the app EC2 exists)

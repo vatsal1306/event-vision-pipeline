@@ -1,4 +1,4 @@
-# Backend, ML, and Infrastructure stories
+# Backend, ML, Infrastructure, and Observability stories
 
 Frontend stories: `docs/stories/frontend/00-index.md`.
 
@@ -8,7 +8,7 @@ Work **backend** before **ML**. **Infra v2:** S3 + IAM in the cheap account; one
 
 - Root `AGENTS.md`
 - `backend/AGENTS.md` for Python/FastAPI/ML
-- `docs/component_backend.md`, `docs/component_ai_ml.md`, `docs/component_infrastructure.md`
+- `docs/component_backend.md`, `docs/component_ai_ml.md`, `docs/component_infrastructure.md`, `docs/component_observability.md`
 - `docs/PRD.md` Phase 1 only
 
 **Hard constraints**
@@ -73,9 +73,22 @@ Work **backend** before **ML**. **Infra v2:** S3 + IAM in the cheap account; one
 | INF-008 | Disk/SSH/S3 spend checks                | INF-005          |
 | INF-009 | On-demand GPU ML host start/stop        | INF-004, ML-009  |
 
+## Observability (`docs/stories/observability/`)
+
+Grafana Cloud Free + Slack Free. Not INF-008, not Sentry, not CloudWatch Agent. Read `docs/component_observability.md` first.
+
+| ID      | Story                                              | Depends on                         | Status |
+|---------|----------------------------------------------------|------------------------------------|--------|
+| OBS-001 | Grafana Cloud + Alloy on app EC2 + disk/RAM Slack  | INF-005                            |        |
+| OBS-002 | Product/ops events to Slack                        | OBS-001, BE-016, INF-007, INF-009  |        |
+| OBS-003 | GPU metrics + idle/long-running cost alerts        | OBS-001, OBS-002, INF-009          |        |
+| OBS-004 | App health, queues, Loki, synthetic `/health`      | OBS-001                            |        |
+| OBS-005 | Daily S3 size vs budget Slack                      | OBS-001, OBS-002, INF-002          |        |
+
 ## Suggested batches
 
 1. Local: BE-001 → BE-012, BE-014–BE-016; stub BE-013
 2. Uploads: BE-008 → BE-010 (CPU Celery only)
 3. Infra: INF-002–INF-005 on the two AWS accounts
 4. ML: code later; **separate host** — do not install CUDA on m6i.xlarge
+5. Observability: OBS-001 → OBS-005 after the app EC2 is up (INF-005)
