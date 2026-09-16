@@ -28,6 +28,7 @@ services:
                 NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
                 NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
                 NEXT_PUBLIC_MOCK_API: ${NEXT_PUBLIC_MOCK_API:-false}
+                NEXT_PUBLIC_TUS_ENDPOINT: ${NEXT_PUBLIC_TUS_ENDPOINT}
         restart: unless-stopped
         env_file: .env
         environment:
