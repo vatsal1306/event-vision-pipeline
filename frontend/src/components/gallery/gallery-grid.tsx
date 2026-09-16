@@ -7,7 +7,8 @@ import { motion } from 'framer-motion';
 import { Heart, Users } from 'lucide-react';
 import { DownloadButton } from './download-button';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 
 interface GalleryGridProps {
@@ -22,142 +23,6 @@ interface GalleryGridProps {
   onToggleShare?: (photoId: string) => void;
 }
 
-function VirtualColumn({ 
-  photos, 
-  onPhotoClick,
-  downloadEnabled,
-  favoritePhotoIds,
-  onToggleFavorite,
-  sharedPhotoIds,
-  onToggleShare
-}: { 
-  photos: { photo: Photo, originalIndex: number }[], 
-  onPhotoClick: (idx: number) => void,
-  downloadEnabled: boolean,
-  favoritePhotoIds?: Set<string>,
-  onToggleFavorite?: (id: string) => void,
-  sharedPhotoIds?: Set<string>,
-  onToggleShare?: (id: string) => void
-}) {
-  const virtualizer = useWindowVirtualizer({
-    count: photos.length,
-    estimateSize: (index) => {
-      const p = photos[index].photo;
-      const aspectRatio = p.width && p.height ? p.width / p.height : 1;
-      return 300 / aspectRatio + 2;
-    },
-    overscan: 5,
-  });
-
-  return (
-    <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-      {virtualizer.getVirtualItems().map((virtualItem) => {
-        const { photo, originalIndex } = photos[virtualItem.index];
-        const aspectRatio = photo.width && photo.height ? photo.width / photo.height : 1;
-        const isFavorite = favoritePhotoIds?.has(photo.id);
-        const isShared = sharedPhotoIds?.has(photo.id);
-
-        return (
-          <div
-            key={virtualItem.key}
-            data-index={virtualItem.index}
-            ref={virtualizer.measureElement}
-            className="absolute top-0 left-0 w-full pb-[2px]"
-            style={{ transform: `translateY(${virtualItem.start}px)` }}
-            >
-              <motion.div
-                layoutId={`photo-container-${photo.id}`}
-                className="relative group cursor-pointer rounded-[2px] overflow-hidden bg-muted"
-                onClick={() => onPhotoClick(originalIndex)}
-              >
-              {photo.proxyUrl ? (
-                <ResponsiveImage
-                  src={photo.proxyUrl}
-                  alt={photo.filename}
-                  blurhash={photo.blurhash}
-                  aspectRatio={aspectRatio}
-                  className="w-full h-auto rounded-[2px]"
-                  imageClassName="group-hover:scale-105 transition-transform duration-500"
-                />
-              ) : (
-                <div 
-                  className="w-full bg-muted flex items-center justify-center text-muted-foreground"
-                  style={{ paddingBottom: `${(1 / aspectRatio) * 100}%` }}
-                >
-                  <span className="absolute inset-0 flex items-center justify-center text-xs">Processing...</span>
-                </div>
-              )}
-              
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
-              
-              {onToggleFavorite && (
-                <div className={cn(
-                  "absolute top-2 right-2 transition-opacity duration-300",
-                  isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                )}>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className={cn(
-                      "rounded-full shadow-lg h-8 w-8",
-                      isFavorite 
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                        : "bg-background/80 hover:bg-background text-foreground backdrop-blur-md"
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite(photo.id);
-                    }}
-                  >
-                    <Heart className={cn("h-4 w-4", isFavorite && "fill-current")} />
-                  </Button>
-                </div>
-              )}
-              
-              {onToggleShare && (
-                <div className={cn(
-                  "absolute top-2 right-12 transition-opacity duration-300",
-                  isShared ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                )}>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className={cn(
-                      "rounded-full shadow-lg h-8 w-8",
-                      isShared 
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                        : "bg-background/80 hover:bg-background text-foreground backdrop-blur-md"
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleShare(photo.id);
-                    }}
-                  >
-                    <Users className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              
-              {downloadEnabled && (
-                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <DownloadButton
-                    photoId={photo.id}
-                    eventId={photo.eventId}
-                    originalFilename={photo.filename}
-                    variant="secondary"
-                    size="icon"
-                    className="rounded-full shadow-lg bg-background/80 hover:bg-background backdrop-blur-md h-8 w-8"
-                  />
-                </div>
-              )}
-            </motion.div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export function GalleryGrid({
   photos,
   onPhotoClick,
@@ -170,44 +35,39 @@ export function GalleryGrid({
   onToggleShare
 }: GalleryGridProps) {
   const [columns, setColumns] = useState(3);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateCols = () => {
       const w = window.innerWidth;
       
       if (w < 640) {
-        setColumns(2); // Mobile: 2 cols for all
+        setColumns(2);
       } else if (w < 768) {
-        setColumns(3); // Tablet: 3 cols for all
+        setColumns(3);
       } else if (w < 1024) {
-        // 768-1024px
         setColumns(layoutMode === 'guest' ? 3 : 4);
       } else if (w < 1280) {
-        // 1024-1280px
         setColumns(layoutMode === 'guest' ? 4 : 5);
       } else {
-        // > 1280px
         setColumns(layoutMode === 'guest' ? 4 : 6);
+      }
+      
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.getBoundingClientRect().width);
       }
     };
     updateCols();
     window.addEventListener('resize', updateCols);
     return () => window.removeEventListener('resize', updateCols);
-  }, []);
+  }, [layoutMode]);
 
-  const columnData = useMemo(() => {
-    const cols = Array.from({ length: columns }, () => [] as { photo: Photo, originalIndex: number }[]);
-    const colHeights = new Array(columns).fill(0);
-
-    photos.forEach((photo, index) => {
-      const shortestCol = colHeights.indexOf(Math.min(...colHeights));
-      cols[shortestCol].push({ photo, originalIndex: index });
-      const aspect = photo.width && photo.height ? photo.width / photo.height : 1;
-      colHeights[shortestCol] += (1 / aspect);
-    });
-
-    return cols;
-  }, [photos, columns]);
+  const rowVirtualizer = useWindowVirtualizer({
+    count: Math.ceil(photos.length / columns),
+    estimateSize: () => (containerWidth ? containerWidth / columns : 200),
+    overscan: 5,
+  });
 
   if (photos.length === 0) {
     return (
@@ -218,19 +78,116 @@ export function GalleryGrid({
   }
 
   return (
-    <div className={cn('flex gap-[2px] px-4 pb-20 w-full', className)}>
-      {columnData.map((colPhotos, i) => (
-        <VirtualColumn 
-          key={i} 
-          photos={colPhotos} 
-          onPhotoClick={onPhotoClick} 
-          downloadEnabled={downloadEnabled}
-          favoritePhotoIds={favoritePhotoIds}
-          onToggleFavorite={onToggleFavorite}
-          sharedPhotoIds={sharedPhotoIds}
-          onToggleShare={onToggleShare}
-        />
-      ))}
+    <div ref={containerRef} className={cn('w-full px-4 pb-20', className)}>
+      <div 
+        className="relative w-full" 
+        style={{ height: rowVirtualizer.getTotalSize() }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const startIndex = virtualRow.index * columns;
+          const rowPhotos = photos.slice(startIndex, startIndex + columns);
+
+          return (
+            <div
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
+              className="absolute top-0 left-0 w-full flex gap-[2px]"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
+            >
+              {rowPhotos.map((photo, colIndex) => {
+                const index = startIndex + colIndex;
+                const isFavorite = favoritePhotoIds?.has(photo.id);
+                const isShared = sharedPhotoIds?.has(photo.id);
+
+                return (
+                  <div key={photo.id} style={{ width: `${100 / columns}%` }} className="pb-[2px]">
+                    <motion.div
+                      layoutId={`photo-container-${photo.id}`}
+                      className="relative group cursor-pointer overflow-hidden bg-muted aspect-square rounded-[2px]"
+                      onClick={() => onPhotoClick(index)}
+                    >
+                      {photo.proxyUrl ? (
+                        <ResponsiveImage
+                          src={photo.proxyUrl}
+                          alt={photo.filename}
+                          blurhash={photo.blurhash}
+                          aspectRatio={1}
+                          className="w-full h-full object-cover rounded-[2px]"
+                          imageClassName="group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
+                          <span className="text-xs">Processing...</span>
+                        </div>
+                      )}
+                      
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+                      
+                      {onToggleFavorite && (
+                        <div className={cn(
+                          "absolute top-2 right-2 transition-opacity duration-300",
+                          isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        )}>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className={cn(
+                              "rounded-full shadow-sm hover:bg-background h-8 w-8",
+                              isFavorite ? "bg-background text-red-500 hover:text-red-600" : "bg-background/80 backdrop-blur-md"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleFavorite(photo.id);
+                            }}
+                          >
+                            <Heart className={cn("h-4 w-4", isFavorite && "fill-current")} />
+                          </Button>
+                        </div>
+                      )}
+
+                      {onToggleShare && (
+                        <div className={cn(
+                          "absolute top-2 left-2 transition-opacity duration-300",
+                          isShared ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        )}>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className={cn(
+                              "rounded-full shadow-sm hover:bg-background h-8 w-8",
+                              isShared ? "bg-background text-primary" : "bg-background/80 backdrop-blur-md"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleShare(photo.id);
+                            }}
+                          >
+                            <Users className={cn("h-4 w-4", isShared && "fill-current")} />
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {downloadEnabled && (
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <DownloadButton
+                            photoId={photo.id}
+                            eventId={photo.eventId}
+                            originalFilename={photo.filename}
+                            variant="secondary"
+                            size="icon"
+                            className="rounded-full shadow-lg bg-background/80 hover:bg-background backdrop-blur-md h-8 w-8"
+                          />
+                        </div>
+                      )}
+                    </motion.div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

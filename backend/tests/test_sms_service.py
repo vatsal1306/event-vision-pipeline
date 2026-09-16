@@ -22,6 +22,7 @@ def _fast2sms_settings(*, debug: bool, api_key: str = "test-fast2sms-key") -> Se
     """Build settings that target Fast2SMS without loading a real .env key."""
     return Settings(
         debug=debug,
+        environment="production",
         sms_provider=SMS_PROVIDER_FAST2SMS,
         sms_api_key=api_key,
         email_provider="none",

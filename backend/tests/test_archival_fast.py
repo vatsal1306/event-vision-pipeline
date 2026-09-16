@@ -112,7 +112,10 @@ async def test_archival_service_restore_event_unit() -> None:
         assert mock_event.status == EventStatus.PROCESSING
         mock_storage.change_storage_class.assert_awaited_once()
         mock_process.assert_called_once_with(
-            str(mock_photo.id), mock_photo.original_s3_key, str(event_id)
+            str(mock_photo.id),
+            mock_photo.original_s3_key,
+            str(event_id),
+            is_unarchive=True,
         )
 
 

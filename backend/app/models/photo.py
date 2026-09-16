@@ -58,6 +58,9 @@ class Photo(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    proxy_file_size_bytes: Mapped[int] = mapped_column(
+        BigInteger, server_default=text("0"), nullable=False
+    )
     mime_type: Mapped[str] = mapped_column(String(50), nullable=False)
     face_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     faces_processed: Mapped[bool] = mapped_column(

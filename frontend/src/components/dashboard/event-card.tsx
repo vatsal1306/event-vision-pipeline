@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Camera, Users, FolderOpen, Calendar, MoreVertical, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import { Event } from '@/types/event';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { getInitials } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useArchiveEvent, useRestoreEvent, useDeleteEvent } from '@/hooks/use-events';
 import {
@@ -77,7 +78,11 @@ export function EventCard({ event }: EventCardProps) {
               className="object-cover"
             />
           ) : (
-            <Camera className="h-10 w-10 text-muted-foreground" />
+            <div className="flex h-full w-full items-center justify-center bg-primary/10 text-primary">
+              <span className="text-2xl font-bold tracking-tight uppercase">
+                {getInitials(event.name)}
+              </span>
+            </div>
           )}
         </div>
         <div className="flex-1 min-w-0 pr-8">

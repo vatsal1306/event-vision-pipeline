@@ -92,6 +92,7 @@ export function PhotoViewer({
                     : "text-white hover:bg-white/20 hover:text-white"
                 )}
                 onClick={() => onToggleFavorite(currentPhoto.id)}
+                title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
               >
                 <Heart className={cn("h-6 w-6", isFavorite && "fill-current")} />
               </Button>
@@ -107,6 +108,7 @@ export function PhotoViewer({
                     : "text-white hover:bg-white/20 hover:text-white"
                 )}
                 onClick={() => onToggleShare(currentPhoto.id)}
+                title={isShared ? "Remove from Highlights (hide from all guests)" : "Add to Highlights (visible to all guests)"}
               >
                 <Users className={cn("h-6 w-6", isShared && "fill-current")} />
               </Button>
@@ -117,6 +119,8 @@ export function PhotoViewer({
                 eventId={currentPhoto.eventId}
                 originalFilename={currentPhoto.filename}
                 variant="ghost"
+                size="icon"
+                iconClassName="h-6 w-6"
                 className="text-white hover:bg-white/20 hover:text-white rounded-full"
               />
             )}

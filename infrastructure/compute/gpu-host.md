@@ -226,6 +226,18 @@ chmod +x ~/event-vision-pipeline/scripts/install-gpu-face-worker.sh
 ~/event-vision-pipeline/scripts/install-gpu-face-worker.sh
 ```
 
+The install script also marks `scripts/sync-gpu-face-worker.sh` executable. On every
+boot (and on `systemctl restart`), systemd runs that script **before** Celery
+starts:
+
+1. `git fetch origin main`
+2. If `HEAD` already matches `origin/main` → start the worker immediately
+3. Otherwise `git pull --ff-only`, `uv sync --extra ml`, CUDA PyTorch, and
+   `onnxruntime-gpu` (same manual steps as first-time setup above)
+
+If sync fails, the face worker does not start and jobs wait in Redis until you
+fix the box or redeploy. TODO: Slack alert on sync failure (OBS-002).
+
 ---
 
 ## 5. Stop the instance (you do this once)

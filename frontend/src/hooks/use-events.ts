@@ -104,7 +104,11 @@ export function useRestoreEvent() {
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['event', id] });
       const previousEvent = queryClient.getQueryData(['event', id]);
-      queryClient.setQueryData(['event', id], (old: any) => ({ ...old, status: 'ready' }));
+      queryClient.setQueryData(['event', id], (old: any) => ({ 
+        ...old, 
+        status: 'processing',
+        processedPhotos: 0
+      }));
       return { previousEvent };
     },
     onError: (err, id, context) => {
@@ -114,6 +118,7 @@ export function useRestoreEvent() {
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['event', id] });
       toast.success('Event unarchived successfully');
     },
   });

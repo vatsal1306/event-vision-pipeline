@@ -62,7 +62,9 @@ class PhotoService:
         stmt = select(
             func.count(Photo.id).label("photo_count"),
             func.coalesce(func.sum(Photo.face_count), 0).label("face_count"),
-            func.coalesce(func.sum(Photo.file_size_bytes), 0).label("total_bytes"),
+            func.coalesce(func.sum(Photo.file_size_bytes + Photo.proxy_file_size_bytes), 0).label(
+                "total_bytes"
+            ),
         ).where(Photo.id.in_(photo_ids), Photo.event_id == event_id)
 
         result = await self.db.execute(stmt)
