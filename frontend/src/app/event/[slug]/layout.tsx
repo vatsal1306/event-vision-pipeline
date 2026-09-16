@@ -13,9 +13,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     
     // Fetch event public info directly from the backend
-    // Assuming backend is running on process.env.NEXT_PUBLIC_API_URL or localhost:8000
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    const res = await fetch(`${apiUrl}/api/v1/sharing/${slug}/info`, {
+    // Assuming backend is running on process.env.NEXT_PUBLIC_API_BASE_URL or localhost:8000
+    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    const res = await fetch(`${apiUrl}/api/v1/event/${slug}/info`, {
       next: { revalidate: 60 }, // cache for 60 seconds
     });
     
