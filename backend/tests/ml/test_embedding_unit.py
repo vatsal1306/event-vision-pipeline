@@ -100,6 +100,7 @@ def test_extract_batch_with_oom_retry_raises_when_size_one_still_fails() -> None
             )
 
 
+@pytest.mark.ml
 def test_cvlface_weight_candidates_prefer_safetensors() -> None:
     """Corrupt zip checkpoints must not be tried before safetensors."""
     from pathlib import Path

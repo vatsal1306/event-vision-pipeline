@@ -120,9 +120,10 @@ async def test_image_processing_service(storage: LocalStorageService) -> None:
     await storage.put_object(service.settings.s3_bucket_originals, s3_key, img_bytes, "image/jpeg")
 
     # Generate proxy
-    proxy_key = await service.generate_web_proxy(s3_key, event_id)
+    proxy_key, proxy_size_bytes = await service.generate_web_proxy(s3_key, event_id)
     assert proxy_key.startswith(f"proxies/{event_id}/")
     assert proxy_key.endswith(".webp")
+    assert proxy_size_bytes > 0
 
     # Generate blurhash and dims
     blurhash, width, height = await service.generate_blurhash_and_dimensions(proxy_key)
@@ -253,7 +254,7 @@ async def test_image_processing_heic(storage: LocalStorageService) -> None:
             import numpy as np
 
             mock_asarray.return_value = np.zeros((10, 10, 3), dtype=np.uint8)
-            proxy_key = await service.generate_web_proxy(s3_key, event_id)
+            proxy_key, _proxy_size_bytes = await service.generate_web_proxy(s3_key, event_id)
 
     assert proxy_key.endswith(".webp")
     assert mock_read_heif.called

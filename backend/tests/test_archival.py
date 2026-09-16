@@ -158,7 +158,9 @@ async def test_restore_event(db_session: AsyncSession):
             key=photo1.original_s3_key,
             storage_class="STANDARD",
         )
-        mock_process.assert_called_once_with(str(photo1.id), photo1.original_s3_key, str(e.id))
+        mock_process.assert_called_once_with(
+            str(photo1.id), photo1.original_s3_key, str(e.id), is_unarchive=True
+        )
 
 
 @pytest.mark.asyncio
