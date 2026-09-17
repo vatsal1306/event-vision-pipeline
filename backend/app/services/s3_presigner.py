@@ -22,7 +22,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from botocore.auth import AUTH_TYPE_MAPS, SIGV4_TIMESTAMP, SigV4QueryAuth
+from botocore.auth import AUTH_TYPE_MAPS, S3SigV4QueryAuth, SIGV4_TIMESTAMP
 from botocore.client import BaseClient
 
 from app.core.logging import get_logger
@@ -35,7 +35,7 @@ _DEFAULT_BUCKET_SECONDS = 3600
 
 
 # botocore ships no type information, so its signer base class is `Any`.
-class CacheableSigV4QueryAuth(SigV4QueryAuth):  # type: ignore[misc]
+class CacheableSigV4QueryAuth(S3SigV4QueryAuth):  # type: ignore[misc]
     """SigV4 query signer whose signing timestamp is quantised to a bucket.
 
     ``botocore`` instantiates signers itself with a fixed keyword set, so the

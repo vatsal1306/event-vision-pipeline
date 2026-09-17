@@ -11,7 +11,9 @@ from app.config import get_settings
 from app.models.enums import PhotoVariant, ProcessingStatus
 from app.models.photo import Photo
 from app.services.gallery_url_service import GalleryUrlBuilder
+from app.services.s3_presigner import CACHEABLE_SIGNATURE_VERSION, CacheableSigV4QueryAuth
 from app.services.storage_service import LocalStorageService, S3StorageService
+from botocore.auth import AUTH_TYPE_MAPS, S3SigV4QueryAuth, UNSIGNED_PAYLOAD
 
 
 def _photo(
@@ -131,3 +133,11 @@ def test_gallery_urls_do_not_change_within_a_cache_bucket() -> None:
     builder = GalleryUrlBuilder(storage=S3StorageService())
 
     assert builder.urls_for(photo).thumb == builder.urls_for(photo).thumb
+
+
+def test_cacheable_signer_uses_s3_presign_rules() -> None:
+    """Gallery signing must follow S3 presign semantics or S3 rejects the URL."""
+    signer_cls = AUTH_TYPE_MAPS[CACHEABLE_SIGNATURE_VERSION]
+    assert issubclass(signer_cls, S3SigV4QueryAuth)
+    assert issubclass(CacheableSigV4QueryAuth, S3SigV4QueryAuth)
+    assert CacheableSigV4QueryAuth(None, "s3", "ap-south-1").payload(None) == UNSIGNED_PAYLOAD
