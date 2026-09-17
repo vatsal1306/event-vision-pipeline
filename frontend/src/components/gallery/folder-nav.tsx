@@ -22,12 +22,12 @@ export function FolderNav({
   className,
 }: FolderNavProps) {
   // Flatten folder tree
-  const flattenedFolders: { id: string; name: string }[] = [];
+  const flattenedFolders: { id: string; name: string; photoCount?: number }[] = [];
   
   const flatten = (nodes: FolderNode[], parentPath = '') => {
     for (const node of nodes) {
       const currentPath = parentPath ? `${parentPath} > ${node.name}` : node.name;
-      flattenedFolders.push({ id: node.id, name: currentPath });
+      flattenedFolders.push({ id: node.id, name: currentPath, photoCount: node.photoCount });
       if (node.children && node.children.length > 0) {
         flatten(node.children, currentPath);
       }
@@ -50,20 +50,23 @@ export function FolderNav({
           All Photos {totalCount !== undefined ? `(${totalCount})` : ''}
         </Button>
         
-        {flattenedFolders.map((folder) => (
-          <Button
-            key={folder.id}
-            variant="outline"
-            size="sm"
-            onClick={() => onSelectFolder(folder.id)}
-            className={cn(
-              'rounded-pill border-muted bg-transparent hover:bg-muted text-muted-foreground',
-              selectedFolderId === folder.id && 'bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground'
-            )}
-          >
-            {folder.name} {photoCounts?.[folder.id] !== undefined ? `(${photoCounts[folder.id]})` : ''}
-          </Button>
-        ))}
+        {flattenedFolders.map((folder) => {
+          const count = photoCounts?.[folder.id] ?? folder.photoCount;
+          return (
+            <Button
+              key={folder.id}
+              variant="outline"
+              size="sm"
+              onClick={() => onSelectFolder(folder.id)}
+              className={cn(
+                'rounded-pill border-muted bg-transparent hover:bg-muted text-muted-foreground',
+                selectedFolderId === folder.id && 'bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground'
+              )}
+            >
+              {folder.name} {count !== undefined ? `(${count})` : ''}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/shared/empty-state';
 import { Logo } from '@/components/shared/logo';
 import { cn } from '@/lib/utils';
+import { shouldShowPaginatedEmptyState } from '@/lib/pagination';
 
 const PhotoViewer = dynamic(
   () => import('@/components/gallery/photo-viewer').then(mod => mod.PhotoViewer),
@@ -22,6 +23,17 @@ interface PersonalizedGalleryProps {
   downloadEnabled?: boolean;
   photographerLogo?: string | null;
   eventName?: string;
+  /** Infinite scroll for My Photos tab. */
+  onLoadMorePhotos?: () => void;
+  hasMorePhotos?: boolean;
+  isLoadingMorePhotos?: boolean;
+  /** Infinite scroll for Highlights tab. */
+  onLoadMoreHighlights?: () => void;
+  hasMoreHighlights?: boolean;
+  isLoadingMoreHighlights?: boolean;
+  /** API totals (not just currently loaded page items). */
+  photoTotal?: number;
+  highlightTotal?: number;
 }
 
 export function PersonalizedGallery({ 
@@ -31,7 +43,15 @@ export function PersonalizedGallery({
   onRetakeSelfie, 
   downloadEnabled = true,
   photographerLogo,
-  eventName
+  eventName,
+  onLoadMorePhotos,
+  hasMorePhotos = false,
+  isLoadingMorePhotos = false,
+  onLoadMoreHighlights,
+  hasMoreHighlights = false,
+  isLoadingMoreHighlights = false,
+  photoTotal,
+  highlightTotal,
 }: PersonalizedGalleryProps) {
   const [activeTab, setActiveTab] = useState<'my-photos' | 'highlights'>('my-photos');
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -44,8 +64,28 @@ export function PersonalizedGallery({
     setViewerOpen(true);
   };
 
-  // Render empty state only if we have NO photos in either tab and we are on 'my-photos'
-  if (photos.length === 0 && highlightPhotos.length === 0) {
+  const photosCount = photoTotal ?? photos.length;
+  const highlightsCount = highlightTotal ?? highlightPhotos.length;
+  const isPhotosEmpty = shouldShowPaginatedEmptyState({
+    loadedCount: photos.length,
+    hasMore: hasMorePhotos,
+    isLoadingMore: isLoadingMorePhotos,
+  });
+  const isHighlightsEmpty = shouldShowPaginatedEmptyState({
+    loadedCount: highlightPhotos.length,
+    hasMore: hasMoreHighlights,
+    isLoadingMore: isLoadingMoreHighlights,
+  });
+  const activeHasMore = activeTab === 'my-photos' ? hasMorePhotos : hasMoreHighlights;
+  const activeIsLoadingMore = activeTab === 'my-photos' ? isLoadingMorePhotos : isLoadingMoreHighlights;
+  const isActiveEmpty = shouldShowPaginatedEmptyState({
+    loadedCount: activePhotos.length,
+    hasMore: activeHasMore,
+    isLoadingMore: activeIsLoadingMore,
+  });
+
+  // Terminal empty only after both lists are exhausted with no items.
+  if (isPhotosEmpty && isHighlightsEmpty) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
         <EmptyState 
@@ -81,7 +121,7 @@ export function PersonalizedGallery({
         </h2>
         <p className="text-zinc-500 mt-2 text-lg">
           {activeTab === 'my-photos' 
-            ? `We found ${photos.length} photo${photos.length === 1 ? '' : 's'} of you.` 
+            ? `We found ${photosCount} photo${photosCount === 1 ? '' : 's'} of you.` 
             : 'Highlights shared by the couple for everyone.'}
         </p>
       </div>
@@ -96,7 +136,7 @@ export function PersonalizedGallery({
             )}
           >
             <ImageIcon className="w-4 h-4 mr-2" />
-            My Photos ({photos.length})
+            My Photos ({photosCount})
           </button>
           <button
             onClick={() => setActiveTab('highlights')}
@@ -106,13 +146,13 @@ export function PersonalizedGallery({
             )}
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            Highlights ({highlightPhotos.length})
+            Highlights ({highlightsCount})
           </button>
         </div>
       </div>
 
       <LayoutGroup>
-        {activePhotos.length === 0 ? (
+        {isActiveEmpty ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
              <EmptyState 
                 title={activeTab === 'my-photos' ? "No matches found" : "No highlights yet"} 
@@ -131,6 +171,9 @@ export function PersonalizedGallery({
             downloadEnabled={downloadEnabled}
             layoutMode="guest"
             className="flex-1"
+            onLoadMore={activeTab === 'my-photos' ? onLoadMorePhotos : onLoadMoreHighlights}
+            hasMore={activeHasMore}
+            isLoadingMore={activeIsLoadingMore}
           />
         )}
       </LayoutGroup>

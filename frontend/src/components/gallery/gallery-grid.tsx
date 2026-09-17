@@ -4,10 +4,12 @@ import { Photo } from '@/types/event';
 import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { Heart, Users } from 'lucide-react';
+import { Heart, Users, Loader2 } from 'lucide-react';
 import { DownloadButton } from './download-button';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { INFINITE_SCROLL_THRESHOLD_PX } from '@/lib/constants';
+import { shouldFetchNextPage } from '@/lib/pagination';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -21,6 +23,12 @@ interface GalleryGridProps {
   onToggleFavorite?: (photoId: string) => void;
   sharedPhotoIds?: Set<string>;
   onToggleShare?: (photoId: string) => void;
+  /** Called when the user scrolls near the bottom to load more pages. */
+  onLoadMore?: () => void;
+  /** Whether there are more pages to load. */
+  hasMore?: boolean;
+  /** Whether a next page is currently being fetched. */
+  isLoadingMore?: boolean;
 }
 
 export function GalleryGrid({
@@ -32,11 +40,15 @@ export function GalleryGrid({
   favoritePhotoIds,
   onToggleFavorite,
   sharedPhotoIds,
-  onToggleShare
+  onToggleShare,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: GalleryGridProps) {
   const [columns, setColumns] = useState(3);
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateCols = () => {
@@ -63,6 +75,46 @@ export function GalleryGrid({
     return () => window.removeEventListener('resize', updateCols);
   }, [layoutMode]);
 
+  const onLoadMoreRef = React.useRef(onLoadMore);
+  onLoadMoreRef.current = onLoadMore;
+
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && !isLoadingMore && onLoadMoreRef.current) {
+      onLoadMoreRef.current();
+    }
+  }, [hasMore, isLoadingMore]);
+
+  useEffect(() => {
+    if (!onLoadMore) return;
+
+    const handleScroll = () => {
+      const distanceFromBottomPx =
+        document.documentElement.scrollHeight - (window.innerHeight + window.scrollY);
+      if (
+        shouldFetchNextPage({
+          hasMore,
+          isLoadingMore,
+          distanceFromBottomPx,
+          thresholdPx: INFINITE_SCROLL_THRESHOLD_PX,
+        })
+      ) {
+        handleLoadMore();
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [onLoadMore, handleLoadMore]);
+
+  // Keep fetching when the current page is empty but more pages exist (e.g. client filters).
+  useEffect(() => {
+    if (photos.length === 0) {
+      handleLoadMore();
+    }
+  }, [photos.length, handleLoadMore]);
+
   const rowVirtualizer = useWindowVirtualizer({
     count: Math.ceil(photos.length / columns),
     estimateSize: () => (containerWidth ? containerWidth / columns : 200),
@@ -70,6 +122,13 @@ export function GalleryGrid({
   });
 
   if (photos.length === 0) {
+    if (hasMore || isLoadingMore) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
         <p>No photos found.</p>
@@ -188,6 +247,14 @@ export function GalleryGrid({
           );
         })}
       </div>
+      {/* Sentinel for infinite scroll */}
+      {onLoadMore && (
+        <div ref={sentinelRef} className="w-full flex justify-center py-6">
+          {isLoadingMore && (
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -274,16 +274,21 @@ export const api = {
       data,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
-  getGuestPhotos: (slug: string, token?: string) =>
+  getGuestPhotos: (slug: string, token?: string, offset = 0, limit = 50) =>
     apiClient.get<PaginatedResponse<Photo>>(
-      `/api/v1/event/${slug}/guest/photos`,
+      `/api/v1/event/${slug}/guest/photos?offset=${offset}&limit=${limit}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
-  getMasterPhotos: (slug: string, token?: string) =>
-    apiClient.get<PaginatedResponse<Photo>>(
-      `/api/v1/event/${slug}/master/photos`,
+  getMasterPhotos: (slug: string, token?: string, offset = 0, limit = 50, folderId?: string) => {
+    const params = new URLSearchParams({ offset: offset.toString(), limit: limit.toString() });
+    if (folderId) {
+      params.append('folder_id', folderId);
+    }
+    return apiClient.get<PaginatedResponse<Photo>>(
+      `/api/v1/event/${slug}/master/photos?${params.toString()}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
-    ),
+    );
+  },
   getMasterFolders: (slug: string, token?: string) =>
     apiClient.get<{ folders: FolderNode[] }>(
       `/api/v1/event/${slug}/master/folders`,
@@ -311,9 +316,9 @@ export const api = {
       `/api/v1/event/${slug}/master/shared`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
-  getGuestHighlights: (slug: string, token?: string) =>
+  getGuestHighlights: (slug: string, token?: string, offset = 0, limit = 50) =>
     apiClient.get<PaginatedResponse<Photo>>(
-      `/api/v1/event/${slug}/guest/highlights`,
+      `/api/v1/event/${slug}/guest/highlights?offset=${offset}&limit=${limit}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
   downloadGuestPhoto: (slug: string, photoId: string) =>

@@ -1,6 +1,8 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { GALLERY_PAGE_SIZE } from '@/lib/constants';
 import { mapPhotoFromApi } from '@/lib/map-api';
+import { getOffsetNextPageParam } from '@/lib/pagination';
 import { Photo } from '@/types/event';
 import { PaginatedResponse } from '@/types/api';
 
@@ -10,7 +12,7 @@ interface UseEventPhotosOptions {
   limit?: number;
 }
 
-export function useEventPhotos({ eventId, folderId, limit = 50 }: UseEventPhotosOptions) {
+export function useEventPhotos({ eventId, folderId, limit = GALLERY_PAGE_SIZE }: UseEventPhotosOptions) {
   return useInfiniteQuery({
     queryKey: ['event-photos', eventId, folderId],
     queryFn: async ({ pageParam = 0 }) => {
@@ -21,13 +23,7 @@ export function useEventPhotos({ eventId, folderId, limit = 50 }: UseEventPhotos
       } satisfies PaginatedResponse<Photo>;
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => {
-      const nextOffset = lastPage.offset + lastPage.limit;
-      if (nextOffset < lastPage.total) {
-        return nextOffset;
-      }
-      return undefined;
-    },
+    getNextPageParam: getOffsetNextPageParam,
   });
 }
 

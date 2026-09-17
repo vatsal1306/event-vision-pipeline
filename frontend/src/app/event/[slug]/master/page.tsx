@@ -31,7 +31,9 @@ import {
 import { getInitials, cn } from '@/lib/utils';
 import { useFavorites, useToggleFavorite } from '@/hooks/use-couple-favorites';
 import { useSharedPhotos, useToggleShare } from '@/hooks/use-couple-shares';
+import { collectFolderPhotoCounts } from '@/lib/folder-tree';
 import { isGalleryReady } from '@/lib/face-processing';
+import { shouldShowPaginatedEmptyState } from '@/lib/pagination';
 import { useMasterAuthStore } from '@/stores/master-auth-store';
 import { Lock, LogOut, Users } from 'lucide-react';
 import { FavoritesFab } from '@/components/couple/favorites-fab';
@@ -85,9 +87,13 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   // Authenticated Queries
   const { data: folders = [], isLoading: foldersLoading } = useMasterFolders(slug, isAuth ? token : null);
-  const { data: photos = [], isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = useMasterPhotos(slug, isAuth ? token : null);
-  const { data: favoritePhotos = [] } = useFavorites(slug, isAuth ? token : null);
-  const { data: sharedPhotos = [] } = useSharedPhotos(slug, isAuth ? token : null);
+  const masterPhotosQuery = useMasterPhotos(slug, isAuth ? token : null, selectedFolderId);
+  const photos = useMemo(() => masterPhotosQuery.data?.pages.flatMap(page => page.items) ?? [], [masterPhotosQuery.data]);
+  const photosLoading = masterPhotosQuery.isLoading;
+  const photosError = masterPhotosQuery.error;
+  const refetchPhotos = masterPhotosQuery.refetch;
+  const { data: favoritePhotos = [], isLoading: favoritesLoading } = useFavorites(slug, isAuth ? token : null);
+  const { data: sharedPhotos = [], isLoading: sharesLoading } = useSharedPhotos(slug, isAuth ? token : null);
 
   const favoritePhotoIds = useMemo(() => new Set(favoritePhotos.map(p => p.id)), [favoritePhotos]);
   const sharedPhotoIds = useMemo(() => new Set(sharedPhotos.map(p => p.id)), [sharedPhotos]);
@@ -134,22 +140,32 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
   };
 
   const displayedPhotos = useMemo(() => {
-    let filtered = photos;
-    
+    const matchesFolder = (photo: { folderId: string | null }) =>
+      !selectedFolderId || photo.folderId === selectedFolderId;
+
+    if (showFavoritesOnly && showHighlightsOnly) {
+      return favoritePhotos.filter((photo) => sharedPhotoIds.has(photo.id) && matchesFolder(photo));
+    }
+
     if (showFavoritesOnly) {
-      filtered = filtered.filter(p => favoritePhotoIds.has(p.id));
+      return favoritePhotos.filter(matchesFolder);
     }
-    
+
     if (showHighlightsOnly) {
-      filtered = filtered.filter(p => sharedPhotoIds.has(p.id));
+      return sharedPhotos.filter(matchesFolder);
     }
-    
-    if (selectedFolderId) {
-      filtered = filtered.filter(p => p.folderId === selectedFolderId);
-    }
-    
-    return filtered;
-  }, [selectedFolderId, showFavoritesOnly, showHighlightsOnly, photos, favoritePhotoIds, sharedPhotoIds]);
+
+    // Folder scoping is applied server-side via folder_id on useMasterPhotos.
+    return photos;
+  }, [
+    selectedFolderId,
+    showFavoritesOnly,
+    showHighlightsOnly,
+    photos,
+    favoritePhotos,
+    sharedPhotos,
+    sharedPhotoIds,
+  ]);
 
   const handlePhotoClick = (index: number) => {
     setViewerIndex(index);
@@ -162,15 +178,19 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
     }
   };
 
-  const photoCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    photos.forEach(p => {
-      if (p.folderId) {
-        counts[p.folderId] = (counts[p.folderId] || 0) + 1;
-      }
+  const photoCounts = useMemo(() => collectFolderPhotoCounts(folders), [folders]);
+  const hasMoreMasterPhotos = !!masterPhotosQuery.hasNextPage;
+  const isLoadingMoreMasterPhotos = masterPhotosQuery.isFetchingNextPage;
+  const isClientFilterView = showFavoritesOnly || showHighlightsOnly;
+  const isFilterLoading =
+    (showFavoritesOnly && favoritesLoading) || (showHighlightsOnly && sharesLoading);
+  const showFilteredEmpty =
+    isClientFilterView &&
+    !isFilterLoading &&
+    shouldShowPaginatedEmptyState({
+      loadedCount: displayedPhotos.length,
+      hasMore: false,
     });
-    return counts;
-  }, [photos]);
 
   if (infoError) {
     return (
@@ -363,7 +383,8 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           selectedFolderId={selectedFolderId}
           onSelectFolder={setSelectedFolderId}
           photoCounts={photoCounts}
-          totalCount={photos.length}
+          // TODO: event.totalPhotos / folder photo_count include all processing statuses; the grid lists completed photos.
+          totalCount={event.totalPhotos}
           className="sticky top-16 z-10 bg-background/90 backdrop-blur-sm border-b border-border/10 mb-6"
         />
 
@@ -380,14 +401,18 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
           <div className="flex-1 p-6">
             <GallerySkeleton count={15} />
           </div>
-        ) : showFavoritesOnly && displayedPhotos.length === 0 ? (
+        ) : isFilterLoading && displayedPhotos.length === 0 ? (
+          <div className="flex-1 p-6">
+            <GallerySkeleton count={12} />
+          </div>
+        ) : showFavoritesOnly && showFilteredEmpty ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyState 
               title="No favorites yet" 
               description="Tap the ♡ on any photo to save it here."
             />
           </div>
-        ) : showHighlightsOnly && displayedPhotos.length === 0 ? (
+        ) : showHighlightsOnly && showFilteredEmpty ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyState 
               title="No highlights yet" 
@@ -406,6 +431,9 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
               sharedPhotoIds={sharedPhotoIds}
               onToggleShare={(id) => toggleShareMutation.mutate(id)}
               className="flex-1"
+              onLoadMore={isClientFilterView ? undefined : () => masterPhotosQuery.fetchNextPage()}
+              hasMore={isClientFilterView ? false : hasMoreMasterPhotos}
+              isLoadingMore={isClientFilterView ? false : isLoadingMoreMasterPhotos}
             />
           </LayoutGroup>
         )}
