@@ -11,7 +11,7 @@ Working reference for agents implementing `OBS-*` stories. Not a step-by-step op
 - **Slack** — `#spotme-alerts` (Grafana contact point + future ops pages), `#spotme-events` (OBS-002 product events).
 - **Alloy** on app EC2 — `docker-compose.observability.yml` merged with prod; never standalone.
 - **Scrapes:** host + container RSS via `prometheus.exporter.unix` (job `app-node`, 60s). `instance="spotme-app"`.
-- **Container memory:** `container-metrics` sidecar writes `spotme_container_memory_rss_bytes` textfile from docker.sock + cgroup v2 (cAdvisor broken on Ubuntu 24.04 Docker overlay).
+- **Container memory:** `container-metrics` sidecar writes `spotme_container_memory_rss_bytes` textfile (docker.sock + cgroup v2 `memory.current`). cAdvisor not used — `gcr.io` images fail on Ubuntu 24.04 cgroup v2; use `ghcr.io/google/cadvisor:v0.55+` only if richer container metrics are needed later.
 - **Keep-list compose services:** `caddy`, `frontend`, `backend`, `tusd`, `celery-worker`, `celery-beat`, `db`, `redis`.
 - **Alerts (Grafana UI):** `SpotMeAppDiskHigh` (>80% root disk, 10m), `SpotMeAppMemoryHigh` (>85% RAM, 10m) — see `grafana/alert-rules.md`.
 - **Dashboard:** `grafana/dashboards/app-host.json` — import into Grafana Cloud.
