@@ -1,32 +1,25 @@
 # Grafana alert rules — OBS-001 (app EC2)
 
-Grafana Cloud Free does not load these from git. Create each rule in the Grafana UI:
+Create in Grafana UI: **Alerting → Alert rules → New alert rule**  
+Contact point: `slack-spotme-alerts` (notification policy: group by `alertname`, repeat 4h).
 
-**Alerting → Alert rules → New alert rule**
-
-Default contact point must be `slack-spotme-alerts` (notification policy from OBS-001 setup).
-
-Verify label names in **Explore** after Alloy has scraped for 2 minutes:
-
-```promql
-{instance="spotme-app"}
-```
-
-All queries below use `node_*` metrics from `prometheus.exporter.unix` with `instance="spotme-app"`.
+Use datasource `grafanacloud-*-prom` (Prometheus). Filter `job="app-node"` to target Alloy metrics only.
 
 ---
 
 ## Alert A — `SpotMeAppDiskHigh`
 
-| Field | Value |
-|-------|-------|
-| **Folder** | SpotMe (create if missing) |
-| **Evaluation group** | `spotme-app` (interval 1m) |
-| **Rule name** | `SpotMeAppDiskHigh` |
-| **for** | `10m` |
-| **Contact point** | `slack-spotme-alerts` |
+| Setting | Value |
+|---------|-------|
+| Folder | `SpotMe` |
+| Evaluation group | `spotme-app` · interval **1m** |
+| Pending period (`for`) | **10m** |
+| No data | `NoData` → OK (avoid false pages on scrape blip) |
+| Execution error | Alerting |
 
-### Expression (PromQL)
+### Query
+
+Single PromQL expression (type: **Prometheus**), threshold **IS ABOVE 0.80**:
 
 ```promql
 (
@@ -35,7 +28,7 @@ All queries below use `node_*` metrics from `prometheus.exporter.unix` with `ins
     /
     node_filesystem_size_bytes{instance="spotme-app", job="app-node", mountpoint="/", fstype!~"tmpfs|overlay|squashfs|autofs"}
   )
-) > 0.80
+)
 ```
 
 ### Labels
@@ -44,27 +37,44 @@ All queries below use `node_*` metrics from `prometheus.exporter.unix` with `ins
 |-----|-------|
 | `severity` | `critical` |
 | `channel` | `alerts` |
+| `instance` | `spotme-app` |
 
 ### Annotations
 
-| Key | Text |
-|-----|------|
-| **Summary** | `App EC2 root disk > 80%` |
-| **Description** | `Root gp3 is {{ $value | humanizePercentage }} full. Photo originals are on S3; this disk is Docker images, Postgres, and logs. Prune images/logs or expand the volume.` |
+**Summary** (Slack title):
+
+```
+App EC2 root disk above 80%
+```
+
+**Description** (Slack body):
+
+```
+Root gp3 is *{{ printf "%.1f" $values.A.Value }}%* full (threshold 80%, held 10m).
+
+*What uses this disk:* Docker images/layers, Postgres data, container logs — not photo originals (those are on S3).
+
+*Check:* Grafana dashboard *SpotMe / App EC2* → Root disk panel.
+*On host:* `docker system df` · `du -sh /var/lib/docker` · Postgres log rotation.
+
+*Instance:* spotme-app (m6i.xlarge, Mumbai)
+```
 
 ---
 
 ## Alert B — `SpotMeAppMemoryHigh`
 
-| Field | Value |
-|-------|-------|
-| **Folder** | SpotMe |
-| **Evaluation group** | `spotme-app` (interval 1m) |
-| **Rule name** | `SpotMeAppMemoryHigh` |
-| **for** | `10m` |
-| **Contact point** | `slack-spotme-alerts` |
+| Setting | Value |
+|---------|-------|
+| Folder | `SpotMe` |
+| Evaluation group | `spotme-app` · interval **1m** |
+| Pending period (`for`) | **10m** |
+| No data | `NoData` → OK |
+| Execution error | Alerting |
 
-### Expression (PromQL)
+### Query
+
+Threshold **IS ABOVE 0.85**:
 
 ```promql
 (
@@ -73,7 +83,7 @@ All queries below use `node_*` metrics from `prometheus.exporter.unix` with `ins
     /
     node_memory_MemTotal_bytes{instance="spotme-app", job="app-node"}
   )
-) > 0.85
+)
 ```
 
 ### Labels
@@ -82,20 +92,44 @@ All queries below use `node_*` metrics from `prometheus.exporter.unix` with `ins
 |-----|-------|
 | `severity` | `critical` |
 | `channel` | `alerts` |
+| `instance` | `spotme-app` |
 
 ### Annotations
 
-| Key | Text |
-|-----|------|
-| **Summary** | `App EC2 RAM > 85%` |
-| **Description** | `Memory used is {{ $value | humanizePercentage }} of total. Check container RSS on the app-host dashboard; tusd/Postgres spikes during large uploads.` |
+**Summary:**
+
+```
+App EC2 RAM above 85%
+```
+
+**Description:**
+
+```
+Memory used is *{{ printf "%.1f" $values.A.Value }}%* of total (threshold 85%, held 10m).
+
+*Likely consumers:* backend (ML selfie), celery-worker, Postgres, tusd during uploads.
+
+*Check:* Grafana dashboard *SpotMe / App EC2* → Container memory table.
+
+*Instance:* spotme-app (m6i.xlarge, Mumbai)
+```
 
 ---
 
-## Test without filling the disk
+## Notification policy (confirm)
 
-1. **Contact point only:** Alerting → Contact points → `slack-spotme-alerts` → **Test** → confirm Slack push on your phone.
-2. **Rule preview:** Open `SpotMeAppDiskHigh` → **Preview** → confirm the expression runs (no “parse error”).
-3. **Optional live fire:** Temporarily change the disk threshold to `> 0.01`, wait `10m` + notification delay, confirm one Slack message, then **restore `> 0.80`** immediately.
+| Setting | Value |
+|---------|-------|
+| Default contact point | `slack-spotme-alerts` |
+| Group by | `alertname` |
+| Group wait | 30s |
+| Group interval | 5m |
+| Repeat interval | 4h |
 
-Do not leave a `0.01` threshold in production.
+---
+
+## Test paging (without filling disk)
+
+1. **Contact point:** Alerting → Contact points → `slack-spotme-alerts` → **Test** → confirm phone push.
+2. **Rule preview:** Each rule → **Preview** → graph should render, no parse error.
+3. **Optional live fire:** Temporarily set disk threshold to `> 0.01`, wait 10m, confirm one Slack message, **restore `> 0.80`**.

@@ -52,7 +52,8 @@ memory_file_for_container() {
     [ -n "$mem_file" ] || continue
 
     bytes="$(cat "$mem_file")"
-    echo "spotme_container_memory_rss_bytes{instance=\"spotme-app\",name=\"${service}\"} ${bytes}"
+    # instance label is added by Alloy relabel (avoids exported_instance duplicate in Mimir).
+    echo "spotme_container_memory_rss_bytes{name=\"${service}\"} ${bytes}"
   done
 } > "$TMP_FILE"
 
