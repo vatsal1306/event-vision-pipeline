@@ -8,6 +8,8 @@ import { Heart, Users, Loader2 } from 'lucide-react';
 import { DownloadButton } from './download-button';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useState, useCallback } from 'react';
+import { INFINITE_SCROLL_THRESHOLD_PX } from '@/lib/constants';
+import { shouldFetchNextPage } from '@/lib/pagination';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -73,32 +75,45 @@ export function GalleryGrid({
     return () => window.removeEventListener('resize', updateCols);
   }, [layoutMode]);
 
-  // Infinite scroll: observe a sentinel div at the bottom of the grid
+  const onLoadMoreRef = React.useRef(onLoadMore);
+  onLoadMoreRef.current = onLoadMore;
+
   const handleLoadMore = useCallback(() => {
-    if (hasMore && !isLoadingMore && onLoadMore) {
-      onLoadMore();
+    if (hasMore && !isLoadingMore && onLoadMoreRef.current) {
+      onLoadMoreRef.current();
     }
-  }, [hasMore, isLoadingMore, onLoadMore]);
+  }, [hasMore, isLoadingMore]);
 
   useEffect(() => {
     if (!onLoadMore) return;
 
     const handleScroll = () => {
-      // If we are within 600px of the bottom of the document, trigger load more
+      const distanceFromBottomPx =
+        document.documentElement.scrollHeight - (window.innerHeight + window.scrollY);
       if (
-        window.innerHeight + window.scrollY >= 
-        document.documentElement.scrollHeight - 600
+        shouldFetchNextPage({
+          hasMore,
+          isLoadingMore,
+          distanceFromBottomPx,
+          thresholdPx: INFINITE_SCROLL_THRESHOLD_PX,
+        })
       ) {
         handleLoadMore();
       }
     };
 
     window.addEventListener('scroll', handleScroll);
-    // Trigger once on mount/update in case the screen is large enough to already be at the bottom
     handleScroll();
-    
+
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleLoadMore, onLoadMore]);
+  }, [onLoadMore, handleLoadMore]);
+
+  // Keep fetching when the current page is empty but more pages exist (e.g. client filters).
+  useEffect(() => {
+    if (photos.length === 0) {
+      handleLoadMore();
+    }
+  }, [photos.length, handleLoadMore]);
 
   const rowVirtualizer = useWindowVirtualizer({
     count: Math.ceil(photos.length / columns),
@@ -107,6 +122,13 @@ export function GalleryGrid({
   });
 
   if (photos.length === 0) {
+    if (hasMore || isLoadingMore) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
         <p>No photos found.</p>

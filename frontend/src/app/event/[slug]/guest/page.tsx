@@ -17,6 +17,7 @@ import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { getInitials } from '@/lib/utils';
 import { isGalleryReady } from '@/lib/face-processing';
 import { guestSelfieFailureCopy, canProceedToGallery } from '@/lib/guest-selfie';
+import { getPaginatedTotal } from '@/lib/pagination';
 import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -297,6 +298,8 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
               onLoadMoreHighlights={() => highlightsQuery.fetchNextPage()}
               hasMoreHighlights={!!highlightsQuery.hasNextPage}
               isLoadingMoreHighlights={highlightsQuery.isFetchingNextPage}
+              photoTotal={getPaginatedTotal(photosQuery.data?.pages, photosData.length)}
+              highlightTotal={getPaginatedTotal(highlightsQuery.data?.pages, highlightsData.length)}
             />
           )}
         </div>

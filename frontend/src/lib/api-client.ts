@@ -279,11 +279,16 @@ export const api = {
       `/api/v1/event/${slug}/guest/photos?offset=${offset}&limit=${limit}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     ),
-  getMasterPhotos: (slug: string, token?: string, offset = 0, limit = 50) =>
-    apiClient.get<PaginatedResponse<Photo>>(
-      `/api/v1/event/${slug}/master/photos?offset=${offset}&limit=${limit}`,
+  getMasterPhotos: (slug: string, token?: string, offset = 0, limit = 50, folderId?: string) => {
+    const params = new URLSearchParams({ offset: offset.toString(), limit: limit.toString() });
+    if (folderId) {
+      params.append('folder_id', folderId);
+    }
+    return apiClient.get<PaginatedResponse<Photo>>(
+      `/api/v1/event/${slug}/master/photos?${params.toString()}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
-    ),
+    );
+  },
   getMasterFolders: (slug: string, token?: string) =>
     apiClient.get<{ folders: FolderNode[] }>(
       `/api/v1/event/${slug}/master/folders`,
