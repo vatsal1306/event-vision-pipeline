@@ -25,6 +25,9 @@ services:
             - /:/rootfs:ro
             - /var/run:/var/run:rw
             - /var/lib/docker:/var/lib/docker:ro
+            # cAdvisor resolves overlay layerdb under /rootfs; host /var/lib/docker is a
+            # separate mount and is hidden from the /rootfs bind without this alias.
+            - /var/lib/docker:/rootfs/var/lib/docker:ro
             - /dev/disk:/dev/disk:ro
             - alloy_data:/var/lib/alloy/data
 

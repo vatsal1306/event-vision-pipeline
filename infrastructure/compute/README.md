@@ -158,12 +158,18 @@ so the API container can match guest selfies (volume `/app/models`). Rebuild
 
 ### Deploy stack
 
+Always merge the observability compose file so Alloy keeps running. Starting prod
+compose **without** `docker-compose.observability.yml` silently drops Alloy and
+stops host metrics / disk-RAM paging to Slack.
+
 ```bash
 cd ~/event-vision-pipeline
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml -f docker-compose.observability.yml up -d --build
 curl -s https://spotme.hpklabs.ai/health
 ```
+
+See `observability/README.md` for Grafana Cloud, Slack, and alert setup.
 
 | Route | Service |
 |-------|---------|
