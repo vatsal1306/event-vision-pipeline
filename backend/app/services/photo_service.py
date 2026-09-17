@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,11 +31,13 @@ from app.models.guest_session import GuestSession
 from app.models.photo import Photo
 from app.models.photographer import Photographer
 from app.schemas.photo import PhotoListResponse, PhotoResponse
-from app.services.storage_service import get_storage_service
+from app.services.storage_service import S3StorageService, get_storage_service
 from app.services.upload_service import ALLOWED_MIME_TYPES
 from app.utils.media_tokens import build_photo_preview_url
 
 logger = get_logger()
+
+_PREVIEW_CACHE_CONTROL = "private, max-age=300"
 
 _EXTENSION_MIME_TYPES = {
     ".jpg": "image/jpeg",
@@ -45,6 +49,15 @@ _EXTENSION_MIME_TYPES = {
     ".tiff": "image/tiff",
     ".webp": "image/webp",
 }
+
+
+@dataclass(frozen=True)
+class PreviewLocation:
+    """Object-store coordinates for a gallery preview, independent of a DB session."""
+
+    bucket: str
+    key: str
+    media_type: str
 
 
 class PhotoService:
@@ -191,8 +204,38 @@ class PhotoService:
         self._enqueue_photo_processing(photo, original_key, event.id)
         return self.build_photo_responses([photo])[0]
 
+    async def resolve_preview_location(self, event_id: UUID, photo_id: UUID) -> PreviewLocation:
+        """Return the proxy object when present, otherwise the original.
+
+        Args:
+            event_id: Event that must own the photo.
+            photo_id: Photo to serve.
+
+        Returns:
+            Bucket, key, and MIME type for the preview object.
+
+        Raises:
+            NotFoundError: Photo is missing or does not belong to the event.
+        """
+        photo = await self.db.get(Photo, photo_id)
+        if photo is None or photo.event_id != event_id:
+            raise NotFoundError("Photo")
+
+        settings = get_settings()
+        if photo.proxy_s3_key:
+            return PreviewLocation(
+                bucket=settings.s3_bucket_proxies,
+                key=photo.proxy_s3_key,
+                media_type="image/webp",
+            )
+        return PreviewLocation(
+            bucket=settings.s3_bucket_originals,
+            key=photo.original_s3_key,
+            media_type=photo.mime_type,
+        )
+
     async def stream_preview(self, event_id: UUID, photo_id: UUID) -> tuple[bytes, str]:
-        """Load proxy bytes when available, otherwise the original.
+        """Load preview bytes (local/dev only). Prefer ``build_preview_response``.
 
         Args:
             event_id: Event that must own the photo.
@@ -204,20 +247,31 @@ class PhotoService:
         Raises:
             NotFoundError: Photo is missing or the object is not in storage.
         """
-        photo = await self.db.get(Photo, photo_id)
-        if photo is None or photo.event_id != event_id:
-            raise NotFoundError("Photo")
+        location = await self.resolve_preview_location(event_id, photo_id)
+        return await _load_preview_bytes(location)
 
-        settings = get_settings()
-        storage = get_storage_service()
-        try:
-            if photo.proxy_s3_key:
-                data = await storage.get_object(settings.s3_bucket_proxies, photo.proxy_s3_key)
-                return data, "image/webp"
-            data = await storage.get_object(settings.s3_bucket_originals, photo.original_s3_key)
-            return data, photo.mime_type
-        except StorageError as exc:
-            raise NotFoundError("Photo file") from exc
+    async def build_preview_response(self, event_id: UUID, photo_id: UUID) -> Response:
+        """Look up the photo, release the DB checkout, then serve the preview.
+
+        Production (S3) issues a short-lived presigned redirect so the API worker
+        does not download gallery images. Local storage still returns bytes.
+
+        Args:
+            event_id: Event that must own the photo.
+            photo_id: Photo to serve.
+
+        Returns:
+            Redirect to S3, or an in-process image response for local storage.
+
+        Raises:
+            NotFoundError: Photo is missing or the object is not in storage.
+        """
+        location = await self.resolve_preview_location(event_id, photo_id)
+        # Autobegin holds a pool connection until the transaction ends. Commit
+        # this read-only GET before object-store I/O so gallery bursts cannot
+        # exhaust QueuePool (size 20 + overflow 10).
+        await self.db.commit()
+        return await serve_preview_location(location)
 
     def _enqueue_photo_processing(self, photo: Photo, original_key: str, event_id: UUID) -> None:
         """Dispatch Celery processing; log and continue if the broker is down."""
@@ -386,3 +440,59 @@ class PhotoService:
         )
         self.db.add(analytics)
         await self.db.commit()
+
+
+async def serve_preview_location(location: PreviewLocation) -> Response:
+    """Serve a preview from S3 via redirect, or from local storage as bytes.
+
+    Args:
+        location: Object coordinates resolved while a DB session was open.
+
+    Returns:
+        HTTP redirect or image body.
+
+    Raises:
+        NotFoundError: The object is missing from storage.
+    """
+    storage = get_storage_service()
+    if isinstance(storage, S3StorageService):
+        try:
+            url = await storage.generate_presigned_url(
+                bucket=location.bucket,
+                key=location.key,
+                client_method="get_object",
+                extra_params={"ResponseContentType": location.media_type},
+            )
+        except StorageError as exc:
+            raise NotFoundError("Photo file") from exc
+        return RedirectResponse(
+            url=url,
+            status_code=307,
+            headers={"Cache-Control": _PREVIEW_CACHE_CONTROL},
+        )
+    data, media_type = await _load_preview_bytes(location)
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Cache-Control": _PREVIEW_CACHE_CONTROL},
+    )
+
+
+async def _load_preview_bytes(location: PreviewLocation) -> tuple[bytes, str]:
+    """Download preview bytes from object storage.
+
+    Args:
+        location: Object coordinates resolved from the photo row.
+
+    Returns:
+        File bytes and MIME type.
+
+    Raises:
+        NotFoundError: The object is missing from storage.
+    """
+    storage = get_storage_service()
+    try:
+        data = await storage.get_object(location.bucket, location.key)
+    except StorageError as exc:
+        raise NotFoundError("Photo file") from exc
+    return data, location.media_type

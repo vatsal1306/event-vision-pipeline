@@ -335,6 +335,64 @@ async def test_direct_upload_creates_photo_and_preview(
 
 
 @pytest.mark.asyncio
+async def test_preview_redirects_to_presigned_s3_url(
+    authed_client: AsyncClient, db_session
+) -> None:
+    """S3-backed previews must not buffer image bytes in the API process."""
+    from urllib.parse import parse_qs, urlparse
+
+    from app.services.storage_service import S3StorageService
+    from app.utils.media_tokens import build_photo_preview_url
+
+    event = await _create_event(authed_client)
+    event_id = uuid.UUID(event["id"])
+    photo = Photo(
+        event_id=event_id,
+        folder_id=None,
+        filename="grid.webp",
+        original_s3_key="events/x/originals/grid.jpg",
+        proxy_s3_key="events/x/proxies/grid.webp",
+        file_size_bytes=1000,
+        mime_type="image/jpeg",
+        processing_status=ProcessingStatus.COMPLETED,
+    )
+    db_session.add(photo)
+    await db_session.flush()
+
+    class _RedirectingS3(S3StorageService):
+        def __init__(self) -> None:
+            """Skip aioboto3 session setup; only presign is used."""
+
+        async def generate_presigned_url(
+            self,
+            bucket: str,
+            key: str,
+            client_method: str = "get_object",
+            expires_in: int | None = None,
+            extra_params: dict[str, object] | None = None,
+        ) -> str:
+            assert bucket
+            assert key == "events/x/proxies/grid.webp"
+            assert extra_params == {"ResponseContentType": "image/webp"}
+            return "https://s3.example/proxies/grid.webp?sig=abc"
+
+    preview_url = build_photo_preview_url(event_id, photo.id)
+    parsed = urlparse(preview_url)
+    query = parse_qs(parsed.query)
+
+    with patch("app.services.photo_service.get_storage_service", return_value=_RedirectingS3()):
+        preview = await authed_client.get(
+            parsed.path,
+            params={"expires": query["expires"][0], "sig": query["sig"][0]},
+            follow_redirects=False,
+        )
+
+    assert preview.status_code == 307
+    assert preview.headers["location"] == "https://s3.example/proxies/grid.webp?sig=abc"
+    assert preview.content == b""
+
+
+@pytest.mark.asyncio
 async def test_direct_upload_rejects_unsupported_type(authed_client: AsyncClient) -> None:
     """Reject non-image uploads at the ingest boundary."""
     event = await _create_event(authed_client)

@@ -246,8 +246,30 @@ class LocalStorageService(StorageService):
 
 
 def get_storage_service() -> StorageService:
-    """Return appropriate storage service."""
+    """Return the process-wide storage service.
+
+    S3 sessions are reused so gallery traffic does not allocate a new
+    ``aioboto3.Session`` (and underlying HTTP pools) on every request.
+    """
     settings = get_settings()
     if settings.aws_access_key_id:
-        return S3StorageService()
+        return _s3_storage_service()
     return LocalStorageService()
+
+
+def _s3_storage_service() -> S3StorageService:
+    """Return a cached S3 storage client for this process."""
+    return _S3StorageHolder.get()
+
+
+class _S3StorageHolder:
+    """Lazy singleton so tests can still construct ``S3StorageService`` directly."""
+
+    _instance: S3StorageService | None = None
+
+    @classmethod
+    def get(cls) -> S3StorageService:
+        """Return the shared S3 service, creating it on first use."""
+        if cls._instance is None:
+            cls._instance = S3StorageService()
+        return cls._instance
