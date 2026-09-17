@@ -66,16 +66,13 @@ prometheus.relabel "unix_metrics" {
   }
 }
 
-// --- Docker container metrics (cAdvisor via docker.sock) ---
-
-prometheus.exporter.cadvisor "docker" {
-  docker_host      = "unix:///var/run/docker.sock"
-  docker_only      = true
-  storage_duration = "2m"
-}
+// --- Docker container metrics (cAdvisor sidecar on the compose network) ---
+// Embedded prometheus.exporter.cadvisor fails on Ubuntu Docker overlay layerdb inside Alloy.
 
 prometheus.scrape "docker" {
-  targets         = prometheus.exporter.cadvisor.docker.targets
+  targets = [{
+    __address__ = "cadvisor:8080",
+  }]
   forward_to      = [prometheus.relabel.docker_metrics.receiver]
   scrape_interval = "60s"
   job_name        = "app-docker"

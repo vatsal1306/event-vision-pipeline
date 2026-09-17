@@ -4,32 +4,40 @@
 # Starting prod compose without this file silently drops Alloy.
 
 services:
-    alloy:
-        image: grafana/alloy:v1.8.3
-        restart: unless-stopped
-        env_file: .env
-        # cAdvisor needs privileged host access; docker.sock read-only is not enough.
-        # The official image runs as root in this mode (socket + /proc + cgroups).
-        privileged: true
-        mem_limit: 512m
-        command:
-            - run
-            - --server.http.listen-addr=127.0.0.1:12345
-            - --storage.path=/var/lib/alloy/data
-            - /etc/alloy/app.alloy
-        volumes:
-            - ./observability/alloy/app.alloy:/etc/alloy/app.alloy:ro
-            - /var/run/docker.sock:/var/run/docker.sock:ro
-            - /proc:/proc:ro
-            - /sys:/sys:ro
-            - /:/rootfs:ro
-            - /var/run:/var/run:rw
-            - /var/lib/docker:/var/lib/docker:ro
-            # cAdvisor resolves overlay layerdb under /rootfs; host /var/lib/docker is a
-            # separate mount and is hidden from the /rootfs bind without this alias.
-            - /var/lib/docker:/rootfs/var/lib/docker:ro
-            - /dev/disk:/dev/disk:ro
-            - alloy_data:/var/lib/alloy/data
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    privileged: true
+    mem_limit: 256m
+    command:
+      - --docker_only=true
+      - --store_container_labels=true
+      - --housekeeping_interval=60s
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+
+  alloy:
+    image: grafana/alloy:v1.8.3
+    restart: unless-stopped
+    env_file: .env
+    mem_limit: 512m
+    depends_on:
+      - cadvisor
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/app.alloy
+    volumes:
+      - ./observability/alloy/app.alloy:/etc/alloy/app.alloy:ro
+      - /proc:/proc:ro
+      - /sys:/sys:ro
+      - /:/rootfs:ro
+      - alloy_data:/var/lib/alloy/data
 
 volumes:
-    alloy_data:
+  alloy_data:
