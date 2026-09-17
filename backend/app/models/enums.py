@@ -42,6 +42,17 @@ class AnalyticsAction(str, enum.Enum):
     DOWNLOAD = "download"
 
 
+class PhotoVariant(str, enum.Enum):
+    """Rendition of a photo served to gallery clients.
+
+    Not persisted as a PostgreSQL type; used to select an S3 derivative.
+    """
+
+    THUMB = "thumb"
+    PREVIEW = "preview"
+    FULL = "full"
+
+
 def pg_enum(enum_class: type[enum.Enum], name: str) -> Enum:
     """Build a native PostgreSQL enum that persists enum values, not names."""
     return Enum(

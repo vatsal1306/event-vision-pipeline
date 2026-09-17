@@ -23,7 +23,7 @@ from app.core.exceptions import (
 from app.core.logging import get_logger
 from app.models.analytics_event import AnalyticsEvent
 from app.models.couple_session import CoupleSession
-from app.models.enums import AnalyticsAction, EventStatus
+from app.models.enums import AnalyticsAction, EventStatus, PhotoVariant
 from app.models.event import Event
 from app.models.face_embedding import FaceEmbedding
 from app.models.folder import Folder
@@ -31,6 +31,8 @@ from app.models.guest_session import GuestSession
 from app.models.photo import Photo
 from app.models.photographer import Photographer
 from app.schemas.photo import PhotoListResponse, PhotoResponse
+from app.services.gallery_url_service import GalleryUrlBuilder
+from app.services.photo_query import gallery_load_options
 from app.services.storage_service import S3StorageService, get_storage_service
 from app.services.upload_service import ALLOWED_MIME_TYPES
 from app.utils.media_tokens import build_photo_preview_url
@@ -75,9 +77,7 @@ class PhotoService:
         stmt = select(
             func.count(Photo.id).label("photo_count"),
             func.coalesce(func.sum(Photo.face_count), 0).label("face_count"),
-            func.coalesce(func.sum(Photo.file_size_bytes + Photo.proxy_file_size_bytes), 0).label(
-                "total_bytes"
-            ),
+            func.coalesce(func.sum(Photo.stored_bytes_expression()), 0).label("total_bytes"),
         ).where(Photo.id.in_(photo_ids), Photo.event_id == event_id)
 
         result = await self.db.execute(stmt)
@@ -204,12 +204,18 @@ class PhotoService:
         self._enqueue_photo_processing(photo, original_key, event.id)
         return self.build_photo_responses([photo])[0]
 
-    async def resolve_preview_location(self, event_id: UUID, photo_id: UUID) -> PreviewLocation:
-        """Return the proxy object when present, otherwise the original.
+    async def resolve_preview_location(
+        self,
+        event_id: UUID,
+        photo_id: UUID,
+        variant: PhotoVariant = PhotoVariant.FULL,
+    ) -> PreviewLocation:
+        """Return the requested rendition, degrading to the original.
 
         Args:
             event_id: Event that must own the photo.
             photo_id: Photo to serve.
+            variant: Rendition to serve.
 
         Returns:
             Bucket, key, and MIME type for the preview object.
@@ -222,10 +228,11 @@ class PhotoService:
             raise NotFoundError("Photo")
 
         settings = get_settings()
-        if photo.proxy_s3_key:
+        key = GalleryUrlBuilder().resolve_storage_key(photo, variant)
+        if key:
             return PreviewLocation(
                 bucket=settings.s3_bucket_proxies,
-                key=photo.proxy_s3_key,
+                key=key,
                 media_type="image/webp",
             )
         return PreviewLocation(
@@ -234,12 +241,18 @@ class PhotoService:
             media_type=photo.mime_type,
         )
 
-    async def stream_preview(self, event_id: UUID, photo_id: UUID) -> tuple[bytes, str]:
+    async def stream_preview(
+        self,
+        event_id: UUID,
+        photo_id: UUID,
+        variant: PhotoVariant = PhotoVariant.FULL,
+    ) -> tuple[bytes, str]:
         """Load preview bytes (local/dev only). Prefer ``build_preview_response``.
 
         Args:
             event_id: Event that must own the photo.
             photo_id: Photo to stream.
+            variant: Rendition to stream.
 
         Returns:
             Tuple of file bytes and MIME type for the HTTP response.
@@ -247,18 +260,25 @@ class PhotoService:
         Raises:
             NotFoundError: Photo is missing or the object is not in storage.
         """
-        location = await self.resolve_preview_location(event_id, photo_id)
+        location = await self.resolve_preview_location(event_id, photo_id, variant)
         return await _load_preview_bytes(location)
 
-    async def build_preview_response(self, event_id: UUID, photo_id: UUID) -> Response:
+    async def build_preview_response(
+        self,
+        event_id: UUID,
+        photo_id: UUID,
+        variant: PhotoVariant = PhotoVariant.FULL,
+    ) -> Response:
         """Look up the photo, release the DB checkout, then serve the preview.
 
-        Production (S3) issues a short-lived presigned redirect so the API worker
-        does not download gallery images. Local storage still returns bytes.
+        This is a compatibility and local-development path. Production gallery
+        clients receive presigned S3 URLs in the photo list response and never
+        reach this route.
 
         Args:
             event_id: Event that must own the photo.
             photo_id: Photo to serve.
+            variant: Rendition to serve.
 
         Returns:
             Redirect to S3, or an in-process image response for local storage.
@@ -266,7 +286,7 @@ class PhotoService:
         Raises:
             NotFoundError: Photo is missing or the object is not in storage.
         """
-        location = await self.resolve_preview_location(event_id, photo_id)
+        location = await self.resolve_preview_location(event_id, photo_id, variant)
         # Autobegin holds a pool connection until the transaction ends. Commit
         # this read-only GET before object-store I/O so gallery bursts cannot
         # exhaust QueuePool (size 20 + overflow 10).
@@ -313,7 +333,12 @@ class PhotoService:
         total = await self.db.scalar(count_stmt) or 0
 
         # Fetch paginated items
-        stmt = stmt.order_by(Photo.created_at.desc()).offset(offset).limit(limit)
+        stmt = (
+            stmt.options(*gallery_load_options())
+            .order_by(Photo.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         result = await self.db.execute(stmt)
         photos = list(result.scalars().all())
 
@@ -373,12 +398,29 @@ class PhotoService:
         return url
 
     def build_photo_responses(self, photos: list[Photo]) -> list[PhotoResponse]:
-        """Convert Photo models to PhotoResponse with signed preview URLs."""
+        """Convert Photo models to PhotoResponse with direct-to-storage URLs.
+
+        Signing is a local HMAC computation, so a whole page of photos is
+        signed without any I/O.
+
+        Args:
+            photos: Photo rows to serialise.
+
+        Returns:
+            API representations including per-rendition image URLs.
+        """
+        url_builder = GalleryUrlBuilder()
         items = []
         for photo in photos:
-            proxy_url = None
-            if photo.original_s3_key or photo.proxy_s3_key:
-                proxy_url = build_photo_preview_url(photo.event_id, photo.id)
+            urls = url_builder.urls_for(photo)
+            # Originals are never handed to the browser, but a photo that is
+            # still processing has only an original; the signed route can
+            # transcode-free stream it so the grid is not empty mid-upload.
+            fallback_url = (
+                build_photo_preview_url(photo.event_id, photo.id)
+                if urls.full is None and photo.original_s3_key
+                else None
+            )
 
             items.append(
                 PhotoResponse(
@@ -386,7 +428,9 @@ class PhotoService:
                     event_id=photo.event_id,
                     folder_id=photo.folder_id,
                     filename=photo.filename,
-                    proxy_url=proxy_url,
+                    proxy_url=urls.full or fallback_url,
+                    thumb_url=urls.thumb or fallback_url,
+                    preview_url=urls.preview or fallback_url,
                     blurhash=photo.blurhash,
                     width=photo.width,
                     height=photo.height,

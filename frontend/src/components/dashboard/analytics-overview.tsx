@@ -61,9 +61,10 @@ export function AnalyticsOverview({ eventId }: AnalyticsOverviewProps) {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {topPhotosData.photos.map((photo) => (
               <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-md border">
-                {photo.proxyUrl ? (
+                {(photo.thumbUrl ?? photo.proxyUrl) ? (
                   <ResponsiveImage
-                    src={photo.proxyUrl}
+                    src={(photo.thumbUrl ?? photo.proxyUrl) as string}
+                    sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 20vw"
                     alt={photo.filename || 'Top viewed photo'}
                     className="absolute inset-0 h-full w-full"
                   />

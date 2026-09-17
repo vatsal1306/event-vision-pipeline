@@ -25,6 +25,7 @@ class TopPhotoResponse(BaseModel):
     id: UUID
     filename: str
     proxy_url: str | None
+    thumb_url: str | None = None
     views: int = 0
     downloads: int = 0
 

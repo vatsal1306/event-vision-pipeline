@@ -12,11 +12,18 @@ interface ResponsiveImageProps {
   aspectRatio?: number;
   className?: string;
   imageClassName?: string;
+  /** Candidate renditions with `w` descriptors, from `buildPhotoSrcSet`. */
+  srcSet?: string;
+  /** Rendered tile width per breakpoint, required for `srcSet` to be useful. */
+  sizes?: string;
+  /** Skip lazy loading for tiles likely to be above the fold. */
+  isPriority?: boolean;
 }
 
 /**
- * Event photo preview. Uses a plain img so signed `/api/.../preview` URLs
- * are requested by the browser (Caddy → FastAPI) instead of `/_next/image`.
+ * Event photo preview. Uses a plain img so presigned S3 URLs and signed
+ * `/api/.../preview` paths are requested directly by the browser instead of
+ * being re-proxied through `/_next/image`.
  */
 export function ResponsiveImage({
   src,
@@ -25,6 +32,9 @@ export function ResponsiveImage({
   aspectRatio,
   className,
   imageClassName,
+  srcSet,
+  sizes,
+  isPriority = false,
 }: ResponsiveImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -38,6 +48,11 @@ export function ResponsiveImage({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={resolvedSrc}
+        srcSet={srcSet}
+        sizes={sizes}
+        loading={isPriority ? 'eager' : 'lazy'}
+        decoding="async"
+        fetchPriority={isPriority ? 'high' : 'auto'}
         alt={alt}
         className={cn(
           'absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-in-out',

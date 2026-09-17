@@ -17,8 +17,9 @@ from app.schemas.analytics import (
     GuestLeadResponse,
     TopPhotoResponse,
 )
+from app.services.gallery_url_service import GalleryUrlBuilder
+from app.services.photo_query import gallery_load_options
 from app.utils.csv_export import generate_guest_leads_csv
-from app.utils.media_tokens import build_photo_preview_url
 
 
 class AnalyticsService:
@@ -90,30 +91,34 @@ class AnalyticsService:
 
         stmt = (
             select(
-                Photo.id,
-                Photo.filename,
-                Photo.proxy_s3_key,
+                Photo,
                 func.coalesce(views_subq, 0).label("views"),
                 func.coalesce(downloads_subq, 0).label("downloads"),
             )
+            .options(*gallery_load_options())
             .where(Photo.event_id == event_id)
             .order_by(order_col)
             .limit(limit)
         )
 
         result = await self.db.execute(stmt)
-        photos = result.all()
+        rows = result.all()
 
-        return [
-            TopPhotoResponse(
-                id=p.id,
-                filename=p.filename,
-                proxy_url=build_photo_preview_url(event_id, p.id),
-                views=p.views,
-                downloads=p.downloads,
+        url_builder = GalleryUrlBuilder()
+        top_photos = []
+        for row in rows:
+            urls = url_builder.urls_for(row.Photo)
+            top_photos.append(
+                TopPhotoResponse(
+                    id=row.Photo.id,
+                    filename=row.Photo.filename,
+                    proxy_url=urls.full,
+                    thumb_url=urls.thumb,
+                    views=row.views,
+                    downloads=row.downloads,
+                )
             )
-            for p in photos
-        ]
+        return top_photos
 
     async def get_guest_leads(
         self,

@@ -13,6 +13,7 @@ from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.exceptions import ProcessingError
 from app.models.enums import EventStatus, ProcessingStatus
 from app.models.event import Event
 from app.models.photo import Photo
@@ -20,7 +21,10 @@ from app.models.photographer import Photographer
 from app.services.image_processing_service import ImageProcessingService
 from app.services.storage_service import LocalStorageService
 from app.services.watermark_service import WatermarkService
-from app.tasks.photo_tasks import _process_uploaded_photo_async
+from app.tasks.photo_tasks import (
+    _backfill_event_derivatives_async,
+    _process_uploaded_photo_async,
+)
 
 
 async def create_photographer(
@@ -102,7 +106,7 @@ def _patch_photo_processing(
 
     with (
         patch("app.tasks.photo_tasks.get_storage_service", return_value=storage),
-        patch("app.tasks.photo_tasks._build_session_factory", return_value=session_cm),
+        patch("app.tasks.photo_tasks._task_session", session_cm),
         patch("app.tasks.notification_tasks.notify_processing_complete_task.delay"),
     ):
         yield
@@ -132,6 +136,172 @@ async def test_image_processing_service(storage: LocalStorageService) -> None:
     # Original was 3000x2000. Proxy max dim is 2048, so should be 2048x1365
     assert width == 2048
     assert height == 1365
+
+
+@pytest.mark.asyncio
+async def test_generate_derivatives_produces_smaller_renditions(
+    storage: LocalStorageService,
+) -> None:
+    """Grid and lightbox renditions must be bounded and much lighter than the proxy."""
+    service = ImageProcessingService(storage)
+    event_id = str(uuid.uuid4())
+    proxy_key = f"proxies/{event_id}/proxy.webp"
+    proxy_bytes = create_test_image_bytes(2048, 1365, "red", "WEBP")
+    await storage.put_object(
+        service.settings.s3_bucket_proxies, proxy_key, proxy_bytes, "image/webp"
+    )
+
+    derivatives = await service.generate_derivatives(proxy_key, event_id)
+
+    assert derivatives.thumb_s3_key.endswith("-thumb.webp")
+    assert derivatives.preview_s3_key.endswith("-preview.webp")
+    assert derivatives.total_bytes > 0
+
+    thumb = Image.open(
+        io.BytesIO(
+            await storage.get_object(service.settings.s3_bucket_proxies, derivatives.thumb_s3_key)
+        )
+    )
+    preview = Image.open(
+        io.BytesIO(
+            await storage.get_object(service.settings.s3_bucket_proxies, derivatives.preview_s3_key)
+        )
+    )
+
+    assert max(thumb.size) == service.settings.thumb_max_dimension
+    assert max(preview.size) == service.settings.preview_max_dimension
+    # Aspect ratio preserved within a pixel of rounding.
+    assert abs(thumb.size[0] / thumb.size[1] - 2048 / 1365) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_generate_derivatives_does_not_upscale_small_proxies(
+    storage: LocalStorageService,
+) -> None:
+    """A proxy smaller than a rendition bound is copied, never enlarged."""
+    service = ImageProcessingService(storage)
+    event_id = str(uuid.uuid4())
+    proxy_key = f"proxies/{event_id}/tiny.webp"
+    await storage.put_object(
+        service.settings.s3_bucket_proxies,
+        proxy_key,
+        create_test_image_bytes(120, 80, "blue", "WEBP"),
+        "image/webp",
+    )
+
+    derivatives = await service.generate_derivatives(proxy_key, event_id)
+
+    thumb = Image.open(
+        io.BytesIO(
+            await storage.get_object(service.settings.s3_bucket_proxies, derivatives.thumb_s3_key)
+        )
+    )
+    assert thumb.size == (120, 80)
+
+
+@pytest.mark.asyncio
+async def test_generate_derivatives_rejects_undecodable_proxy(
+    storage: LocalStorageService,
+) -> None:
+    """Corrupt objects must raise rather than silently store a broken rendition."""
+    service = ImageProcessingService(storage)
+    event_id = str(uuid.uuid4())
+    proxy_key = f"proxies/{event_id}/corrupt.webp"
+    await storage.put_object(
+        service.settings.s3_bucket_proxies, proxy_key, b"not-an-image", "image/webp"
+    )
+
+    with pytest.raises(ProcessingError):
+        await service.generate_derivatives(proxy_key, event_id)
+
+
+@pytest.mark.asyncio
+async def test_backfill_generates_derivatives_for_existing_photos(
+    db_session: AsyncSession, storage: LocalStorageService
+) -> None:
+    """Events uploaded before the ladder existed must gain renditions in place."""
+    photographer = await create_photographer(db_session, "backfill@test.com")
+    event = await create_event(db_session, photographer.id)
+
+    proxy_key = f"proxies/{event.id}/legacy.webp"
+    await storage.put_object(
+        get_settings().s3_bucket_proxies,
+        proxy_key,
+        create_test_image_bytes(2048, 1365, "green", "WEBP"),
+        "image/webp",
+    )
+    photo = await create_photo(db_session, event.id, f"originals/{event.id}/legacy.jpg")
+    photo.proxy_s3_key = proxy_key
+    photo.processing_status = ProcessingStatus.COMPLETED
+    await db_session.commit()
+
+    with _patch_photo_processing(db_session, storage):
+        outcome = await _backfill_event_derivatives_async(str(event.id), batch_size=50)
+
+    assert outcome.processed == 1
+    assert outcome.failed == 0
+    assert outcome.remaining == 0
+
+    await db_session.refresh(photo)
+    assert photo.thumb_s3_key is not None
+    assert photo.preview_s3_key is not None
+    assert photo.derivative_file_size_bytes > 0
+    # The original proxy is left alone so nothing already cached breaks.
+    assert photo.proxy_s3_key == proxy_key
+
+
+@pytest.mark.asyncio
+async def test_backfill_skips_photos_that_already_have_derivatives(
+    db_session: AsyncSession, storage: LocalStorageService
+) -> None:
+    """Re-running the backfill must be a cheap no-op, not a duplicate upload."""
+    photographer = await create_photographer(db_session, "backfill2@test.com")
+    event = await create_event(db_session, photographer.id)
+
+    photo = await create_photo(db_session, event.id, f"originals/{event.id}/done.jpg")
+    photo.proxy_s3_key = f"proxies/{event.id}/done.webp"
+    photo.thumb_s3_key = f"proxies/{event.id}/done-thumb.webp"
+    photo.preview_s3_key = f"proxies/{event.id}/done-preview.webp"
+    await db_session.commit()
+
+    with _patch_photo_processing(db_session, storage):
+        outcome = await _backfill_event_derivatives_async(str(event.id), batch_size=50)
+
+    assert (outcome.processed, outcome.failed, outcome.remaining) == (0, 0, 0)
+
+
+@pytest.mark.asyncio
+async def test_backfill_records_failures_without_aborting_the_batch(
+    db_session: AsyncSession, storage: LocalStorageService
+) -> None:
+    """One unreadable proxy must not block the rest of the event."""
+    photographer = await create_photographer(db_session, "backfill3@test.com")
+    event = await create_event(db_session, photographer.id)
+
+    good_key = f"proxies/{event.id}/good.webp"
+    await storage.put_object(
+        get_settings().s3_bucket_proxies,
+        good_key,
+        create_test_image_bytes(800, 600, "blue", "WEBP"),
+        "image/webp",
+    )
+    good = await create_photo(db_session, event.id, f"originals/{event.id}/good.jpg")
+    good.proxy_s3_key = good_key
+
+    # Never uploaded, so reading it raises StorageError.
+    broken = await create_photo(db_session, event.id, f"originals/{event.id}/broken.jpg")
+    broken.proxy_s3_key = f"proxies/{event.id}/missing.webp"
+    await db_session.commit()
+
+    with _patch_photo_processing(db_session, storage):
+        outcome = await _backfill_event_derivatives_async(str(event.id), batch_size=50)
+
+    assert outcome.processed == 1
+    assert outcome.failed == 1
+    assert outcome.remaining == 1
+
+    await db_session.refresh(good)
+    assert good.thumb_s3_key is not None
 
 
 @pytest.mark.asyncio
@@ -180,6 +350,9 @@ async def test_process_uploaded_photo_success(
     await db_session.refresh(photo)
     assert photo.processing_status == ProcessingStatus.COMPLETED
     assert photo.proxy_s3_key is not None
+    assert photo.thumb_s3_key is not None
+    assert photo.preview_s3_key is not None
+    assert photo.derivative_file_size_bytes > 0
     assert photo.blurhash is not None
     assert photo.width == 100
     assert photo.height == 100

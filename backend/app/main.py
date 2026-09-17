@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,10 +12,27 @@ from app.api.health import router as health_router
 from app.api.v1.router import router as v1_router
 from app.config import Settings, get_settings
 from app.core.cors import cors_allow_origins, cors_origin_regex
+from app.core.database import engine
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 from app.core.sentry import init_sentry
+from app.services.storage_service import close_storage_service
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Release pooled sockets on shutdown.
+
+    The shared S3 client and the database pool are bound to this worker's event
+    loop, so both must be closed before the loop does.
+
+    Yields:
+        Control to the running application.
+    """
+    yield
+    await close_storage_service()
+    await engine.dispose()
 
 
 def _configure_cors(app: FastAPI, settings: Settings) -> None:
@@ -49,6 +69,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.app_name,
+        lifespan=lifespan,
         debug=False,
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,

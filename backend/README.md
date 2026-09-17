@@ -238,6 +238,59 @@ Frontend event cards still use camelCase; `frontend/src/lib/map-api.ts` maps sna
 - Processing migrated to use OpenCV for proxies, watermarking, and HEIC ingestion.
 - Background jobs handled reliably by Celery with proper failure isolation.
 
+## Gallery image delivery
+
+Gallery clients fetch image bytes **straight from S3**. Photo list responses
+carry presigned URLs per rendition, so the API is hit once per page of photos
+instead of once per tile.
+
+### Renditions
+
+`process_uploaded_photo` writes three WebP objects into the proxies bucket. The
+smaller two are derived from the 2048px proxy *after* watermarking, so
+watermarks survive and a backfill never has to pull originals out of Infrequent
+Access.
+
+| Field | Setting | Default | Used by |
+|-------|---------|---------|---------|
+| `thumb_s3_key` | `THUMB_MAX_DIMENSION` / `THUMB_QUALITY` | 480px q70 | Grid tiles |
+| `preview_s3_key` | `PREVIEW_MAX_DIMENSION` / `PREVIEW_QUALITY` | 1280px q78 | Lightbox |
+| `proxy_s3_key` | `PROXY_MAX_DIMENSION` / `PROXY_QUALITY` | 2048px q82 | Zoom, downloads |
+
+`GalleryUrlBuilder` degrades to the next larger object when a rendition is
+missing, so photos predating this pipeline keep rendering.
+
+### Cacheable presigned URLs
+
+`app/services/s3_presigner.py` registers a SigV4 query signer that floors
+`X-Amz-Date` to `GALLERY_URL_CACHE_BUCKET_SECONDS` (1h). Every request inside a
+bucket produces a byte-identical URL, so the browser HTTP cache actually hits on
+reload. `X-Amz-Expires` is two bucket widths, so a URL minted at the end of a
+bucket stays valid for a full hour.
+
+Signing is a local HMAC with a process-wide `boto3` client. Never build a
+botocore client per request: that is hundreds of milliseconds of blocking CPU on
+the event loop, and it was the cause of `QueuePool limit ... reached` under
+gallery load.
+
+Plain `<img>` needs no S3 CORS rules. Add them only if a feature starts reading
+these images through `fetch` or a canvas.
+
+### Backfilling existing events
+
+New sizes are generated on upload. For events uploaded earlier, run the task
+per event; it re-queues itself in batches until the event is done.
+
+```bash
+docker compose -f docker-compose.prod.yml exec celery-worker \
+  celery -A app.tasks.celery_app call app.tasks.photo_tasks.backfill_event_derivatives \
+  --args='["<event-uuid>"]'
+```
+
+Photos whose proxy cannot be read are logged and skipped rather than failing the
+batch. Re-running is cheap: the query only selects rows where `thumb_s3_key IS
+NULL`.
+
 ## Sharing (BE-011)
 - Added `GET /api/v1/event/{slug}/info` which returns public `EventPublicInfo` for rendering unauthenticated guest and master landing pages.
 - Dynamic presigned URL generation for the photographer's studio logo using `StorageService` with configurable expiration (`settings.s3_presigned_url_expiry`).

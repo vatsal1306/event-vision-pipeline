@@ -127,14 +127,21 @@ async def test_list_photos(authed_client: AsyncClient, db_session) -> None:
     assert data["total"] == 2
     assert len(data["items"]) == 2
 
-    # Check signed preview URL is set for completed and pending photos
+    # A processed photo is served straight from object storage, so its URLs
+    # point at the proxy object rather than back at this API.
     completed_photo = next(p for p in data["items"] if p["id"] == str(photo1.id))
     assert completed_photo["proxy_url"] is not None
-    assert "/preview?" in completed_photo["proxy_url"]
+    assert "root_proxy.jpg" in completed_photo["proxy_url"]
+    assert "/preview?" not in completed_photo["proxy_url"]
+    # No derivatives yet, so the grid rendition falls back to the proxy.
+    assert completed_photo["thumb_url"] == completed_photo["proxy_url"]
 
+    # A photo that is still processing has only an original, which the signed
+    # API route streams so the grid is not empty mid-upload.
     pending_photo = next(p for p in data["items"] if p["id"] == str(photo2.id))
     assert pending_photo["proxy_url"] is not None
     assert "/preview?" in pending_photo["proxy_url"]
+    assert pending_photo["thumb_url"] == pending_photo["proxy_url"]
 
     # List photos in folder
     resp = await authed_client.get(f"/api/v1/events/{event_id}/photos?folder_id={folder_id}")

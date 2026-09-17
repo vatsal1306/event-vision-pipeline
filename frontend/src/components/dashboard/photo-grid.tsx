@@ -18,11 +18,14 @@ import {
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { Loader2, Move, Trash2, X, FolderOpen, Image as ImageIcon } from 'lucide-react';
+import { buildPhotoSrcSet } from '@/lib/media-url';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const GRID_GAP_PX = 16;
 const GRID_PADDING_PX = 16;
+/** Tile width per breakpoint for the dashboard's responsive column count. */
+const DASHBOARD_TILE_SIZES = '(max-width: 767px) 50vw, (max-width: 1279px) 25vw, 16vw';
 
 interface PhotoGridProps {
   eventId: string;
@@ -259,9 +262,11 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
                       className="group relative h-full cursor-pointer overflow-hidden rounded-md border border-border/50 bg-muted shadow-sm"
                       onClick={() => isSelectionMode ? toggleSelection(photo.id, { stopPropagation: () => {} } as any) : onPhotoClick(photo)}
                     >
-                      {photo.proxyUrl && (
+                      {(photo.thumbUrl ?? photo.proxyUrl) && (
                         <ResponsiveImage
-                          src={photo.proxyUrl}
+                          src={(photo.thumbUrl ?? photo.proxyUrl) as string}
+                          srcSet={buildPhotoSrcSet(photo)}
+                          sizes={DASHBOARD_TILE_SIZES}
                           alt={photo.filename}
                           blurhash={photo.blurhash}
                           className="w-full h-full"

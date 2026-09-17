@@ -42,7 +42,9 @@ services:
                 INSTALL_ML: "true"
         restart: unless-stopped
         env_file: .env
-        # One worker so R100/AdaFace load once for guest selfie (CPU, no CUDA).
+        # Two workers on the 4 vCPU m6i.xlarge. R100/AdaFace load per worker
+        # for guest selfie matching (CPU, no CUDA), so each one costs memory;
+        # going wider needs the ML host to take over selfie matching first.
         command:
             - uvicorn
             - app.main:app
@@ -51,7 +53,7 @@ services:
             - --port
             - "8000"
             - --workers
-            - "1"
+            - "2"
         environment:
             DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/photoshare
             REDIS_URL: redis://redis:6379/0

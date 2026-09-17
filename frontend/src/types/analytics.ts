@@ -9,6 +9,7 @@ export interface AnalyticsTopPhoto {
   id: string;
   filename: string;
   proxyUrl: string | null;
+  thumbUrl: string | null;
   views: number;
   downloads: number;
 }

@@ -35,8 +35,11 @@ class Settings(BaseSettings):
     trusted_proxies: list[str] = ["127.0.0.1"]
 
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/photoshare"
-    database_pool_size: int = 20
-    database_max_overflow: int = 10
+    # Per-process, and uvicorn runs several worker processes, so this is
+    # multiplied by `WEB_CONCURRENCY`. Keep the product plus the Celery workers
+    # comfortably under the PostgreSQL `max_connections` ceiling of 100.
+    database_pool_size: int = 10
+    database_max_overflow: int = 5
 
     redis_url: str = "redis://localhost:6379/0"
 
@@ -58,6 +61,9 @@ class Settings(BaseSettings):
     face_processing_requeue_seconds: int = 120
     # Heartbeats older than this are "worker missing" but not yet give-up.
     face_processing_heartbeat_fresh_seconds: int = 180
+    # Blank means "derive the regional AWS endpoint". Set explicitly only for
+    # S3-compatible stores such as MinIO.
+    s3_endpoint_url: str = ""
     s3_bucket_originals: str = "platform-originals"
     s3_bucket_proxies: str = "platform-proxies"
     s3_bucket_assets: str = "platform-assets"
@@ -104,6 +110,17 @@ class Settings(BaseSettings):
 
     proxy_max_dimension: int = 2048
     proxy_quality: int = 82
+    # Gallery grid tiles. Small enough that a 50-photo page is ~1.5 MB.
+    thumb_max_dimension: int = 480
+    thumb_quality: int = 70
+    # Lightbox / full-screen viewer on phones and laptops.
+    preview_max_dimension: int = 1280
+    preview_quality: int = 78
+    # Gallery images are fetched straight from S3 with presigned URLs. Expiry is
+    # quantised to `gallery_url_cache_bucket_seconds` so the same photo yields a
+    # byte-identical URL for the whole bucket and the browser HTTP cache can hit.
+    # Total validity is therefore between one and two bucket widths.
+    gallery_url_cache_bucket_seconds: int = 3600
     watermark_opacity: float = 0.4
     max_upload_size_bytes: int = 52_428_800
 

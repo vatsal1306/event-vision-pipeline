@@ -54,6 +54,9 @@ async def analytics_data(
             event_id=event.id,
             filename=f"photo_{i}.jpg",
             original_s3_key=f"orig_{i}.jpg",
+            proxy_s3_key=f"proxies/{event.id}/proxy_{i}.webp",
+            thumb_s3_key=f"proxies/{event.id}/proxy_{i}-thumb.webp",
+            preview_s3_key=f"proxies/{event.id}/proxy_{i}-preview.webp",
             file_size_bytes=1000,
             mime_type="image/jpeg",
             processing_status=ProcessingStatus.COMPLETED,
@@ -182,9 +185,13 @@ async def test_get_top_photos(
     assert len(data["photos"]) == 3
     assert data["photos"][0]["id"] == str(photos[0].id)
     assert data["photos"][0]["views"] == 3
-    assert data["photos"][0]["proxy_url"] is not None
-    assert "/preview?" in data["photos"][0]["proxy_url"]
-    assert data["photos"][0]["id"] in data["photos"][0]["proxy_url"]
+    # Dashboard tiles get the small rendition, and both URLs are signed so the
+    # browser can fetch them from object storage without hitting the API.
+    top_photo = data["photos"][0]
+    assert top_photo["proxy_url"] is not None
+    assert "proxy_0.webp" in top_photo["proxy_url"]
+    assert top_photo["thumb_url"] is not None
+    assert "proxy_0-thumb.webp" in top_photo["thumb_url"]
     assert data["photos"][1]["id"] == str(photos[1].id)
     assert data["photos"][1]["views"] == 1
 

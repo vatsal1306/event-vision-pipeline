@@ -48,7 +48,12 @@ export interface Photo {
   folderId: string | null; // UUID
   filename: string;
   originalS3Key: string;
+  /** Full 2048px rendition. Use for downloads and deep zoom. */
   proxyUrl: string | null;
+  /** ~480px rendition for grid tiles. */
+  thumbUrl: string | null;
+  /** ~1280px rendition for the full-screen viewer. */
+  previewUrl: string | null;
   blurhash: string | null;
   width: number | null;
   height: number | null;

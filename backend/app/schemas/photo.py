@@ -19,7 +19,11 @@ class PhotoResponse(BaseModel):
     event_id: UUID
     folder_id: UUID | None = None
     filename: str
+    # Full 2048px rendition. Kept as the primary field for backward
+    # compatibility; grids should prefer `thumb_url` and viewers `preview_url`.
     proxy_url: str | None = None
+    thumb_url: str | None = None
+    preview_url: str | None = None
     blurhash: str | None = None
     width: int | None = None
     height: int | None = None

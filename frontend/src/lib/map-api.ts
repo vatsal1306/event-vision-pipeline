@@ -57,6 +57,12 @@ export function mapPhotoFromApi(raw: Record<string, unknown>): Photo {
     proxyUrl: resolveProxyUrl(
       (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null) ?? null
     ),
+    thumbUrl: resolveProxyUrl(
+      (raw.thumb_url as string | null | undefined) ?? (raw.thumbUrl as string | null) ?? null
+    ),
+    previewUrl: resolveProxyUrl(
+      (raw.preview_url as string | null | undefined) ?? (raw.previewUrl as string | null) ?? null
+    ),
     blurhash: (raw.blurhash as string | null) ?? null,
     width: typeof raw.width === 'number' ? raw.width : null,
     height: typeof raw.height === 'number' ? raw.height : null,
@@ -75,10 +81,14 @@ export function mapTopPhotoFromApi(raw: Record<string, unknown>): AnalyticsTopPh
   const proxyUrl = resolveProxyUrl(
     (raw.proxy_url as string | null | undefined) ?? (raw.proxyUrl as string | null | undefined) ?? null
   );
+  const thumbUrl = resolveProxyUrl(
+    (raw.thumb_url as string | null | undefined) ?? (raw.thumbUrl as string | null | undefined) ?? null
+  );
   return {
     id,
     filename: String(raw.filename ?? ''),
     proxyUrl,
+    thumbUrl,
     views: Number(raw.views ?? 0),
     downloads: Number(raw.downloads ?? 0),
   };

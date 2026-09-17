@@ -2,6 +2,7 @@
 
 import { Photo } from '@/types/event';
 import { ResponsiveImage } from '@/components/shared/responsive-image';
+import { buildPhotoSrcSet } from '@/lib/media-url';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { Heart, Users, Loader2 } from 'lucide-react';
@@ -12,6 +13,14 @@ import { INFINITE_SCROLL_THRESHOLD_PX } from '@/lib/constants';
 import { shouldFetchNextPage } from '@/lib/pagination';
 import React from 'react';
 import { Button } from '@/components/ui/button';
+
+/**
+ * Rendered tile width per breakpoint, mirroring the column counts chosen in
+ * `updateCols` below. Lets the browser pick the smallest adequate rendition
+ * from `srcSet` instead of always downloading the largest.
+ */
+const GRID_TILE_SIZES =
+  '(max-width: 639px) 50vw, (max-width: 767px) 33vw, (max-width: 1023px) 25vw, 20vw';
 
 interface GalleryGridProps {
   photos: Photo[];
@@ -166,9 +175,12 @@ export function GalleryGrid({
                       className="relative group cursor-pointer overflow-hidden bg-muted aspect-square rounded-[2px]"
                       onClick={() => onPhotoClick(index)}
                     >
-                      {photo.proxyUrl ? (
+                      {photo.thumbUrl ?? photo.proxyUrl ? (
                         <ResponsiveImage
-                          src={photo.proxyUrl}
+                          src={(photo.thumbUrl ?? photo.proxyUrl) as string}
+                          srcSet={buildPhotoSrcSet(photo)}
+                          sizes={GRID_TILE_SIZES}
+                          isPriority={virtualRow.index === 0}
                           alt={photo.filename}
                           blurhash={photo.blurhash}
                           aspectRatio={1}

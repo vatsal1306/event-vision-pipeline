@@ -16,6 +16,7 @@ from app.models.event import Event
 from app.schemas.couple import CoupleTokenResponse
 from app.schemas.folder import FolderTreeResponse
 from app.schemas.photo import PhotoListResponse
+from app.services.photo_query import gallery_load_options
 
 if TYPE_CHECKING:
     from app.utils.otp import OTPService
@@ -166,7 +167,12 @@ class CoupleService:
         total = await self.db.scalar(count_stmt) or 0
 
         # Fetch paginated items
-        stmt = stmt.order_by(Photo.created_at.desc()).offset(offset).limit(limit)
+        stmt = (
+            stmt.options(*gallery_load_options())
+            .order_by(Photo.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         result = await self.db.execute(stmt)
         photos = result.scalars().all()
 
@@ -271,6 +277,7 @@ class CoupleService:
 
         stmt = (
             select(Photo)
+            .options(*gallery_load_options())
             .where(*filters)
             .order_by(Photo.uploaded_at.desc())
             .offset(offset)
@@ -308,7 +315,12 @@ class CoupleService:
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = await self.db.scalar(count_stmt) or 0
 
-        stmt = stmt.order_by(Favorite.created_at.desc()).offset(offset).limit(limit)
+        stmt = (
+            stmt.options(*gallery_load_options())
+            .order_by(Favorite.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         result = await self.db.execute(stmt)
         photos = result.scalars().all()
 

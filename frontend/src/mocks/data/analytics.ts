@@ -7,9 +7,9 @@ export const mockAnalyticsSummary = {
 
 export const mockAnalyticsTopPhotos = {
   photos: [
-    { id: 'photo-1', filename: 'photo-1.jpg', proxy_url: 'https://picsum.photos/seed/photo-1/400/400', views: 300, downloads: 150 },
-    { id: 'photo-2', filename: 'photo-2.jpg', proxy_url: 'https://picsum.photos/seed/photo-2/400/400', views: 250, downloads: 120 },
-    { id: 'photo-3', filename: 'photo-3.jpg', proxy_url: 'https://picsum.photos/seed/photo-3/400/400', views: 200, downloads: 90 },
+    { id: 'photo-1', filename: 'photo-1.jpg', proxy_url: 'https://picsum.photos/seed/photo-1/2048/2048', thumb_url: 'https://picsum.photos/seed/photo-1/480/480', views: 300, downloads: 150 },
+    { id: 'photo-2', filename: 'photo-2.jpg', proxy_url: 'https://picsum.photos/seed/photo-2/2048/2048', thumb_url: 'https://picsum.photos/seed/photo-2/480/480', views: 250, downloads: 120 },
+    { id: 'photo-3', filename: 'photo-3.jpg', proxy_url: 'https://picsum.photos/seed/photo-3/2048/2048', thumb_url: 'https://picsum.photos/seed/photo-3/480/480', views: 200, downloads: 90 },
   ]
 };
 

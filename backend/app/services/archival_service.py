@@ -75,8 +75,8 @@ class ArchivalService:
                 f"Failed to move {len(failed_photos)} photos to Glacier. Aborting archival."
             )
 
-        # 2. Delete web proxies from S3
-        proxy_keys = [p.proxy_s3_key for p in photos if p.proxy_s3_key]
+        # 2. Delete web proxies and their smaller renditions from S3
+        proxy_keys = [key for p in photos for key in p.proxy_bucket_keys]
         if proxy_keys:
             await self.storage.delete_objects(bucket=proxy_bucket, keys=proxy_keys)
 
@@ -88,6 +88,9 @@ class ArchivalService:
         event.status = EventStatus.ARCHIVED
         for photo in photos:
             photo.proxy_s3_key = None
+            photo.thumb_s3_key = None
+            photo.preview_s3_key = None
+            photo.derivative_file_size_bytes = 0
             photo.blurhash = None
             photo.face_count = 0
             photo.processing_status = ProcessingStatus.PENDING
@@ -161,7 +164,7 @@ class ArchivalService:
         proxy_bucket = self.settings.s3_bucket_proxies
 
         original_keys = [p.original_s3_key for p in photos]
-        proxy_keys = [p.proxy_s3_key for p in photos if p.proxy_s3_key]
+        proxy_keys = [key for p in photos for key in p.proxy_bucket_keys]
 
         if original_keys:
             await self.storage.delete_objects(bucket=original_bucket, keys=original_keys)
@@ -180,9 +183,7 @@ class ArchivalService:
         """Recalculate total storage used by a photographer."""
         total = (
             await self.db.scalar(
-                select(
-                    func.coalesce(func.sum(Photo.file_size_bytes + Photo.proxy_file_size_bytes), 0)
-                )
+                select(func.coalesce(func.sum(Photo.stored_bytes_expression()), 0))
                 .join(Event, Photo.event_id == Event.id)
                 .where(Event.photographer_id == photographer_id)
             )

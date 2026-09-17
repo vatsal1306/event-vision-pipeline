@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import cv2
@@ -12,7 +13,18 @@ from PIL import Image
 from pillow_heif import read_heif  # type: ignore
 
 from app.config import get_settings
+from app.core.exceptions import ProcessingError
+from app.models.enums import PhotoVariant
 from app.services.storage_service import StorageService
+
+
+@dataclass(frozen=True)
+class DerivativeSet:
+    """S3 keys and total byte size for the smaller gallery renditions."""
+
+    thumb_s3_key: str
+    preview_s3_key: str
+    total_bytes: int
 
 
 class ImageProcessingService:
@@ -85,6 +97,118 @@ class ImageProcessingService:
         )
 
         return proxy_s3_key, len(proxy_buffer)
+
+    async def generate_derivatives(self, proxy_s3_key: str, event_id: str) -> DerivativeSet:
+        """Produce the grid and lightbox renditions from an existing proxy.
+
+        Derives from the proxy rather than the original so that any watermark
+        already burned into the proxy is preserved, and so a backfill over old
+        events reads the small Standard-tier object instead of pulling
+        originals back out of Infrequent Access.
+
+        Args:
+            proxy_s3_key: Key of the 2048px WebP proxy in the proxies bucket.
+            event_id: Event the photo belongs to, used in the derivative keys.
+
+        Returns:
+            Keys of the uploaded renditions and their combined size in bytes.
+
+        Raises:
+            ProcessingError: The proxy cannot be decoded or a rendition cannot
+                be encoded.
+            StorageError: The proxy cannot be read or a rendition cannot be
+                written.
+        """
+        proxy_bucket = self.settings.s3_bucket_proxies
+        proxy_bytes = await self.storage.get_object(proxy_bucket, proxy_s3_key)
+        image = cv2.imdecode(np.frombuffer(proxy_bytes, np.uint8), cv2.IMREAD_COLOR)
+        if image is None:
+            raise ProcessingError(f"Failed to decode proxy image {proxy_s3_key}")
+
+        specs = (
+            (
+                PhotoVariant.THUMB,
+                self.settings.thumb_max_dimension,
+                self.settings.thumb_quality,
+            ),
+            (
+                PhotoVariant.PREVIEW,
+                self.settings.preview_max_dimension,
+                self.settings.preview_quality,
+            ),
+        )
+
+        keys: dict[PhotoVariant, str] = {}
+        total_bytes = 0
+        for variant, max_dimension, quality in specs:
+            encoded = self._encode_webp(
+                self._downscale(image, max_dimension),
+                quality,
+                proxy_s3_key,
+            )
+            key = f"proxies/{event_id}/{uuid.uuid4()}-{variant.value}.webp"
+            await self.storage.put_object(
+                bucket=proxy_bucket,
+                key=key,
+                data=encoded,
+                content_type="image/webp",
+                storage_class="STANDARD",
+            )
+            keys[variant] = key
+            total_bytes += len(encoded)
+
+        return DerivativeSet(
+            thumb_s3_key=keys[PhotoVariant.THUMB],
+            preview_s3_key=keys[PhotoVariant.PREVIEW],
+            total_bytes=total_bytes,
+        )
+
+    @staticmethod
+    def _downscale(image: Any, max_dimension: int, interpolation: int = cv2.INTER_AREA) -> Any:
+        """Scale an image down so its longest edge is at most ``max_dimension``.
+
+        Images already within the bound are returned unchanged. ``INTER_AREA``
+        is the correct filter for downscaling and avoids the ringing that
+        Lanczos introduces at thumbnail sizes.
+
+        Args:
+            image: Decoded BGR image.
+            max_dimension: Upper bound for the longest edge, in pixels.
+            interpolation: OpenCV interpolation flag.
+
+        Returns:
+            The original or a downscaled copy.
+        """
+        height, width = image.shape[:2]
+        longest_edge = max(height, width)
+        if longest_edge <= max_dimension:
+            return image
+        scale = max_dimension / longest_edge
+        return cv2.resize(
+            image,
+            (max(int(width * scale), 1), max(int(height * scale), 1)),
+            interpolation=interpolation,
+        )
+
+    @staticmethod
+    def _encode_webp(image: Any, quality: int, source_key: str) -> bytes:
+        """Encode a BGR image as WebP.
+
+        Args:
+            image: Decoded BGR image.
+            quality: WebP quality between 1 and 100.
+            source_key: Key of the source object, for error context.
+
+        Returns:
+            Encoded WebP bytes.
+
+        Raises:
+            ProcessingError: OpenCV could not encode the image.
+        """
+        success, encoded = cv2.imencode(".webp", image, [int(cv2.IMWRITE_WEBP_QUALITY), quality])
+        if not success:
+            raise ProcessingError(f"Failed to encode WebP at quality {quality} for {source_key}")
+        return bytes(encoded.tobytes())
 
     async def generate_blurhash_and_dimensions(
         self, proxy_s3_key: str, interpolation: int = cv2.INTER_LANCZOS4

@@ -7,7 +7,7 @@ import { X, ChevronLeft, ChevronRight, Heart, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DownloadButton } from './download-button';
-import { toBrowserMediaSrc } from '@/lib/media-url';
+import { buildPhotoSrcSet, toBrowserMediaSrc } from '@/lib/media-url';
 
 interface PhotoViewerProps {
   photos: Photo[];
@@ -38,6 +38,21 @@ export function PhotoViewer({
   const isFavorite = currentPhoto ? favoritePhotoIds?.has(currentPhoto.id) : false;
   const isShared = currentPhoto ? sharedPhotoIds?.has(currentPhoto.id) : false;
   const prefersReducedMotion = useReducedMotion();
+  const viewerSrc = currentPhoto?.previewUrl ?? currentPhoto?.proxyUrl ?? null;
+
+  // Warm the browser cache for the photos either side so swiping and arrow
+  // keys feel instant instead of showing a blank frame while S3 responds.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    for (const offset of [1, -1]) {
+      const neighbour = photos[currentIndex + offset];
+      const neighbourSrc = neighbour?.previewUrl ?? neighbour?.proxyUrl;
+      if (!neighbourSrc) continue;
+      const image = new window.Image();
+      image.src = toBrowserMediaSrc(neighbourSrc);
+    }
+  }, [isOpen, currentIndex, photos]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) onChangeIndex(currentIndex - 1);
@@ -180,10 +195,12 @@ export function PhotoViewer({
             }
           }}
         >
-          {currentPhoto.proxyUrl ? (
+          {viewerSrc ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={toBrowserMediaSrc(currentPhoto.proxyUrl)}
+              src={toBrowserMediaSrc(viewerSrc)}
+              srcSet={buildPhotoSrcSet(currentPhoto)}
+              sizes="100vw"
               alt={currentPhoto.filename}
               className="max-h-full max-w-full object-contain"
             />

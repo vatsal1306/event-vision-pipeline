@@ -9,17 +9,29 @@ from uuid import UUID
 
 from app.config import get_settings
 from app.core.exceptions import AuthenticationError, BadRequestError
+from app.models.enums import PhotoVariant
 
 
-def build_photo_preview_url(event_id: UUID, photo_id: UUID) -> str:
+def build_photo_preview_url(
+    event_id: UUID,
+    photo_id: UUID,
+    variant: PhotoVariant = PhotoVariant.FULL,
+) -> str:
     """Return a time-limited preview URL for a photo.
+
+    Used when object storage cannot serve the browser directly, which in
+    practice means local development and tests. The signature deliberately
+    excludes ``variant`` so an existing link keeps working if the requested
+    rendition changes; the route authorises the photo, not the rendition.
 
     Args:
         event_id: Event that owns the photo.
         photo_id: Photo to preview.
+        variant: Rendition to stream.
 
     Returns:
-        Same-origin path including ``expires`` and ``sig`` query parameters.
+        Same-origin path including ``expires``, ``sig``, and ``variant`` query
+        parameters.
     """
     settings = get_settings()
     expires_at = int(time.time()) + settings.s3_presigned_url_expiry
@@ -27,7 +39,8 @@ def build_photo_preview_url(event_id: UUID, photo_id: UUID) -> str:
     # Relative path so the browser hits Caddy `/api/*` instead of an internal
     # Docker hostname or localhost baked into API_BASE_URL.
     return (
-        f"/api/v1/events/{event_id}/photos/{photo_id}/preview?expires={expires_at}&sig={signature}"
+        f"/api/v1/events/{event_id}/photos/{photo_id}/preview"
+        f"?expires={expires_at}&sig={signature}&variant={variant.value}"
     )
 
 

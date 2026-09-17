@@ -1,11 +1,15 @@
 """Tests for StorageService (BE-008)."""
 
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
+from urllib.parse import parse_qs, urlparse
 
+import boto3
 import pytest
 from botocore.exceptions import ClientError
 
+from app.config import get_settings
 from app.core.exceptions import StorageError
 from app.services.storage_service import LocalStorageService, S3StorageService
 
@@ -129,14 +133,43 @@ async def test_s3_storage_change_class(mock_aioboto3_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_s3_storage_presign(mock_aioboto3_client) -> None:
+async def test_s3_storage_presign_targets_regional_virtual_host() -> None:
+    """Presigning must address the bucket's region, not the legacy global host."""
     service = S3StorageService()
+    settings = get_settings()
 
     url = await service.generate_presigned_url("test-bucket", "test.jpg")
-    assert url == "https://mock-url"
 
-    mock_aioboto3_client.generate_presigned_url.assert_called_once_with(
-        ClientMethod="get_object",
-        Params={"Bucket": "test-bucket", "Key": "test.jpg"},
-        ExpiresIn=3600,
-    )
+    parsed = urlparse(url)
+    assert parsed.netloc == f"test-bucket.s3.{settings.aws_region}.amazonaws.com"
+    assert parsed.path == "/test.jpg"
+
+    query = parse_qs(parsed.query)
+    assert query["X-Amz-Algorithm"] == ["AWS4-HMAC-SHA256"]
+    assert settings.aws_region in query["X-Amz-Credential"][0]
+    assert "X-Amz-Signature" in query
+
+
+@pytest.mark.asyncio
+async def test_s3_storage_presign_builds_one_client_for_many_urls() -> None:
+    """Building a botocore client per request is what starved the event loop."""
+    service = S3StorageService()
+
+    with patch("app.services.storage_service.boto3.client", wraps=boto3.client) as client_factory:
+        for index in range(25):
+            await service.generate_presigned_url("test-bucket", f"test-{index}.jpg")
+
+    assert client_factory.call_count == 1
+
+
+def test_s3_storage_presign_is_stable_within_a_cache_bucket() -> None:
+    """Identical URLs inside a bucket let the browser cache gallery images."""
+    service = S3StorageService()
+
+    first = service.build_presigned_url("test-bucket", "test.jpg", expires_in=7200)
+    second = service.build_presigned_url("test-bucket", "test.jpg", expires_in=7200)
+
+    assert first == second
+    stamped = parse_qs(urlparse(first).query)["X-Amz-Date"][0]
+    # Floored to the start of the hourly bucket: minutes and seconds are zero.
+    assert re.fullmatch(r"\d{8}T\d{2}0000Z", stamped)

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Trash2, Download, Maximize, Calendar, Hash, FolderOpen, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { DownloadButton } from '@/components/gallery/download-button';
+import { buildPhotoSrcSet } from '@/lib/media-url';
 
 interface PhotoDetailViewerProps {
   photo: Photo | null;
@@ -83,9 +84,11 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
         <div className="space-y-6">
           {/* Preview Image */}
           <div className="relative aspect-auto bg-muted rounded-lg overflow-hidden border border-border flex items-center justify-center min-h-[300px]">
-            {photo.proxyUrl ? (
+            {(photo.previewUrl ?? photo.proxyUrl) ? (
               <ResponsiveImage
-                src={photo.proxyUrl}
+                src={(photo.previewUrl ?? photo.proxyUrl) as string}
+                srcSet={buildPhotoSrcSet(photo)}
+                sizes="(max-width: 767px) 100vw, 40vw"
                 alt={photo.filename}
                 blurhash={photo.blurhash}
                 aspectRatio={photo.width && photo.height ? photo.width / photo.height : 4/3}

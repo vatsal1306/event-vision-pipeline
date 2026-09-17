@@ -24,9 +24,7 @@ class PhotographerService:
         """Recalculate total storage used across all events (active + archived)."""
         total = (
             await self.db.scalar(
-                select(
-                    func.coalesce(func.sum(Photo.file_size_bytes + Photo.proxy_file_size_bytes), 0)
-                )
+                select(func.coalesce(func.sum(Photo.stored_bytes_expression()), 0))
                 .join(Event, Photo.event_id == Event.id)
                 .where(Event.photographer_id == photographer_id)
             )
@@ -43,7 +41,7 @@ class PhotographerService:
         stmt = (
             select(
                 Event.status,
-                func.coalesce(func.sum(Photo.file_size_bytes + Photo.proxy_file_size_bytes), 0),
+                func.coalesce(func.sum(Photo.stored_bytes_expression()), 0),
             )
             .select_from(Event)
             .outerjoin(Photo, Photo.event_id == Event.id)

@@ -11,6 +11,7 @@ from app.api.deps import get_current_photographer, get_photographer_event
 from app.core.database import get_db
 from app.core.exceptions import BadRequestError
 from app.core.rate_limit import rate_limit
+from app.models.enums import PhotoVariant
 from app.models.event import Event
 from app.models.photographer import Photographer
 from app.schemas.photo import (
@@ -117,15 +118,19 @@ async def get_photo_download_url(
 
 @router.get(
     "/{photo_id}/preview",
-    dependencies=[Depends(rate_limit("photo_preview", limit=120, window=60))],
+    # Production galleries load images straight from S3, so this route only
+    # serves local development and older clients. The ceiling is still high
+    # enough that a full grid scroll cannot trip it.
+    dependencies=[Depends(rate_limit("photo_preview", limit=600, window=60))],
 )
 async def get_photo_preview(
     event_id: UUID,
     photo_id: UUID,
     expires: int = Query(..., ge=1),
     sig: str = Query(..., min_length=16),
+    variant: PhotoVariant = Query(PhotoVariant.FULL),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Stream a preview image using a signed URL (no Authorization header)."""
     verify_photo_preview_signature(event_id, photo_id, expires, sig)
-    return await PhotoService(db).build_preview_response(event_id, photo_id)
+    return await PhotoService(db).build_preview_response(event_id, photo_id, variant)

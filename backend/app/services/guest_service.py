@@ -13,6 +13,7 @@ from app.core.security import create_session_token
 from app.models.event import Event
 from app.models.guest_session import GuestSession
 from app.schemas.guest import GuestTokenResponse
+from app.services.photo_query import gallery_load_options
 
 if TYPE_CHECKING:
     import uuid
@@ -126,6 +127,7 @@ class GuestService:
 
         stmt = (
             select(Photo)
+            .options(*gallery_load_options())
             .where(*filters)
             .order_by(Photo.uploaded_at.desc())
             .offset(offset)
@@ -140,7 +142,9 @@ class GuestService:
 
         if not photo_ids:
             return []
-        result = await self.db.execute(select(Photo).where(Photo.id.in_(photo_ids)))
+        result = await self.db.execute(
+            select(Photo).options(*gallery_load_options()).where(Photo.id.in_(photo_ids))
+        )
         by_id = {photo.id: photo for photo in result.scalars().all()}
         return [by_id[photo_id] for photo_id in photo_ids if photo_id in by_id]
 
