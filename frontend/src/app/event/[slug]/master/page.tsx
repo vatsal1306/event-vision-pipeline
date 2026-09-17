@@ -85,7 +85,11 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
 
   // Authenticated Queries
   const { data: folders = [], isLoading: foldersLoading } = useMasterFolders(slug, isAuth ? token : null);
-  const { data: photos = [], isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = useMasterPhotos(slug, isAuth ? token : null);
+  const masterPhotosQuery = useMasterPhotos(slug, isAuth ? token : null);
+  const photos = useMemo(() => masterPhotosQuery.data?.pages.flatMap(page => page.items) ?? [], [masterPhotosQuery.data]);
+  const photosLoading = masterPhotosQuery.isLoading;
+  const photosError = masterPhotosQuery.error;
+  const refetchPhotos = masterPhotosQuery.refetch;
   const { data: favoritePhotos = [] } = useFavorites(slug, isAuth ? token : null);
   const { data: sharedPhotos = [] } = useSharedPhotos(slug, isAuth ? token : null);
 
@@ -406,6 +410,9 @@ export default function MasterGalleryPage({ params }: { params: { slug: string }
               sharedPhotoIds={sharedPhotoIds}
               onToggleShare={(id) => toggleShareMutation.mutate(id)}
               className="flex-1"
+              onLoadMore={() => masterPhotosQuery.fetchNextPage()}
+              hasMore={!!masterPhotosQuery.hasNextPage}
+              isLoadingMore={masterPhotosQuery.isFetchingNextPage}
             />
           </LayoutGroup>
         )}

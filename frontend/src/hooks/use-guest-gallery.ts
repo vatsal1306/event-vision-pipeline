@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { mapPhotoFromApi } from '@/lib/map-api';
 import { PaginatedResponse } from '@/types/api';
@@ -34,22 +34,36 @@ export function useSubmitSelfie() {
       if (rawPhotos.length === 0) {
         return;
       }
-      queryClient.setQueryData(['guestPhotos', slug, token], mapGuestPhotoPage({
-        items: rawPhotos,
-        total: result.matched_photo_count,
-        offset: 0,
-        limit: rawPhotos.length,
-      }));
+      // Pre-populate the first page of guest photos from selfie result
+      queryClient.setQueryData(['guestPhotos', slug, token], {
+        pages: [mapGuestPhotoPage({
+          items: rawPhotos,
+          total: result.matched_photo_count,
+          offset: 0,
+          limit: rawPhotos.length,
+        })],
+        pageParams: [0],
+      });
     },
   });
 }
 
+const GUEST_PAGE_SIZE = 50;
+
 export function useGuestPhotos(slug: string, token: string | null) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['guestPhotos', slug, token],
-    queryFn: async () => {
-      const page = await api.getGuestPhotos(slug, token!);
-      return mapGuestPhotoPage(page);
+    queryFn: async ({ pageParam = 0 }) => {
+      const page = await api.getGuestPhotos(slug, token!, pageParam, GUEST_PAGE_SIZE);
+      return mapGuestPhotoPage(page) as PaginatedResponse<Photo>;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextOffset = lastPage.offset + lastPage.limit;
+      if (nextOffset < lastPage.total) {
+        return nextOffset;
+      }
+      return undefined;
     },
     enabled: !!token,
     staleTime: 0,
@@ -57,11 +71,19 @@ export function useGuestPhotos(slug: string, token: string | null) {
 }
 
 export function useGuestHighlights(slug: string, token: string | null) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['guestHighlights', slug, token],
-    queryFn: async () => {
-      const page = await api.getGuestHighlights(slug, token!);
-      return mapGuestPhotoPage(page);
+    queryFn: async ({ pageParam = 0 }) => {
+      const page = await api.getGuestHighlights(slug, token!, pageParam, GUEST_PAGE_SIZE);
+      return mapGuestPhotoPage(page) as PaginatedResponse<Photo>;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextOffset = lastPage.offset + lastPage.limit;
+      if (nextOffset < lastPage.total) {
+        return nextOffset;
+      }
+      return undefined;
     },
     enabled: !!token,
     staleTime: 0,

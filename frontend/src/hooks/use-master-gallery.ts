@@ -1,6 +1,8 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { mapEventFromApi, mapPhotoFromApi, mapFolderNodeFromApi } from '@/lib/map-api';
+import { Photo } from '@/types/event';
+import { PaginatedResponse } from '@/types/api';
 
 export function useEventInfo(slug: string) {
   return useQuery({
@@ -42,14 +44,27 @@ export function useMasterFolders(slug: string, token: string | null) {
   });
 }
 
+const MASTER_PAGE_SIZE = 50;
+
 export function useMasterPhotos(slug: string, token: string | null) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['master-photos', slug, token],
-    queryFn: async () => {
-      const res = await api.getMasterPhotos(slug, token!);
-      return (res.items || []).map((item) =>
-        mapPhotoFromApi(item as unknown as Record<string, unknown>)
-      );
+    queryFn: async ({ pageParam = 0 }) => {
+      const res = await api.getMasterPhotos(slug, token!, pageParam, MASTER_PAGE_SIZE);
+      return {
+        ...res,
+        items: (res.items || []).map((item) =>
+          mapPhotoFromApi(item as unknown as Record<string, unknown>)
+        ),
+      } satisfies PaginatedResponse<Photo>;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextOffset = lastPage.offset + lastPage.limit;
+      if (nextOffset < lastPage.total) {
+        return nextOffset;
+      }
+      return undefined;
     },
     enabled: !!token,
   });

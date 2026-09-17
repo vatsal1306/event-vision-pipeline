@@ -22,6 +22,14 @@ interface PersonalizedGalleryProps {
   downloadEnabled?: boolean;
   photographerLogo?: string | null;
   eventName?: string;
+  /** Infinite scroll for My Photos tab. */
+  onLoadMorePhotos?: () => void;
+  hasMorePhotos?: boolean;
+  isLoadingMorePhotos?: boolean;
+  /** Infinite scroll for Highlights tab. */
+  onLoadMoreHighlights?: () => void;
+  hasMoreHighlights?: boolean;
+  isLoadingMoreHighlights?: boolean;
 }
 
 export function PersonalizedGallery({ 
@@ -31,7 +39,13 @@ export function PersonalizedGallery({
   onRetakeSelfie, 
   downloadEnabled = true,
   photographerLogo,
-  eventName
+  eventName,
+  onLoadMorePhotos,
+  hasMorePhotos = false,
+  isLoadingMorePhotos = false,
+  onLoadMoreHighlights,
+  hasMoreHighlights = false,
+  isLoadingMoreHighlights = false,
 }: PersonalizedGalleryProps) {
   const [activeTab, setActiveTab] = useState<'my-photos' | 'highlights'>('my-photos');
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -131,6 +145,9 @@ export function PersonalizedGallery({
             downloadEnabled={downloadEnabled}
             layoutMode="guest"
             className="flex-1"
+            onLoadMore={activeTab === 'my-photos' ? onLoadMorePhotos : onLoadMoreHighlights}
+            hasMore={activeTab === 'my-photos' ? hasMorePhotos : hasMoreHighlights}
+            isLoadingMore={activeTab === 'my-photos' ? isLoadingMorePhotos : isLoadingMoreHighlights}
           />
         )}
       </LayoutGroup>

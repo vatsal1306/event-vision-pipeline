@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useEventInfo } from '@/hooks/use-master-gallery';
 import { useGuestAuth, useGuestVerify, useSubmitSelfie, useGuestPhotos, useGuestHighlights } from '@/hooks/use-guest-gallery';
 import { useGuestAuthStore } from '@/stores/guest-auth-store';
@@ -55,23 +55,17 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
   }, [isVerified, sessionToken, needsSelfie, guestSession, infoData?.event, clearGuestSession]);
 
   // Authenticated Queries
-  const {
-    data: photosData,
-    isPending: photosPending,
-    isFetching: photosFetching,
-    error: photosError,
-    refetch: refetchPhotos,
-  } = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
-  const photosLoading = !photosData?.items && (photosPending || photosFetching);
+  const photosQuery = useGuestPhotos(slug, !needsSelfie && isVerified ? sessionToken : null);
+  const photosData = useMemo(() => photosQuery.data?.pages.flatMap(page => page.items) ?? [], [photosQuery.data]);
+  const photosLoading = photosQuery.isLoading;
+  const photosError = photosQuery.error;
+  const refetchPhotos = photosQuery.refetch;
 
-  const {
-    data: highlightsData,
-    isPending: highlightsPending,
-    isFetching: highlightsFetching,
-    error: highlightsError,
-    refetch: refetchHighlights,
-  } = useGuestHighlights(slug, isVerified ? sessionToken : null);
-  const highlightsLoading = !highlightsData?.items && (highlightsPending || highlightsFetching);
+  const highlightsQuery = useGuestHighlights(slug, isVerified ? sessionToken : null);
+  const highlightsData = useMemo(() => highlightsQuery.data?.pages.flatMap(page => page.items) ?? [], [highlightsQuery.data]);
+  const highlightsLoading = highlightsQuery.isLoading;
+  const highlightsError = highlightsQuery.error;
+  const refetchHighlights = highlightsQuery.refetch;
 
   // Mutations
   const authMutation = useGuestAuth();
@@ -290,13 +284,19 @@ export default function GuestGalleryPage({ params }: { params: { slug: string } 
             </div>
           ) : (
             <PersonalizedGallery 
-              photos={photosData?.items || []}
-              highlightPhotos={highlightsData?.items || []}
+              photos={photosData}
+              highlightPhotos={highlightsData}
               guestName={guestSession?.name || 'Guest'} 
               onRetakeSelfie={handleRetakeSelfie}
               downloadEnabled={event.downloadEnabled}
               photographerLogo={photographer.logo_url}
               eventName={event.name}
+              onLoadMorePhotos={() => photosQuery.fetchNextPage()}
+              hasMorePhotos={!!photosQuery.hasNextPage}
+              isLoadingMorePhotos={photosQuery.isFetchingNextPage}
+              onLoadMoreHighlights={() => highlightsQuery.fetchNextPage()}
+              hasMoreHighlights={!!highlightsQuery.hasNextPage}
+              isLoadingMoreHighlights={highlightsQuery.isFetchingNextPage}
             />
           )}
         </div>

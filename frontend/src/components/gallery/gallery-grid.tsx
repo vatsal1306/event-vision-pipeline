@@ -4,10 +4,10 @@ import { Photo } from '@/types/event';
 import { ResponsiveImage } from '@/components/shared/responsive-image';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { Heart, Users } from 'lucide-react';
+import { Heart, Users, Loader2 } from 'lucide-react';
 import { DownloadButton } from './download-button';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -21,6 +21,12 @@ interface GalleryGridProps {
   onToggleFavorite?: (photoId: string) => void;
   sharedPhotoIds?: Set<string>;
   onToggleShare?: (photoId: string) => void;
+  /** Called when the user scrolls near the bottom to load more pages. */
+  onLoadMore?: () => void;
+  /** Whether there are more pages to load. */
+  hasMore?: boolean;
+  /** Whether a next page is currently being fetched. */
+  isLoadingMore?: boolean;
 }
 
 export function GalleryGrid({
@@ -32,11 +38,15 @@ export function GalleryGrid({
   favoritePhotoIds,
   onToggleFavorite,
   sharedPhotoIds,
-  onToggleShare
+  onToggleShare,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: GalleryGridProps) {
   const [columns, setColumns] = useState(3);
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateCols = () => {
@@ -62,6 +72,33 @@ export function GalleryGrid({
     window.addEventListener('resize', updateCols);
     return () => window.removeEventListener('resize', updateCols);
   }, [layoutMode]);
+
+  // Infinite scroll: observe a sentinel div at the bottom of the grid
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && !isLoadingMore && onLoadMore) {
+      onLoadMore();
+    }
+  }, [hasMore, isLoadingMore, onLoadMore]);
+
+  useEffect(() => {
+    if (!onLoadMore) return;
+
+    const handleScroll = () => {
+      // If we are within 600px of the bottom of the document, trigger load more
+      if (
+        window.innerHeight + window.scrollY >= 
+        document.documentElement.scrollHeight - 600
+      ) {
+        handleLoadMore();
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    // Trigger once on mount/update in case the screen is large enough to already be at the bottom
+    handleScroll();
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleLoadMore, onLoadMore]);
 
   const rowVirtualizer = useWindowVirtualizer({
     count: Math.ceil(photos.length / columns),
@@ -188,6 +225,14 @@ export function GalleryGrid({
           );
         })}
       </div>
+      {/* Sentinel for infinite scroll */}
+      {onLoadMore && (
+        <div ref={sentinelRef} className="w-full flex justify-center py-6">
+          {isLoadingMore && (
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          )}
+        </div>
+      )}
     </div>
   );
 }
