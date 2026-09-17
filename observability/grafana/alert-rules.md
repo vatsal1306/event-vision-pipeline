@@ -31,9 +31,9 @@ All queries below use `node_*` metrics from `prometheus.exporter.unix` with `ins
 ```promql
 (
   1 - (
-    node_filesystem_avail_bytes{instance="spotme-app", mountpoint="/", fstype!~"tmpfs|overlay|squashfs|autofs"}
+    node_filesystem_avail_bytes{instance="spotme-app", job="app-node", mountpoint="/", fstype!~"tmpfs|overlay|squashfs|autofs"}
     /
-    node_filesystem_size_bytes{instance="spotme-app", mountpoint="/", fstype!~"tmpfs|overlay|squashfs|autofs"}
+    node_filesystem_size_bytes{instance="spotme-app", job="app-node", mountpoint="/", fstype!~"tmpfs|overlay|squashfs|autofs"}
   )
 ) > 0.80
 ```
@@ -69,9 +69,9 @@ All queries below use `node_*` metrics from `prometheus.exporter.unix` with `ins
 ```promql
 (
   1 - (
-    node_memory_MemAvailable_bytes{instance="spotme-app"}
+    node_memory_MemAvailable_bytes{instance="spotme-app", job="app-node"}
     /
-    node_memory_MemTotal_bytes{instance="spotme-app"}
+    node_memory_MemTotal_bytes{instance="spotme-app", job="app-node"}
   )
 ) > 0.85
 ```

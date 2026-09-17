@@ -4,21 +4,20 @@
 # Starting prod compose without this file silently drops Alloy.
 
 services:
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+  # cAdvisor fails on Ubuntu 24.04 Docker (overlay layerdb mount-id). This sidecar
+  # reads cgroup memory.current via docker.sock and writes a Prometheus textfile.
+  container-metrics:
+    image: docker:27-cli
     restart: unless-stopped
-    privileged: true
-    mem_limit: 256m
-    command:
-      - --docker_only=true
-      - --store_container_labels=true
-      - --housekeeping_interval=60s
+    mem_limit: 64m
     volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      - /dev/disk:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - ./observability/scripts/docker-container-memory-textfile.sh:/script.sh:ro
+      - textfile_data:/textfile
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while true; do sh /script.sh; sleep 60; done"
 
   alloy:
     image: grafana/alloy:v1.8.3
@@ -26,7 +25,7 @@ services:
     env_file: .env
     mem_limit: 512m
     depends_on:
-      - cadvisor
+      - container-metrics
     command:
       - run
       - --server.http.listen-addr=127.0.0.1:12345
@@ -37,7 +36,9 @@ services:
       - /proc:/proc:ro
       - /sys:/sys:ro
       - /:/rootfs:ro
+      - textfile_data:/textfile:ro
       - alloy_data:/var/lib/alloy/data
 
 volumes:
   alloy_data:
+  textfile_data:

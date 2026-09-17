@@ -31,6 +31,7 @@ prometheus.remote_write "grafana_cloud" {
 // }
 
 // --- Host metrics (node_exporter via unix exporter) ---
+// Container RSS comes from the textfile collector (container-metrics sidecar).
 
 prometheus.exporter.unix "host" {
   include_exporter_metrics = false
@@ -40,6 +41,10 @@ prometheus.exporter.unix "host" {
 
   filesystem {
     fs_types_exclude = "^(autofs|tmpfs|overlay)$"
+  }
+
+  textfile {
+    directory = "/textfile"
   }
 }
 
@@ -58,58 +63,15 @@ prometheus.relabel "unix_metrics" {
     replacement  = "spotme-app"
   }
 
+  rule {
+    target_label = "job"
+    replacement  = "app-node"
+  }
+
   // Belt-and-suspenders: drop overlay/tmpfs/autofs filesystem series.
   rule {
     source_labels = ["__name__", "fstype"]
     regex         = "node_filesystem_.*;(tmpfs|overlay|squashfs|autofs)"
     action        = "drop"
-  }
-}
-
-// --- Docker container metrics (cAdvisor sidecar on the compose network) ---
-// Embedded prometheus.exporter.cadvisor fails on Ubuntu Docker overlay layerdb inside Alloy.
-
-prometheus.scrape "docker" {
-  targets = [{
-    __address__ = "cadvisor:8080",
-  }]
-  forward_to      = [prometheus.relabel.docker_metrics.receiver]
-  scrape_interval = "60s"
-  job_name        = "app-docker"
-}
-
-prometheus.relabel "docker_metrics" {
-  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-
-  // Keep only production Compose services (alloy is excluded → no high-cardinality self-metrics).
-  rule {
-    source_labels = ["container_label_com_docker_compose_service"]
-    regex         = "caddy|frontend|backend|tusd|celery-worker|celery-beat|db|redis"
-    action        = "keep"
-  }
-
-  rule {
-    target_label = "instance"
-    replacement  = "spotme-app"
-  }
-
-  // Use the stable Compose service name as `name` for dashboards.
-  rule {
-    source_labels = ["container_label_com_docker_compose_service"]
-    target_label  = "name"
-    action        = "replace"
-  }
-
-  // component_observability.md §13 — drop per-CPU container series.
-  rule {
-    source_labels = ["__name__", "cpu"]
-    regex         = "container_cpu_usage_seconds_total;.+"
-    action        = "drop"
-  }
-
-  // component_observability.md §13 — drop id / image_id and noisy compose labels.
-  rule {
-    regex  = "^(id|image_id|container_id|container_label_com_docker_compose_project|container_label_com_docker_compose_config_hash|container_label_com_docker_compose_container_number|container_label_com_docker_compose_oneoff|container_label_com_docker_compose_version|container_label_com_docker_compose_image|container_label_com_docker_compose_depends_on)$"
-    action = "labeldrop"
   }
 }

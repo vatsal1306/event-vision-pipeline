@@ -96,7 +96,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{instance=\"spotme-app\", mode=\"idle\"}[$__rate_interval])))",
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{instance=\"spotme-app\", job=\"app-node\", mode=\"idle\"}[$__rate_interval])))",
           "legendFormat": "CPU %",
           "range": true,
           "refId": "A"
@@ -144,7 +144,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - node_memory_MemAvailable_bytes{instance=\"spotme-app\"} / node_memory_MemTotal_bytes{instance=\"spotme-app\"})",
+          "expr": "100 * (1 - node_memory_MemAvailable_bytes{instance=\"spotme-app\", job=\"app-node\"} / node_memory_MemTotal_bytes{instance=\"spotme-app\", job=\"app-node\"})",
           "legendFormat": "Memory used %",
           "range": true,
           "refId": "A"
@@ -192,7 +192,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - node_filesystem_avail_bytes{instance=\"spotme-app\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs|autofs\"} / node_filesystem_size_bytes{instance=\"spotme-app\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs|autofs\"})",
+          "expr": "100 * (1 - node_filesystem_avail_bytes{instance=\"spotme-app\", job=\"app-node\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs|autofs\"} / node_filesystem_size_bytes{instance=\"spotme-app\", job=\"app-node\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs|autofs\"})",
           "legendFormat": "Root disk used %",
           "range": true,
           "refId": "A"
@@ -238,7 +238,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(node_network_receive_bytes_total{instance=\"spotme-app\", device!~\"lo|veth.*|docker.*|br.*\"}[$__rate_interval]))",
+          "expr": "sum(rate(node_network_receive_bytes_total{instance=\"spotme-app\", job=\"app-node\", device!~\"lo|veth.*|docker.*|br.*\"}[$__rate_interval]))",
           "legendFormat": "receive",
           "range": true,
           "refId": "A"
@@ -249,7 +249,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(node_network_transmit_bytes_total{instance=\"spotme-app\", device!~\"lo|veth.*|docker.*|br.*\"}[$__rate_interval]))",
+          "expr": "sum(rate(node_network_transmit_bytes_total{instance=\"spotme-app\", job=\"app-node\", device!~\"lo|veth.*|docker.*|br.*\"}[$__rate_interval]))",
           "legendFormat": "transmit",
           "range": true,
           "refId": "B"
@@ -295,7 +295,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "container_memory_rss{instance=\"spotme-app\", job=\"app-docker\", name=~\"caddy|frontend|backend|tusd|celery-worker|celery-beat|db|redis\"}",
+          "expr": "spotme_container_memory_rss_bytes{instance=\"spotme-app\", name=~\"caddy|frontend|backend|tusd|celery-worker|celery-beat|db|redis\"}",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"
@@ -375,7 +375,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "up{instance=\"spotme-app\"}",
+          "expr": "up{instance=\"spotme-app\", job=\"app-node\"}",
           "legendFormat": "{{job}}",
           "range": true,
           "refId": "A"

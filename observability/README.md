@@ -10,8 +10,9 @@ Working reference for agents implementing `OBS-*` stories. Not a step-by-step op
 - **Grafana Cloud Free** — metrics backend (Prometheus remote write). Loki token created but not wired until OBS-004.
 - **Slack** — `#spotme-alerts` (Grafana contact point + future ops pages), `#spotme-events` (OBS-002 product events).
 - **Alloy** on app EC2 — `docker-compose.observability.yml` merged with prod; never standalone.
-- **Scrapes:** host (`prometheus.exporter.unix`, job `app-node`) + filtered Docker containers (cAdvisor **sidecar**, scraped as job `app-docker`). Interval **60s**. `instance="spotme-app"`.
-- **Keep-list compose services:** `caddy`, `frontend`, `backend`, `tusd`, `celery-worker`, `celery-beat`, `db`, `redis`. Alloy self-metrics dropped.
+- **Scrapes:** host + container RSS via `prometheus.exporter.unix` (job `app-node`, 60s). `instance="spotme-app"`.
+- **Container memory:** `container-metrics` sidecar writes `spotme_container_memory_rss_bytes` textfile from docker.sock + cgroup v2 (cAdvisor broken on Ubuntu 24.04 Docker overlay).
+- **Keep-list compose services:** `caddy`, `frontend`, `backend`, `tusd`, `celery-worker`, `celery-beat`, `db`, `redis`.
 - **Alerts (Grafana UI):** `SpotMeAppDiskHigh` (>80% root disk, 10m), `SpotMeAppMemoryHigh` (>85% RAM, 10m) — see `grafana/alert-rules.md`.
 - **Dashboard:** `grafana/dashboards/app-host.json` — import into Grafana Cloud.
 
@@ -26,7 +27,7 @@ observability/
 │   └── alert-rules.md         # PromQL + UI labels for Grafana Alerting
 └── README.md
 
-docker-compose.observability.yml   # repo root; services: cadvisor + alloy (512m)
+docker-compose.observability.yml   # repo root; services: container-metrics + alloy (512m)
 ```
 
 ## Conventions agents must not break
@@ -35,7 +36,7 @@ docker-compose.observability.yml   # repo root; services: cadvisor + alloy (512m
 - Secrets in app EC2 `~/event-vision-pipeline/.env` only (`chmod 600`). Keys in `.env.prod.example` (empty).
 - No Alloy in `backend/docker-compose.yml` or on the laptop. No published Alloy ports.
 - Relabel rules in `app.alloy` must stay under Grafana Cloud **10k series** cap (see component doc §6, §13).
-- **cAdvisor** sidecar runs privileged (host mounts); **Alloy** is not privileged and has no docker.sock. Neither service publishes ports.
+- **container-metrics** sidecar: docker.sock ro + cgroup ro, writes textfile. **Alloy**: no docker.sock, no published ports.
 
 ## Env vars (app EC2 `.env`)
 
