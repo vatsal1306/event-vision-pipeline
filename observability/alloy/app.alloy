@@ -1,0 +1,118 @@
+// SpotMe app EC2 — host + Docker container metrics → Grafana Cloud.
+// Secrets come from the server .env (docker-compose.observability.yml env_file).
+// Do not put URLs or tokens in this file.
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// --- Remote write (Grafana Cloud Prometheus / Mimir) ---
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USERNAME")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}
+
+// OBS-004: loki.write "grafana_cloud" {
+//   endpoint {
+//     url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+//     basic_auth {
+//       username = sys.env("GRAFANA_CLOUD_LOKI_USERNAME")
+//       password = sys.env("GRAFANA_CLOUD_TOKEN")
+//     }
+//   }
+// }
+
+// --- Host metrics (node_exporter via unix exporter) ---
+
+prometheus.exporter.unix "host" {
+  include_exporter_metrics = false
+  procfs_path              = "/proc"
+  sysfs_path               = "/sys"
+  rootfs_path              = "/rootfs"
+
+  filesystem {
+    fs_types_exclude = "^(autofs|tmpfs|overlay)$"
+  }
+}
+
+prometheus.scrape "unix" {
+  targets         = prometheus.exporter.unix.host.targets
+  forward_to      = [prometheus.relabel.unix_metrics.receiver]
+  scrape_interval = "60s"
+  job_name        = "app-node"
+}
+
+prometheus.relabel "unix_metrics" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+  rule {
+    target_label = "instance"
+    replacement  = "spotme-app"
+  }
+
+  // Belt-and-suspenders: drop overlay/tmpfs/autofs filesystem series.
+  rule {
+    source_labels = ["__name__", "fstype"]
+    regex         = "node_filesystem_.*;(tmpfs|overlay|squashfs|autofs)"
+    action        = "drop"
+  }
+}
+
+// --- Docker container metrics (cAdvisor via docker.sock) ---
+
+prometheus.exporter.cadvisor "docker" {
+  docker_host      = "unix:///var/run/docker.sock"
+  docker_only      = true
+  storage_duration = "2m"
+}
+
+prometheus.scrape "docker" {
+  targets         = prometheus.exporter.cadvisor.docker.targets
+  forward_to      = [prometheus.relabel.docker_metrics.receiver]
+  scrape_interval = "60s"
+  job_name        = "app-docker"
+}
+
+prometheus.relabel "docker_metrics" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+  // Keep only production Compose services (alloy is excluded → no high-cardinality self-metrics).
+  rule {
+    source_labels = ["container_label_com_docker_compose_service"]
+    regex         = "caddy|frontend|backend|tusd|celery-worker|celery-beat|db|redis"
+    action        = "keep"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "spotme-app"
+  }
+
+  // Use the stable Compose service name as `name` for dashboards.
+  rule {
+    source_labels = ["container_label_com_docker_compose_service"]
+    target_label  = "name"
+    action        = "replace"
+  }
+
+  // component_observability.md §13 — drop per-CPU container series.
+  rule {
+    source_labels = ["__name__", "cpu"]
+    regex         = "container_cpu_usage_seconds_total;.+"
+    action        = "drop"
+  }
+
+  // component_observability.md §13 — drop id / image_id and noisy compose labels.
+  rule {
+    regex  = "^(id|image_id|container_id|container_label_com_docker_compose_project|container_label_com_docker_compose_config_hash|container_label_com_docker_compose_container_number|container_label_com_docker_compose_oneoff|container_label_com_docker_compose_version|container_label_com_docker_compose_image|container_label_com_docker_compose_depends_on)$"
+    action = "labeldrop"
+  }
+}

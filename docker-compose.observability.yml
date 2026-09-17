@@ -1,0 +1,32 @@
+# Merge only — never start this file by itself:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.observability.yml up -d
+#
+# Starting prod compose without this file silently drops Alloy.
+
+services:
+    alloy:
+        image: grafana/alloy:v1.8.3
+        restart: unless-stopped
+        env_file: .env
+        # cAdvisor needs privileged host access; docker.sock read-only is not enough.
+        # The official image runs as root in this mode (socket + /proc + cgroups).
+        privileged: true
+        mem_limit: 512m
+        command:
+            - run
+            - --server.http.listen-addr=127.0.0.1:12345
+            - --storage.path=/var/lib/alloy/data
+            - /etc/alloy/app.alloy
+        volumes:
+            - ./observability/alloy/app.alloy:/etc/alloy/app.alloy:ro
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /proc:/proc:ro
+            - /sys:/sys:ro
+            - /:/rootfs:ro
+            - /var/run:/var/run:rw
+            - /var/lib/docker:/var/lib/docker:ro
+            - /dev/disk:/dev/disk:ro
+            - alloy_data:/var/lib/alloy/data
+
+volumes:
+    alloy_data:
