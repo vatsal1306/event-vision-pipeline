@@ -5,29 +5,29 @@ Working reference for agents implementing `OBS-*` stories. Not a step-by-step op
 **Source of truth:** `docs/component_observability.md`  
 **OBS-001 execution plan:** `docs/stories/observability/OBS-001-grafana-cloud-alloy-slack-host-metrics.md`
 
-## What exists (OBS-001)
+## What exists (OBS-001) — shipped
 
-- **Grafana Cloud Free** — metrics backend (Prometheus remote write). Loki token created but not wired until OBS-004.
-- **Slack** — `#spotme-alerts` (Grafana contact point + future ops pages), `#spotme-events` (OBS-002 product events).
-- **Alloy** on app EC2 — `docker-compose.observability.yml` merged with prod; never standalone.
-- **Scrapes:** host + container RSS via `prometheus.exporter.unix` (job `app-node`, 60s). `instance="spotme-app"`.
-- **Container memory:** `container-metrics` sidecar writes `spotme_container_memory_rss_bytes` textfile (docker.sock + cgroup v2 `memory.current`). cAdvisor not used — `gcr.io` images fail on Ubuntu 24.04 cgroup v2; use `ghcr.io/google/cadvisor:v0.55+` only if richer container metrics are needed later.
-- **Keep-list compose services:** `caddy`, `frontend`, `backend`, `tusd`, `celery-worker`, `celery-beat`, `db`, `redis`.
-- **Alerts (Grafana UI):** `SpotMeAppDiskHigh` (>80% root disk, 10m), `SpotMeAppMemoryHigh` (>85% RAM, 10m) — see `grafana/alert-rules.md`.
-- **Dashboard:** `grafana/dashboards/app-host.json` — import into Grafana Cloud.
+- **Grafana Cloud Free** — Prometheus remote write via Alloy. Loki token on EC2 `.env` but not wired until OBS-004.
+- **Slack** — `#spotme-alerts` contact point `slack-spotme-alerts` + template `spotme_slack` (see `grafana/slack-notification-template.md`). `#spotme-events` webhook on EC2 for OBS-002.
+- **Alloy** — `docker-compose.observability.yml` merged with prod; `job="app-node"`, `instance="spotme-app"`, scrape **60s**.
+- **Host metrics** — `prometheus.exporter.unix` in Alloy.
+- **Container RSS** — `container-metrics` sidecar → textfile → Alloy `textfile` collector. Metric: `spotme_container_memory_rss_bytes{name="backend",…}`. Script: `scripts/docker-container-memory-textfile.sh` (cgroup v2; no cAdvisor on Ubuntu 24.04).
+- **Grafana UI (operator, not in git):** rules `SpotMeAppDiskHigh` / `SpotMeAppMemoryHigh`, dashboard import `grafana/dashboards/app-host.json`, datasource `grafanacloud-*-prom`.
+- **Alert queries** — PromQL `* 100` (percent); thresholds **> 80** disk, **> 85** RAM; `for: 10m`. Annotation `usage` = `{{ printf "%.1f" $values.A.Value }}` for Slack body.
 
 ## Layout
 
 ```
 observability/
-├── alloy/
-│   └── app.alloy              # env via sys.env(); no secrets in git
+├── alloy/app.alloy
+├── scripts/docker-container-memory-textfile.sh
 ├── grafana/
 │   ├── dashboards/app-host.json
-│   └── alert-rules.md         # PromQL + UI labels for Grafana Alerting
+│   ├── alert-rules.md
+│   └── slack-notification-template.md
 └── README.md
 
-docker-compose.observability.yml   # repo root; services: container-metrics + alloy (512m)
+docker-compose.observability.yml   # container-metrics + alloy (512m)
 ```
 
 ## Conventions agents must not break

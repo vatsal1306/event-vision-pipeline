@@ -169,7 +169,10 @@ docker compose -f docker-compose.prod.yml -f docker-compose.observability.yml up
 curl -s https://spotme.hpklabs.ai/health
 ```
 
-See `observability/README.md` for Grafana Cloud, Slack, and alert setup.
+Observability (OBS-001): merge compose above includes Alloy + container metrics.
+Grafana dashboard/alerts/Slack templates: `observability/grafana/` (`alert-rules.md`,
+`slack-notification-template.md`, `dashboards/app-host.json`). Agent context:
+`observability/README.md`.
 
 | Route | Service |
 |-------|---------|
