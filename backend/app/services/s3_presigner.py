@@ -22,7 +22,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from botocore.auth import AUTH_TYPE_MAPS, S3SigV4QueryAuth, SIGV4_TIMESTAMP
+from botocore.auth import AUTH_TYPE_MAPS, SIGV4_TIMESTAMP, S3SigV4QueryAuth
 from botocore.client import BaseClient
 
 from app.core.logging import get_logger

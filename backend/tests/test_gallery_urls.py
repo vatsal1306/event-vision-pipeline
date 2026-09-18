@@ -6,6 +6,7 @@ import uuid
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from botocore.auth import AUTH_TYPE_MAPS, UNSIGNED_PAYLOAD, S3SigV4QueryAuth
 
 from app.config import get_settings
 from app.models.enums import PhotoVariant, ProcessingStatus
@@ -13,7 +14,6 @@ from app.models.photo import Photo
 from app.services.gallery_url_service import GalleryUrlBuilder
 from app.services.s3_presigner import CACHEABLE_SIGNATURE_VERSION, CacheableSigV4QueryAuth
 from app.services.storage_service import LocalStorageService, S3StorageService
-from botocore.auth import AUTH_TYPE_MAPS, S3SigV4QueryAuth, UNSIGNED_PAYLOAD
 
 
 def _photo(
