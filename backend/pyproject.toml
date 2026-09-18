@@ -13,6 +13,10 @@ dependencies = [
     "bcrypt>=4.0.1,<4.1",
     "pydantic-settings>=2.6,<3",
     "python-jose[cryptography]>=3.3,<4",
+    # RSA-SHA1 signing for CloudFront signed URLs (cloudfront_signer.py). Also
+    # a transitive dependency of python-jose[cryptography]; pinned directly so
+    # removing python-jose later cannot silently break CloudFront signing.
+    "cryptography>=43,<50",
     "python-multipart>=0.0.9,<1",
     "redis>=5.2,<6",
     "sentry-sdk[fastapi]>=2.19,<3",

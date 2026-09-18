@@ -89,6 +89,7 @@ class ArchivalService:
         for photo in photos:
             photo.proxy_s3_key = None
             photo.thumb_s3_key = None
+            photo.micro_thumb_s3_key = None
             photo.preview_s3_key = None
             photo.derivative_file_size_bytes = 0
             photo.blurhash = None

@@ -124,8 +124,8 @@ async def _process_uploaded_photo_async(
                         watermark_opacity=photographer.watermark_opacity,
                     )
 
-            # Step 3: Grid and lightbox renditions. Derived from the proxy so
-            # any watermark applied above is already burned in.
+            # Step 3: Grid renditions (thumb + micro-thumb). Derived from the
+            # proxy so any watermark applied above is already burned in.
             derivatives = await image_service.generate_derivatives(proxy_s3_key, event_id)
 
             # Step 4: Generate blurhash and get dimensions
@@ -137,7 +137,7 @@ async def _process_uploaded_photo_async(
             photo.proxy_s3_key = proxy_s3_key
             photo.proxy_file_size_bytes = proxy_size_bytes
             photo.thumb_s3_key = derivatives.thumb_s3_key
-            photo.preview_s3_key = derivatives.preview_s3_key
+            photo.micro_thumb_s3_key = derivatives.micro_thumb_s3_key
             photo.derivative_file_size_bytes = derivatives.total_bytes
             photo.blurhash = blurhash
             photo.width = width
@@ -262,7 +262,7 @@ async def _backfill_event_derivatives_async(event_id: str, batch_size: int) -> B
                 continue
 
             photo.thumb_s3_key = derivatives.thumb_s3_key
-            photo.preview_s3_key = derivatives.preview_s3_key
+            photo.micro_thumb_s3_key = derivatives.micro_thumb_s3_key
             photo.derivative_file_size_bytes = derivatives.total_bytes
             processed += 1
 

@@ -63,7 +63,11 @@ class Photo(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     # Gallery grid rendition (~480px). Null until the derivative ladder runs,
     # in which case callers fall back to the larger renditions.
     thumb_s3_key: Mapped[str | None] = mapped_column(String(500))
-    # Lightbox rendition (~1280px).
+    # Smaller grid rendition (~240px) for narrow/mobile tiles, picked via srcset.
+    micro_thumb_s3_key: Mapped[str | None] = mapped_column(String(500))
+    # Legacy lightbox rendition (~1280px). No longer generated for new photos —
+    # the viewer now uses `proxy_s3_key` directly — but kept so photos processed
+    # before the merge keep resolving through the fallback chain.
     preview_s3_key: Mapped[str | None] = mapped_column(String(500))
     blurhash: Mapped[str | None] = mapped_column(String(50))
     width: Mapped[int | None] = mapped_column(Integer)
@@ -105,7 +109,12 @@ class Photo(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
 
         Used when archiving or deleting so no rendition is orphaned in S3.
         """
-        keys = (self.proxy_s3_key, self.thumb_s3_key, self.preview_s3_key)
+        keys = (
+            self.proxy_s3_key,
+            self.thumb_s3_key,
+            self.micro_thumb_s3_key,
+            self.preview_s3_key,
+        )
         return [key for key in keys if key]
 
     @classmethod

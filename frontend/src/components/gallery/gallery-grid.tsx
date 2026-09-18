@@ -178,7 +178,7 @@ export function GalleryGrid({
                       {photo.thumbUrl ?? photo.proxyUrl ? (
                         <ResponsiveImage
                           src={(photo.thumbUrl ?? photo.proxyUrl) as string}
-                          srcSet={buildPhotoSrcSet(photo)}
+                          srcSet={buildPhotoSrcSet(photo, 'grid')}
                           sizes={GRID_TILE_SIZES}
                           isPriority={virtualRow.index === 0}
                           alt={photo.filename}

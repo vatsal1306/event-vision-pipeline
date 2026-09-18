@@ -40,6 +40,7 @@ async def test_archival_service_archive_event_unit() -> None:
     mock_photo.original_s3_key = "orig.jpg"
     mock_photo.proxy_s3_key = "proxy.webp"
     mock_photo.thumb_s3_key = "proxy-thumb.webp"
+    mock_photo.micro_thumb_s3_key = "proxy-micro.webp"
     mock_photo.preview_s3_key = "proxy-preview.webp"
     mock_photo.proxy_bucket_keys = Photo.proxy_bucket_keys.fget(mock_photo)
     mock_photo.blurhash = "blur"
@@ -61,6 +62,7 @@ async def test_archival_service_archive_event_unit() -> None:
         assert mock_event.status == EventStatus.ARCHIVED
         assert mock_photo.proxy_s3_key is None
         assert mock_photo.thumb_s3_key is None
+        assert mock_photo.micro_thumb_s3_key is None
         assert mock_photo.preview_s3_key is None
         assert mock_photo.blurhash is None
         assert mock_photo.processing_status == ProcessingStatus.PENDING
@@ -69,6 +71,7 @@ async def test_archival_service_archive_event_unit() -> None:
         assert mock_storage.delete_objects.await_args.kwargs["keys"] == [
             "proxy.webp",
             "proxy-thumb.webp",
+            "proxy-micro.webp",
             "proxy-preview.webp",
         ]
         mock_notify.assert_called_once_with(str(event_id))
@@ -158,6 +161,7 @@ async def test_archival_service_delete_permanently_unit() -> None:
     mock_photo.original_s3_key = "orig.jpg"
     mock_photo.proxy_s3_key = "proxy.webp"
     mock_photo.thumb_s3_key = "proxy-thumb.webp"
+    mock_photo.micro_thumb_s3_key = "proxy-micro.webp"
     mock_photo.preview_s3_key = "proxy-preview.webp"
     mock_photo.proxy_bucket_keys = Photo.proxy_bucket_keys.fget(mock_photo)
     mock_photo.file_size_bytes = 500

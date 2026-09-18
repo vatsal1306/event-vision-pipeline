@@ -26,3 +26,20 @@ variable "tags" {
     ManagedBy = "terraform"
   }
 }
+
+variable "cloudfront_public_key_pem" {
+  description = <<-EOT
+    PEM-encoded RSA public key for signing gallery URLs through CloudFront.
+    Leave blank (the default) to skip creating the CloudFront distribution
+    entirely — e.g. before the key pair exists, or while still on direct S3
+    presigning. Generate with:
+      openssl genrsa -out cloudfront-signer.pem 2048
+      openssl rsa -pubout -in cloudfront-signer.pem -out cloudfront-signer-public.pem
+    Pass the *public* key's contents here; keep the private key out of
+    Terraform and version control, and load it into the backend's
+    CLOUDFRONT_PRIVATE_KEY instead.
+  EOT
+  type        = string
+  default     = ""
+  sensitive   = false
+}

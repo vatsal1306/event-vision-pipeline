@@ -20,7 +20,7 @@ export const mockPhotos: Record<string, Photo[]> = {
       originalS3Key: `events/${RAHUL_PRIYA_EVENT_ID}/originals/IMG_${1000 + index}.JPG`,
       proxyUrl: `https://picsum.photos/seed/${seed}/2048/1536`,
       thumbUrl: `https://picsum.photos/seed/${seed}/480/360`,
-      previewUrl: `https://picsum.photos/seed/${seed}/1280/960`,
+      microThumbUrl: `https://picsum.photos/seed/${seed}/240/180`,
       blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj', // Dummy blurhash
       width: 2048,
       height: 1536,

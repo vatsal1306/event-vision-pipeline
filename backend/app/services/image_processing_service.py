@@ -23,7 +23,7 @@ class DerivativeSet:
     """S3 keys and total byte size for the smaller gallery renditions."""
 
     thumb_s3_key: str
-    preview_s3_key: str
+    micro_thumb_s3_key: str
     total_bytes: int
 
 
@@ -99,7 +99,7 @@ class ImageProcessingService:
         return proxy_s3_key, len(proxy_buffer)
 
     async def generate_derivatives(self, proxy_s3_key: str, event_id: str) -> DerivativeSet:
-        """Produce the grid and lightbox renditions from an existing proxy.
+        """Produce the two grid renditions (thumb, micro-thumb) from an existing proxy.
 
         Derives from the proxy rather than the original so that any watermark
         already burned into the proxy is preserved, and so a backfill over old
@@ -132,9 +132,9 @@ class ImageProcessingService:
                 self.settings.thumb_quality,
             ),
             (
-                PhotoVariant.PREVIEW,
-                self.settings.preview_max_dimension,
-                self.settings.preview_quality,
+                PhotoVariant.MICRO_THUMB,
+                self.settings.micro_thumb_max_dimension,
+                self.settings.micro_thumb_quality,
             ),
         )
 
@@ -159,7 +159,7 @@ class ImageProcessingService:
 
         return DerivativeSet(
             thumb_s3_key=keys[PhotoVariant.THUMB],
-            preview_s3_key=keys[PhotoVariant.PREVIEW],
+            micro_thumb_s3_key=keys[PhotoVariant.MICRO_THUMB],
             total_bytes=total_bytes,
         )
 

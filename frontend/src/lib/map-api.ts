@@ -60,8 +60,10 @@ export function mapPhotoFromApi(raw: Record<string, unknown>): Photo {
     thumbUrl: resolveProxyUrl(
       (raw.thumb_url as string | null | undefined) ?? (raw.thumbUrl as string | null) ?? null
     ),
-    previewUrl: resolveProxyUrl(
-      (raw.preview_url as string | null | undefined) ?? (raw.previewUrl as string | null) ?? null
+    microThumbUrl: resolveProxyUrl(
+      (raw.micro_thumb_url as string | null | undefined) ??
+        (raw.microThumbUrl as string | null) ??
+        null
     ),
     blurhash: (raw.blurhash as string | null) ?? null,
     width: typeof raw.width === 'number' ? raw.width : null,

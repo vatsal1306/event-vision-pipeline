@@ -19,11 +19,13 @@ class PhotoResponse(BaseModel):
     event_id: UUID
     folder_id: UUID | None = None
     filename: str
-    # Full 2048px rendition. Kept as the primary field for backward
-    # compatibility; grids should prefer `thumb_url` and viewers `preview_url`.
+    # Full 2048px rendition. The lightbox/viewer's only large image — the
+    # separate ~1280px "preview" tier was merged into this one.
     proxy_url: str | None = None
+    # ~480px grid rendition.
     thumb_url: str | None = None
-    preview_url: str | None = None
+    # ~240px grid rendition for narrow/mobile tiles, picked via srcset.
+    micro_thumb_url: str | None = None
     blurhash: str | None = None
     width: int | None = None
     height: int | None = None

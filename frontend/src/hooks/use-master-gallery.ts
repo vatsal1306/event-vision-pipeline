@@ -3,6 +3,7 @@ import { api } from '@/lib/api-client';
 import { GALLERY_PAGE_SIZE } from '@/lib/constants';
 import { mapEventFromApi, mapPhotoFromApi, mapFolderNodeFromApi } from '@/lib/map-api';
 import { getOffsetNextPageParam } from '@/lib/pagination';
+import { usePrefetchNextPage } from '@/hooks/use-prefetch-next-page';
 import { Photo } from '@/types/event';
 import { PaginatedResponse } from '@/types/api';
 
@@ -47,7 +48,7 @@ export function useMasterFolders(slug: string, token: string | null) {
 }
 
 export function useMasterPhotos(slug: string, token: string | null, folderId?: string | null) {
-  return useInfiniteQuery({
+  const query = useInfiniteQuery({
     queryKey: ['master-photos', slug, token, folderId ?? null],
     queryFn: async ({ pageParam = 0 }) => {
       const res = await api.getMasterPhotos(
@@ -68,4 +69,14 @@ export function useMasterPhotos(slug: string, token: string | null, folderId?: s
     getNextPageParam: getOffsetNextPageParam,
     enabled: !!token,
   });
+
+  usePrefetchNextPage({
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    pageCount: query.data?.pages.length ?? 0,
+    fetchNextPage: query.fetchNextPage,
+    enabled: !!token,
+  });
+
+  return query;
 }

@@ -48,6 +48,7 @@ class PhotoVariant(str, enum.Enum):
     Not persisted as a PostgreSQL type; used to select an S3 derivative.
     """
 
+    MICRO_THUMB = "micro_thumb"
     THUMB = "thumb"
     PREVIEW = "preview"
     FULL = "full"

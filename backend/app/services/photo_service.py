@@ -401,7 +401,11 @@ class PhotoService:
         """Convert Photo models to PhotoResponse with direct-to-storage URLs.
 
         Signing is a local HMAC computation, so a whole page of photos is
-        signed without any I/O.
+        signed without any I/O. The viewer (``proxy_url``) rendition is always
+        resolved here too: there is no separate single-photo detail endpoint,
+        so the lightbox renders straight from the same object the gallery list
+        already fetched, with the actual image bytes only downloaded once the
+        lightbox is opened (the `<img>` is not rendered before then).
 
         Args:
             photos: Photo rows to serialise.
@@ -418,7 +422,7 @@ class PhotoService:
             # transcode-free stream it so the grid is not empty mid-upload.
             fallback_url = (
                 build_photo_preview_url(photo.event_id, photo.id)
-                if urls.full is None and photo.original_s3_key
+                if urls.thumb is None and photo.original_s3_key
                 else None
             )
 
@@ -430,7 +434,7 @@ class PhotoService:
                     filename=photo.filename,
                     proxy_url=urls.full or fallback_url,
                     thumb_url=urls.thumb or fallback_url,
-                    preview_url=urls.preview or fallback_url,
+                    micro_thumb_url=urls.micro_thumb or urls.thumb or fallback_url,
                     blurhash=photo.blurhash,
                     width=photo.width,
                     height=photo.height,

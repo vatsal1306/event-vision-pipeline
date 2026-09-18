@@ -84,10 +84,10 @@ export function PhotoDetailViewer({ photo, eventId, onClose }: PhotoDetailViewer
         <div className="space-y-6">
           {/* Preview Image */}
           <div className="relative aspect-auto bg-muted rounded-lg overflow-hidden border border-border flex items-center justify-center min-h-[300px]">
-            {(photo.previewUrl ?? photo.proxyUrl) ? (
+            {photo.proxyUrl ? (
               <ResponsiveImage
-                src={(photo.previewUrl ?? photo.proxyUrl) as string}
-                srcSet={buildPhotoSrcSet(photo)}
+                src={photo.proxyUrl}
+                srcSet={buildPhotoSrcSet(photo, 'viewer')}
                 sizes="(max-width: 767px) 100vw, 40vw"
                 alt={photo.filename}
                 blurhash={photo.blurhash}

@@ -154,7 +154,7 @@ async def test_generate_derivatives_produces_smaller_renditions(
     derivatives = await service.generate_derivatives(proxy_key, event_id)
 
     assert derivatives.thumb_s3_key.endswith("-thumb.webp")
-    assert derivatives.preview_s3_key.endswith("-preview.webp")
+    assert derivatives.micro_thumb_s3_key.endswith("-micro_thumb.webp")
     assert derivatives.total_bytes > 0
 
     thumb = Image.open(
@@ -162,14 +162,16 @@ async def test_generate_derivatives_produces_smaller_renditions(
             await storage.get_object(service.settings.s3_bucket_proxies, derivatives.thumb_s3_key)
         )
     )
-    preview = Image.open(
+    micro_thumb = Image.open(
         io.BytesIO(
-            await storage.get_object(service.settings.s3_bucket_proxies, derivatives.preview_s3_key)
+            await storage.get_object(
+                service.settings.s3_bucket_proxies, derivatives.micro_thumb_s3_key
+            )
         )
     )
 
     assert max(thumb.size) == service.settings.thumb_max_dimension
-    assert max(preview.size) == service.settings.preview_max_dimension
+    assert max(micro_thumb.size) == service.settings.micro_thumb_max_dimension
     # Aspect ratio preserved within a pixel of rounding.
     assert abs(thumb.size[0] / thumb.size[1] - 2048 / 1365) < 0.01
 
@@ -244,7 +246,7 @@ async def test_backfill_generates_derivatives_for_existing_photos(
 
     await db_session.refresh(photo)
     assert photo.thumb_s3_key is not None
-    assert photo.preview_s3_key is not None
+    assert photo.micro_thumb_s3_key is not None
     assert photo.derivative_file_size_bytes > 0
     # The original proxy is left alone so nothing already cached breaks.
     assert photo.proxy_s3_key == proxy_key
@@ -261,7 +263,7 @@ async def test_backfill_skips_photos_that_already_have_derivatives(
     photo = await create_photo(db_session, event.id, f"originals/{event.id}/done.jpg")
     photo.proxy_s3_key = f"proxies/{event.id}/done.webp"
     photo.thumb_s3_key = f"proxies/{event.id}/done-thumb.webp"
-    photo.preview_s3_key = f"proxies/{event.id}/done-preview.webp"
+    photo.micro_thumb_s3_key = f"proxies/{event.id}/done-micro.webp"
     await db_session.commit()
 
     with _patch_photo_processing(db_session, storage):
@@ -351,7 +353,7 @@ async def test_process_uploaded_photo_success(
     assert photo.processing_status == ProcessingStatus.COMPLETED
     assert photo.proxy_s3_key is not None
     assert photo.thumb_s3_key is not None
-    assert photo.preview_s3_key is not None
+    assert photo.micro_thumb_s3_key is not None
     assert photo.derivative_file_size_bytes > 0
     assert photo.blurhash is not None
     assert photo.width == 100

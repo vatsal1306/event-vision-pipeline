@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     # Gallery grid tiles. Small enough that a 50-photo page is ~1.5 MB.
     thumb_max_dimension: int = 480
     thumb_quality: int = 70
+    # Smaller grid tier for narrow/mobile columns, picked via srcset instead of
+    # always shipping the 480px thumb to tiles that render far smaller.
+    micro_thumb_max_dimension: int = 240
+    micro_thumb_quality: int = 65
     # Lightbox / full-screen viewer on phones and laptops.
     preview_max_dimension: int = 1280
     preview_quality: int = 78
@@ -123,6 +127,14 @@ class Settings(BaseSettings):
     gallery_url_cache_bucket_seconds: int = 3600
     watermark_opacity: float = 0.4
     max_upload_size_bytes: int = 52_428_800
+
+    # CloudFront in front of the proxies bucket. When disabled, gallery URLs are
+    # signed directly against S3 (see `s3_presigner.py`).
+    cloudfront_enabled: bool = False
+    cloudfront_domain: str = ""
+    cloudfront_key_pair_id: str = ""
+    # PEM-encoded RSA private key matching the CloudFront public key/key group.
+    cloudfront_private_key: str = ""
 
     sentry_dsn: str = ""
 

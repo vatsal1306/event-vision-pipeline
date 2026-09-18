@@ -38,7 +38,7 @@
 
 Both accounts use region **ap-south-1 (Mumbai)** so photographer traffic and S3 stay in India and **EC2 → S3 same-region transfer is free**.
 
-**Do not use on the cheap account:** RDS, ElastiCache, ECS, ALB, NAT, CloudFront, GPU.
+**Do not use on the cheap account:** RDS, ElastiCache, ECS, ALB, NAT, GPU. CloudFront is the one exception — see §4, optional and off by default.
 
 **Do not run on the app EC2:** InsightFace GPU workers. Face ML runs on a
 separate on-demand `g4dn.xlarge` (INF-009). The app host only starts/stops that
@@ -107,7 +107,7 @@ Photographer / guest phones
    S3 originals (IA) + proxies (Standard)
 ```
 
-Guests load **presigned S3 URLs** from the API. No CloudFront in Phase 1.
+Guests load gallery images either via **presigned S3 URLs** or, when `CLOUDFRONT_ENABLED=true`, via a **CloudFront distribution** in front of the proxies bucket (`infrastructure/modules/cloudfront/`), signed with CloudFront's own signer instead of SigV4. CloudFront is optional and off by default — apply `infrastructure/main.tf` with `cloudfront_public_key_pem` unset to skip it entirely. When enabled, the proxies bucket is locked to that one distribution via Origin Access Control; it is not made public.
 
 ---
 
@@ -262,17 +262,19 @@ Terraform **only** what is cheap and repetitive in the **storage account**:
 - State backend (INF-001, done)
 - S3 buckets, encryption, lifecycle, CORS, public access block
 - IAM user + policy for the app server
+- CloudFront distribution + OAC + signing key group for gallery images (optional, off by default — `infrastructure/modules/cloudfront/`)
 
 **EC2 may be Terraform in the compute account or clicked in console.** App host:
 `infrastructure/compute/README.md`. GPU host: `infrastructure/compute/gpu-host.md`.
 
-**Not Terraform:** RDS, ECS, ALB, CloudFront, ElastiCache, GPU ASG.
+**Not Terraform:** RDS, ECS, ALB, ElastiCache, GPU ASG.
 
 ```
 infrastructure/
 ├── bootstrap/           # state bucket + lock (storage account)
 ├── modules/s3/
 ├── modules/iam-app-user/
+├── modules/cloudfront/  # optional gallery CDN
 └── environments/storage/  # buckets + IAM
 ```
 

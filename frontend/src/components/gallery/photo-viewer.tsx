@@ -38,7 +38,7 @@ export function PhotoViewer({
   const isFavorite = currentPhoto ? favoritePhotoIds?.has(currentPhoto.id) : false;
   const isShared = currentPhoto ? sharedPhotoIds?.has(currentPhoto.id) : false;
   const prefersReducedMotion = useReducedMotion();
-  const viewerSrc = currentPhoto?.previewUrl ?? currentPhoto?.proxyUrl ?? null;
+  const viewerSrc = currentPhoto?.proxyUrl ?? null;
 
   // Warm the browser cache for the photos either side so swiping and arrow
   // keys feel instant instead of showing a blank frame while S3 responds.
@@ -47,7 +47,7 @@ export function PhotoViewer({
 
     for (const offset of [1, -1]) {
       const neighbour = photos[currentIndex + offset];
-      const neighbourSrc = neighbour?.previewUrl ?? neighbour?.proxyUrl;
+      const neighbourSrc = neighbour?.proxyUrl;
       if (!neighbourSrc) continue;
       const image = new window.Image();
       image.src = toBrowserMediaSrc(neighbourSrc);
@@ -199,7 +199,7 @@ export function PhotoViewer({
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={toBrowserMediaSrc(viewerSrc)}
-              srcSet={buildPhotoSrcSet(currentPhoto)}
+              srcSet={buildPhotoSrcSet(currentPhoto, 'viewer')}
               sizes="100vw"
               alt={currentPhoto.filename}
               className="max-h-full max-w-full object-contain"

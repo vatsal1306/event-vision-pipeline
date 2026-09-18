@@ -265,7 +265,7 @@ export function PhotoGrid({ eventId, folderId, onPhotoClick, onUploadClick }: Ph
                       {(photo.thumbUrl ?? photo.proxyUrl) && (
                         <ResponsiveImage
                           src={(photo.thumbUrl ?? photo.proxyUrl) as string}
-                          srcSet={buildPhotoSrcSet(photo)}
+                          srcSet={buildPhotoSrcSet(photo, 'grid')}
                           sizes={DASHBOARD_TILE_SIZES}
                           alt={photo.filename}
                           blurhash={photo.blurhash}

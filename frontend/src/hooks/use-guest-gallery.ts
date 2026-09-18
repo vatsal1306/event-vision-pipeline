@@ -3,6 +3,7 @@ import { api } from '@/lib/api-client';
 import { GALLERY_PAGE_SIZE } from '@/lib/constants';
 import { mapPhotoFromApi } from '@/lib/map-api';
 import { getOffsetNextPageParam } from '@/lib/pagination';
+import { usePrefetchNextPage } from '@/hooks/use-prefetch-next-page';
 import { PaginatedResponse } from '@/types/api';
 import { Photo } from '@/types/event';
 
@@ -51,7 +52,7 @@ export function useSubmitSelfie() {
 }
 
 export function useGuestPhotos(slug: string, token: string | null) {
-  return useInfiniteQuery({
+  const query = useInfiniteQuery({
     queryKey: ['guestPhotos', slug, token],
     queryFn: async ({ pageParam = 0 }) => {
       const page = await api.getGuestPhotos(slug, token!, pageParam, GALLERY_PAGE_SIZE);
@@ -62,10 +63,20 @@ export function useGuestPhotos(slug: string, token: string | null) {
     enabled: !!token,
     staleTime: 0,
   });
+
+  usePrefetchNextPage({
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    pageCount: query.data?.pages.length ?? 0,
+    fetchNextPage: query.fetchNextPage,
+    enabled: !!token,
+  });
+
+  return query;
 }
 
 export function useGuestHighlights(slug: string, token: string | null) {
-  return useInfiniteQuery({
+  const query = useInfiniteQuery({
     queryKey: ['guestHighlights', slug, token],
     queryFn: async ({ pageParam = 0 }) => {
       const page = await api.getGuestHighlights(slug, token!, pageParam, GALLERY_PAGE_SIZE);
@@ -76,5 +87,15 @@ export function useGuestHighlights(slug: string, token: string | null) {
     enabled: !!token,
     staleTime: 0,
   });
+
+  usePrefetchNextPage({
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    pageCount: query.data?.pages.length ?? 0,
+    fetchNextPage: query.fetchNextPage,
+    enabled: !!token,
+  });
+
+  return query;
 }
 

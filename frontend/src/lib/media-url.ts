@@ -85,16 +85,19 @@ export function resolveProxyUrl(src: string | null | undefined): string | null {
 
 /** Intrinsic widths, in pixels, of the renditions the backend generates. */
 const RENDITION_WIDTHS = {
+  microThumb: 240,
   thumb: 480,
-  preview: 1280,
   full: 2048,
 } as const;
 
 interface PhotoRenditions {
+  microThumbUrl: string | null;
   thumbUrl: string | null;
-  previewUrl: string | null;
   proxyUrl: string | null;
 }
+
+/** Which renditions belong in a `srcset` for a given usage. */
+type SrcSetContext = 'grid' | 'viewer';
 
 /**
  * Build an `<img srcset>` value from a photo's available renditions.
@@ -103,13 +106,24 @@ interface PhotoRenditions {
  * width of each object, which is close enough for the browser to pick
  * sensibly and avoids a per-photo metadata round trip. Photos that predate the
  * rendition ladder collapse to a single candidate.
+ *
+ * `context` bounds which renditions are offered: grid tiles never need more
+ * than the small tiers (`micro-thumb`/`thumb`) — including the 2048px viewer
+ * image here is what let high-DPI screens silently fetch a bigger image than
+ * a tile needs. The viewer only needs `thumb` (as a low-DPI floor) and the
+ * full image.
  */
-export function buildPhotoSrcSet(photo: PhotoRenditions): string | undefined {
-  const candidates = [
-    [photo.thumbUrl, RENDITION_WIDTHS.thumb],
-    [photo.previewUrl, RENDITION_WIDTHS.preview],
-    [photo.proxyUrl, RENDITION_WIDTHS.full],
-  ] as const;
+export function buildPhotoSrcSet(photo: PhotoRenditions, context: SrcSetContext): string | undefined {
+  const candidates =
+    context === 'grid'
+      ? ([
+          [photo.microThumbUrl, RENDITION_WIDTHS.microThumb],
+          [photo.thumbUrl, RENDITION_WIDTHS.thumb],
+        ] as const)
+      : ([
+          [photo.thumbUrl, RENDITION_WIDTHS.thumb],
+          [photo.proxyUrl, RENDITION_WIDTHS.full],
+        ] as const);
 
   const seen = new Set<string>();
   const entries: string[] = [];

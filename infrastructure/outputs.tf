@@ -40,3 +40,13 @@ output "app_env_file_snippet" {
     S3_BUCKET_ASSETS=${module.s3_media.assets_bucket_name}
   EOT
 }
+
+output "cloudfront_domain" {
+  description = "CloudFront domain for gallery images. Set as CLOUDFRONT_DOMAIN in the backend .env. Null until cloudfront_public_key_pem is set."
+  value       = try(module.cloudfront[0].distribution_domain_name, null)
+}
+
+output "cloudfront_key_pair_id" {
+  description = "CloudFront public key id. Set as CLOUDFRONT_KEY_PAIR_ID in the backend .env. Null until cloudfront_public_key_pem is set."
+  value       = try(module.cloudfront[0].key_pair_id, null)
+}

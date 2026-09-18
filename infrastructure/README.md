@@ -314,6 +314,59 @@ AWS allows two active keys per user; for zero-downtime rotation, create a second
 
 ---
 
+## Step 6c — CloudFront for gallery images (optional, recommended for latency)
+
+Puts a CloudFront distribution in front of the `proxies` bucket so guest/master gallery images are served from an edge location near the viewer (India edge locations, via `price_class = "PriceClass_200"`) instead of a single `ap-south-1` round trip, and so repeat views of the same photo across different guests can hit the CloudFront edge cache instead of S3 origin. The bucket is locked to this distribution via Origin Access Control — it is not made public.
+
+Skip this step entirely (leave `cloudfront_public_key_pem` unset) to keep using direct S3 presigned URLs; the `module.cloudfront` block only creates resources when that variable is set.
+
+### Generate the signing key pair
+
+CloudFront signed URLs need an RSA key pair. The **private** key never goes into Terraform or version control — it goes straight into the backend's `.env` as a secret.
+
+```bash
+openssl genrsa -out cloudfront-signer.pem 2048
+openssl rsa -pubout -in cloudfront-signer.pem -out cloudfront-signer-public.pem
+```
+
+### Apply
+
+```bash
+cd infrastructure
+terraform init -backend-config=environments/storage/backend.hcl -reconfigure
+terraform apply -var="cloudfront_public_key_pem=$(cat cloudfront-signer-public.pem)"
+```
+
+CloudFront distributions take 5-15 minutes to deploy globally after `apply` finishes — the domain resolves before that, but expect elevated latency/misses until it's fully propagated.
+
+### Wire it into the backend
+
+```bash
+terraform output cloudfront_domain
+terraform output cloudfront_key_pair_id
+```
+
+Add to `/opt/platform/.env` on the app EC2:
+
+```bash
+CLOUDFRONT_ENABLED=true
+CLOUDFRONT_DOMAIN=<value from cloudfront_domain output>
+CLOUDFRONT_KEY_PAIR_ID=<value from cloudfront_key_pair_id output>
+CLOUDFRONT_PRIVATE_KEY=<contents of cloudfront-signer.pem>
+```
+
+Then restart the backend so it picks up the new signer:
+
+```bash
+docker compose restart backend
+```
+
+Verify the switch worked: open a gallery, confirm image URLs in the Network tab point at `*.cloudfront.net` instead of the S3 bucket domain, and confirm a raw request to the S3 bucket URL now returns `AccessDenied` (proving the OAC lockdown is in effect).
+
+Delete `cloudfront-signer.pem` and `cloudfront-signer-public.pem` from disk once both are safely stored (the private key in the backend's secret store, the public key already in Terraform state) — do not commit either file.
+
+---
+
 ## Step 7 — Postgres backups to S3 (INF-007)
 
 Daily `pg_dump | gzip` from the Docker Postgres container to the **originals bucket** under `backups/pg/YYYY-MM-DD.sql.gz`. Uses the same IAM user credentials as tusd/FastAPI (`~/event-vision-pipeline/.env`). The script prunes objects older than **7 days**.

@@ -8,6 +8,11 @@ output "bucket_arns" {
   value       = { for name, bucket in aws_s3_bucket.media : name => bucket.arn }
 }
 
+output "bucket_regional_domain_names" {
+  description = "Map of logical bucket role to its regional domain name, for use as a CloudFront origin."
+  value       = { for name, bucket in aws_s3_bucket.media : name => bucket.bucket_regional_domain_name }
+}
+
 output "originals_bucket_name" {
   description = "S3 bucket for full-resolution photo uploads (originals/{event_id}/...)."
   value       = aws_s3_bucket.media["originals"].id
