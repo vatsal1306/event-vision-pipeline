@@ -1,4 +1,4 @@
-# INF-004 — App EC2 (compute account): m6i.xlarge ap-south-1
+# INF-004 — App EC2 (compute account): c6a.xlarge ap-south-1
 
 **Type:** Feature  
 **Depends on:** none (compute account). Pair with INF-003 for S3 keys.  
@@ -6,7 +6,7 @@
 
 ## Goal
 
-Provision Ubuntu 24.04 **m6i.xlarge**, **ap-south-1**, gp3 **200 GB**, Elastic IP, security group: SSH from operator IP, 80/443 world, **no** 5432/6379. CPU only — no GPU AMI, no g4dn.
+Provision Ubuntu 24.04 **c6a.xlarge**, **ap-south-1**, gp3 **200 GB**, Elastic IP, security group: SSH from operator IP, 80/443 world, **no** 5432/6379. CPU only — no GPU AMI, no g4dn.
 
 ## Why this instance
 

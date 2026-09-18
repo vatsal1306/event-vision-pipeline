@@ -22,7 +22,7 @@
       }
     ]
   },
-  "description": "Production app EC2 (m6i.xlarge, ap-south-1). Alloy → Grafana Cloud. Slack pages at disk 80% and RAM 85% (10m).",
+  "description": "Production app EC2 (c6a.xlarge, ap-south-1). Alloy → Grafana Cloud. Slack pages at disk 80% and RAM 85% (10m).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,

@@ -42,7 +42,7 @@ services:
                 INSTALL_ML: "true"
         restart: unless-stopped
         env_file: .env
-        # Two workers on the 4 vCPU m6i.xlarge. R100/AdaFace load per worker
+        # Two workers on the 4 vCPU c6a.xlarge. R100/AdaFace load per worker
         # for guest selfie matching (CPU, no CUDA), so each one costs memory;
         # going wider needs the ML host to take over selfie matching first.
         command:

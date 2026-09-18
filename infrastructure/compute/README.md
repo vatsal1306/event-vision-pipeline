@@ -48,7 +48,7 @@ EC2 → Launch instance:
 |---------|--------|
 | Name | `platform-app` |
 | AMI | **Ubuntu Server 24.04 LTS**, 64-bit (**x86**), not ARM |
-| Instance type | **`m6i.xlarge`** (4 vCPU, 16 GiB) — not t3/t4g |
+| Instance type | **`c6a.xlarge`** (4 vCPU, 8 GiB, AMD EPYC) — not t3/t4g. Migrated from `m6i.xlarge` on 2026-09-18 for CPU headroom; RAM dropped 16→8 GiB. |
 | Key pair | Your SSH key |
 | Network | Default VPC is fine |
 | Subnet | Any public subnet in `ap-south-1` |

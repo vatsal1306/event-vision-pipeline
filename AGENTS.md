@@ -79,7 +79,7 @@ event-vision-pipeline/
 | Task Queue | Celery | CPU: proxy + watermark. Face jobs stubbed until ML host exists |
 | Face Detection / embeddings | PicSee pipeline | **Not on the app EC2.** Later separate machine. |
 | Object Storage | AWS S3 (storage account) | Dual-tier: Standard (proxies) + IA (originals). Presigned URLs, no CloudFront |
-| App server | EC2 `m6i.xlarge` Ubuntu | Compute account, **ap-south-1**, Docker Compose (Postgres, Redis, API, web, tusd, Celery) |
+| App server | EC2 `c6a.xlarge` Ubuntu | Compute account, **ap-south-1**, Docker Compose (Postgres, Redis, API, web, tusd, Celery) |
 | IaC | Terraform | Storage account only: S3 + IAM + TF state. Not ECS/RDS/ALB |
 
 ## Documentation

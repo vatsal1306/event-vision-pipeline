@@ -4,7 +4,7 @@
 > **Last Updated:** September 2026  
 > **Scope:** Local + one AWS EC2 app server, S3 media, Terraform for cheap AWS resources  
 > **Not in scope for the app EC2:** ECS, Fargate, RDS, ElastiCache, ALB, NAT Gateway, CloudFront.
-> GPU instances are a **separate on-demand ML host** (INF-009), never the `m6i.xlarge`.
+> GPU instances are a **separate on-demand ML host** (INF-009), never the `c6a.xlarge`.
 
 ---
 
@@ -66,7 +66,7 @@ For 1–2 concurrent uploaders, **one** well-networked instance is enough. Brows
 
 **Region:** `ap-south-1` (Mumbai). Same region as S3 buckets.
 
-**Instance: `m6i.xlarge`**
+**Instance: `c6a.xlarge`**
 
 | | |
 |--|--|
@@ -92,7 +92,7 @@ Photographer / guest phones
         │  HTTPS
         ▼
 ┌───────────────────────────────────────┐
-│  EC2 m6i.xlarge  Ubuntu  (compute acct)│
+│  EC2 c6a.xlarge  Ubuntu  (compute acct)│
 │  Caddy (TLS Let's Encrypt)             │
 │    ├─ Next.js                          │
 │    ├─ FastAPI                          │

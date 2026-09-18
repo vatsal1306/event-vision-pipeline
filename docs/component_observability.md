@@ -36,7 +36,7 @@
 
 ## 1. Purpose and business outcome
 
-SpotMe runs on one always-on app EC2 (`m6i.xlarge`, 16 GB RAM, ~100–200 GB gp3) plus an on-demand GPU EC2 (`g4dn.xlarge`) that is **stopped** when idle. Failures that hurt the business are not “CPU looked interesting on a laptop chart.” They are:
+SpotMe runs on one always-on app EC2 (`c6a.xlarge`, 8 GB RAM, ~100–200 GB gp3) plus an on-demand GPU EC2 (`g4dn.xlarge`) that is **stopped** when idle. Failures that hurt the business are not “CPU looked interesting on a laptop chart.” They are:
 
 - The app disk filling so tusd/Postgres die during a night upload.
 - The GPU instance left **running** (about **$0.58/hour** in Mumbai) after Find faces finishes.
@@ -52,7 +52,7 @@ SpotMe runs on one always-on app EC2 (`m6i.xlarge`, 16 GB RAM, ~100–200 GB gp3
 
 | Do not | Why |
 |--------|-----|
-| Put Prometheus, Loki, or Grafana OSS on the app `m6i.xlarge` | 16 GB is already Postgres + Redis + Next + FastAPI + tusd + Celery |
+| Put Prometheus, Loki, or Grafana OSS on the app `c6a.xlarge` | 8 GB is already Postgres + Redis + Next + FastAPI + tusd + Celery |
 | CloudWatch Agent, CloudWatch custom metrics, SNS SMS | Metered; SMS to India is paid; we already chose Grafana Cloud + Slack |
 | Sentry | SDK is wired (`init_sentry`) but `SENTRY_DSN` is empty. Out of scope for OBS-\* |
 | INF-008 | Separate leftover story (fail2ban / unattended-upgrades). Do not fold it in |
